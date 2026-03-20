@@ -1,0 +1,11 @@
+vaadin:
+  launch-browser: true
+spring:
+  application:
+    name: neokioski
+  messages:
+    encoding: UTF-8
+  profiles:
+    active: ${APP_PROFILE}
+  jpa:
+    open-in-view: false

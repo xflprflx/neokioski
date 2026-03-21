@@ -9,6 +9,7 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.sidenav.SideNav;
 import com.vaadin.flow.theme.lumo.LumoUtility;
+import com.vaadin.flow.spring.security.AuthenticationContext;
 import jakarta.annotation.security.PermitAll;
 
 /**
@@ -18,11 +19,13 @@ import jakarta.annotation.security.PermitAll;
 @PermitAll // Garante que apenas usuários autenticados vejam o layout base
 public class MainLayout extends AppLayout {
 
+    private final transient AuthenticationContext authContext;
 
     /**
      * Construtor que monta a estrutura básica da página.
      */
-    public MainLayout() {
+    public MainLayout(AuthenticationContext authContext) {
+        this.authContext = authContext;
         createHeader(); // Cria o topo da página
         createDrawer(); // Cria a barra de navegação lateral
     }
@@ -35,8 +38,8 @@ public class MainLayout extends AppLayout {
         // Aplica classes de utilidade do tema Lumo para estilização rápida
         logo.addClassNames(LumoUtility.FontSize.LARGE, LumoUtility.Margin.MEDIUM);
 
-        // TODO: Implementar a lógica real de logout com Spring Security
         Button logout = new Button("Sair");
+        logout.addClickListener(event -> authContext.logout());
         logout.getStyle().set("cursor", "pointer"); // Muda o cursor ao passar o mouse
         logout.getStyle().set("margin-right", "20px"); // Espaçamento à direita
 

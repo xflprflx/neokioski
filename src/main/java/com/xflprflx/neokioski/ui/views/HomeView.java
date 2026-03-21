@@ -8,7 +8,7 @@ import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.PermitAll;
 
 @Route(value = "", layout = MainLayout.class)
-@PageTitle("Início | NeoTMS")
+@PageTitle("Início | NeoKioski")
 @PermitAll
 public class HomeView extends VerticalLayout {
     public HomeView() {

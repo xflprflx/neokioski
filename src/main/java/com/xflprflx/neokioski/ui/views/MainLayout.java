@@ -64,6 +64,10 @@ public class MainLayout extends AppLayout {
 
         nav.addItem(new SideNavItem("Início", HomeView.class, VaadinIcon.DASHBOARD.create()));
 
+        if (authContext.hasAnyRole("ADMIN")) {
+            nav.addItem(new SideNavItem("Grupos", GroupListView.class, VaadinIcon.USERS.create()));
+        }
+
         // Scroller permite rolagem no menu caso haja muitos itens
         Scroller scroller = new Scroller(nav);
         scroller.setClassName(LumoUtility.Padding.SMALL);

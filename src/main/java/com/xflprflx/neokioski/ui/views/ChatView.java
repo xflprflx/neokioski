@@ -1,37 +1,39 @@
 package com.xflprflx.neokioski.ui.views;
 
 import com.vaadin.flow.component.avatar.Avatar;
-import com.vaadin.flow.component.html.Div;
-import com.vaadin.flow.component.html.H2;
-import com.vaadin.flow.component.html.Span;
-import com.vaadin.flow.component.messages.MessageInput;
-import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.contextmenu.ContextMenu;
+import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.html.H2;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.messages.MessageInput;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.xflprflx.neokioski.models.MessageReaction;
 import com.vaadin.flow.router.BeforeEvent;
 import com.vaadin.flow.router.HasUrlParameter;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.xflprflx.neokioski.models.ChatMessage;
 import com.xflprflx.neokioski.models.Group;
+import com.xflprflx.neokioski.models.MessageReaction;
 import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.security.SecurityService;
 import com.xflprflx.neokioski.services.ChatService;
 import com.xflprflx.neokioski.services.GroupService;
 import jakarta.annotation.security.PermitAll;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -46,13 +48,20 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
     private Group group;
     private User currentUser;
+    
     private final VerticalLayout messageContainer = new VerticalLayout();
     private final Scroller scroller = new Scroller(messageContainer);
     private final MessageInput messageInput = new MessageInput();
     private final H2 groupName = new H2();
-    private final Map<Long, HorizontalLayout> messageComponents = new HashMap<>();
-
+    private final HorizontalLayout replyBar = new HorizontalLayout();
+    private final Map<Long, HorizontalLayout> messageWrappers = new HashMap<>();
+    
     private Consumer<ChatMessage> listener;
+    
+    private final String newMessageB64;
+    private final String replyToMeB64;
+    private ChatMessage replyTo = null;
+
     private final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
             .withZone(ZoneId.systemDefault());
 
@@ -64,8 +73,47 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         setSizeFull();
         setPadding(false);
         setSpacing(false);
+        
+        // Load audio data as Base64 from resources
+        this.newMessageB64 = loadAudioAsBase64("themes/neokioski/sounds/new-message.mp3");
+        this.replyToMeB64 = loadAudioAsBase64("themes/neokioski/sounds/reply-to-me.mp3");
 
         configureUI();
+        unlockAudio();
+    }
+
+    private String loadAudioAsBase64(String resourcePath) {
+        try (InputStream is = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
+            if (is == null) {
+                System.err.println("Aviso: Recurso de áudio não encontrado em: " + resourcePath);
+                return "";
+            }
+            byte[] bytes = is.readAllBytes();
+            return Base64.getEncoder().encodeToString(bytes);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return "";
+        }
+    }
+
+    private void unlockAudio() {
+        // Inject data and prepare unlock listener
+        getElement().executeJs(
+            "window.audioData = {" +
+            "  'new-message': 'data:audio/mp3;base64," + newMessageB64 + "'," +
+            "  'reply-to-me': 'data:audio/mp3;base64," + replyToMeB64 + "'" +
+            "};" +
+            "const unlock = () => {" +
+            "  const ctx = new (window.AudioContext || window.webkitAudioContext)();" +
+            "  ctx.resume().then(() => {" +
+            "    console.log('Sistema de áudio desbloqueado.');" +
+            "    document.removeEventListener('click', unlock);" +
+            "    document.removeEventListener('keydown', unlock);" +
+            "  });" +
+            "};" +
+            "document.addEventListener('click', unlock);" +
+            "document.addEventListener('keydown', unlock);"
+        );
     }
 
     private void configureUI() {
@@ -78,9 +126,12 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
         messageInput.addSubmitListener(event -> {
             if (group != null && currentUser != null) {
-                chatService.sendMessage(event.getValue(), currentUser, group);
+                chatService.sendMessage(event.getValue(), currentUser, group, replyTo);
+                cancelReply();
             }
         });
+
+        configureReplyBar();
 
         groupName.getStyle()
                 .set("padding-top", "var(--lumo-space-m)")
@@ -88,14 +139,63 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                 .set("padding-left", "var(--lumo-space-l)")
                 .set("padding-right", "var(--lumo-space-l)")
                 .set("font-size", "var(--lumo-font-size-xl)");
-        add(groupName, scroller, messageInput);
+        
+        add(groupName, scroller, replyBar, messageInput);
+    }
+
+    private void configureReplyBar() {
+        replyBar.setWidthFull();
+        replyBar.setPadding(true);
+        replyBar.setSpacing(true);
+        replyBar.setAlignItems(FlexComponent.Alignment.CENTER);
+        replyBar.getStyle().set("background-color", "var(--lumo-contrast-5pct)");
+        replyBar.getStyle().set("border-top", "1px solid var(--lumo-contrast-10pct)");
+        replyBar.setVisible(false);
+    }
+
+    private void setReplyTo(ChatMessage message) {
+        this.replyTo = message;
+        replyBar.removeAll();
+        
+        Span replyingTo = new Span("Respondendo a ");
+        replyingTo.getStyle().set("margin-right", "8px");
+        replyingTo.getStyle().set("font-size", "var(--lumo-font-size-s)");
+        replyingTo.getStyle().set("color", "var(--lumo-secondary-text-color)");
+        
+        Span author = new Span(message.getUser().getName());
+        author.getStyle().set("font-weight", "bold");
+        author.getStyle().set("font-size", "var(--lumo-font-size-s)");
+        
+        String previewText = message.getContent();
+        if (previewText.length() > 50) previewText = previewText.substring(0, 47) + "...";
+        Span preview = new Span(": " + previewText);
+        preview.getStyle().set("font-size", "var(--lumo-font-size-s)");
+        preview.getStyle().set("overflow", "hidden");
+        preview.getStyle().set("text-overflow", "ellipsis");
+        preview.getStyle().set("white-space", "nowrap");
+        
+        Button cancelBtn = new Button(VaadinIcon.CLOSE.create(), e -> cancelReply());
+        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE, ButtonVariant.LUMO_ERROR);
+        
+        HorizontalLayout info = new HorizontalLayout(replyingTo, author, preview);
+        info.setSpacing(false);
+        info.getStyle().set("flex-grow", "1");
+        info.setAlignItems(FlexComponent.Alignment.CENTER);
+        
+        replyBar.add(info, cancelBtn);
+        replyBar.setVisible(true);
+        messageInput.getElement().executeJs("this.querySelector('textarea').focus()");
+    }
+
+    private void cancelReply() {
+        this.replyTo = null;
+        replyBar.setVisible(false);
     }
 
     @Override
     public void setParameter(BeforeEvent event, Long groupId) {
         Optional<Group> groupOpt = groupService.findById(groupId);
         if (groupOpt.isEmpty()) {
-            event.forwardTo(GroupListView.class);
             return;
         }
 
@@ -109,7 +209,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
     private void loadMessages() {
         messageContainer.removeAll();
-        messageComponents.clear();
+        messageWrappers.clear();
         List<ChatMessage> messages = chatService.getMessagesByGroup(group);
         for (ChatMessage msg : messages) {
             addOrUpdateMessageInUI(msg);
@@ -118,15 +218,15 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     private void addOrUpdateMessageInUI(ChatMessage msg) {
-        if (messageComponents.containsKey(msg.getId())) {
-            HorizontalLayout oldWrapper = messageComponents.get(msg.getId());
+        if (messageWrappers.containsKey(msg.getId())) {
+            HorizontalLayout oldWrapper = messageWrappers.get(msg.getId());
             HorizontalLayout newWrapper = createMessageLayout(msg);
             messageContainer.replace(oldWrapper, newWrapper);
-            messageComponents.put(msg.getId(), newWrapper);
+            messageWrappers.put(msg.getId(), newWrapper);
         } else {
             HorizontalLayout wrapper = createMessageLayout(msg);
             messageContainer.add(wrapper);
-            messageComponents.put(msg.getId(), wrapper);
+            messageWrappers.put(msg.getId(), wrapper);
         }
     }
 
@@ -137,10 +237,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         Avatar avatar = new Avatar(msg.getUser().getName());
         if (isMine) {
             avatar.getStyle().set("margin-left", "var(--lumo-space-m)");
-            avatar.getStyle().remove("margin-right");
         } else {
             avatar.getStyle().set("margin-right", "var(--lumo-space-m)");
-            avatar.getStyle().remove("margin-left");
         }
 
         // Nome (Cabeçalho)
@@ -153,9 +251,39 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         header.getStyle().set("margin-bottom", "var(--lumo-space-xs)");
         header.setAlignItems(FlexComponent.Alignment.BASELINE);
 
+        // Citação (Reply)
+        VerticalLayout quote = new VerticalLayout();
+        if (msg.getReplyTo() != null) {
+            ChatMessage repliedMsg = msg.getReplyTo();
+            Span replyAuthor = new Span(repliedMsg.getUser().getName());
+            replyAuthor.getStyle().set("font-weight", "bold");
+            replyAuthor.getStyle().set("font-size", "var(--lumo-font-size-xxs)");
+            
+            Span replyText = new Span(repliedMsg.getContent());
+            replyText.getStyle().set("font-size", "var(--lumo-font-size-xs)");
+            replyText.getStyle().set("opacity", "0.8");
+            replyText.getStyle().set("white-space", "nowrap");
+            replyText.getStyle().set("overflow", "hidden");
+            replyText.getStyle().set("text-overflow", "ellipsis");
+            
+            quote.add(replyAuthor, replyText);
+            quote.setSpacing(false);
+            quote.setPadding(false);
+            quote.getStyle().set("background-color", "rgba(0, 0, 0, 0.05)");
+            quote.getStyle().set("border-left", "3px solid var(--lumo-primary-color)");
+            quote.getStyle().set("padding", "var(--lumo-space-xs) var(--lumo-space-s)");
+            quote.getStyle().set("margin-bottom", "var(--lumo-space-xs)");
+            quote.getStyle().set("border-radius", "4px");
+            quote.setWidthFull();
+        } else {
+            quote.setVisible(false);
+        }
+
         // Conteúdo (Bolha)
         Div content = new Div();
-        content.setText(msg.getContent());
+        content.add(quote);
+        Span messageText = new Span(msg.getContent());
+        content.add(messageText);
         content.getStyle().set("padding", "var(--lumo-space-s)");
         content.getStyle().set("font-size", "var(--lumo-font-size-m)");
         content.getStyle().set("box-shadow", "var(--lumo-box-shadow-s)");
@@ -174,7 +302,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             content.getStyle().set("background-color", "var(--lumo-contrast-10pct)");
         }
 
-        // Hora (Abaixo da bolha)
+        // Hora
         Span time = new Span(dateTimeFormatter.format(msg.getTimestamp()));
         time.getStyle().set("font-size", "var(--lumo-font-size-xxs)");
         time.getStyle().set("color", "var(--lumo-secondary-text-color)");
@@ -219,23 +347,26 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             contextMenu.addItem(emoji, e -> chatService.toggleReaction(msg.getId(), currentUser, emoji));
         }
 
+        // Botão de Resposta
+        Button replyBtn = new Button(VaadinIcon.REPLY.create(), e -> setReplyTo(msg));
+        replyBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE, ButtonVariant.LUMO_SMALL);
+        replyBtn.getStyle().set("opacity", "0.5");
+
         HorizontalLayout footer = new HorizontalLayout();
         footer.setSpacing(true);
         footer.setAlignItems(FlexComponent.Alignment.CENTER);
         
         if (isMine) {
-            footer.add(reactBtn, reactionsLayout, time);
+            footer.add(replyBtn, reactBtn, reactionsLayout, time);
         } else {
-            footer.add(time, reactionsLayout, reactBtn);
+            footer.add(time, reactionsLayout, reactBtn, replyBtn);
         }
 
-        // Layout da bolha + cabeçalho + hora
         VerticalLayout bodyLayout = new VerticalLayout(header, content, footer);
         bodyLayout.setSpacing(false);
         bodyLayout.setPadding(false);
         bodyLayout.setAlignItems(isMine ? FlexComponent.Alignment.END : FlexComponent.Alignment.START);
 
-        // Wrapper final com Avatar
         HorizontalLayout messageLayout = new HorizontalLayout();
         messageLayout.setSpacing(false);
         messageLayout.setPadding(false);
@@ -250,7 +381,6 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         }
 
         HorizontalLayout wrapper = new HorizontalLayout(messageLayout);
-        messageLayout.setSpacing(false);
         wrapper.setWidthFull();
         wrapper.getStyle().set("padding-top", "var(--lumo-space-xs)");
         wrapper.getStyle().set("padding-bottom", "var(--lumo-space-xs)");
@@ -260,7 +390,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     private void setupRealTimeUpdate() {
-        if (listener != null) {
+        if (listener != null && group != null) {
             chatService.unregister(group.getId(), listener);
         }
 
@@ -269,20 +399,86 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                 getUI().get().access(() -> {
                     addOrUpdateMessageInUI(msg);
                     scrollToBottom();
+                    
+                    if (!msg.getUser().getId().equals(currentUser.getId())) {
+                        boolean isReplyToMe = msg.getReplyTo() != null && 
+                                             msg.getReplyTo().getUser().getId().equals(currentUser.getId());
+                        
+                        if (isReplyToMe) {
+                            playNotificationSound("reply-to-me");
+                            Notification n = new Notification(msg.getUser().getName() + " respondeu a você!");
+                            n.setDuration(5000);
+                            n.addThemeVariants(NotificationVariant.LUMO_PRIMARY);
+                            n.open();
+                        } else {
+                            playNotificationSound("new-message");
+                        }
+                    }
                 });
             }
         };
 
-        chatService.register(group.getId(), listener);
+        if (group != null) {
+            chatService.register(group.getId(), listener);
+        }
     }
 
     private void scrollToBottom() {
         scroller.getElement().executeJs("this.scrollTo(0, this.scrollHeight)");
     }
 
+    private void playNotificationSound(String type) {
+        getElement().executeJs(
+            "try {" +
+            "  const audioSrc = window.audioData['" + type + "'];" +
+            "  if (!audioSrc) throw new Error('Dados de áudio não encontrados para: ' + '" + type + "');" +
+            "  const audio = new Audio(audioSrc);" +
+            "  audio.play().catch(e => console.error('Falha ao tocar áudio (' + '" + type + "' + '):', e));" +
+            "} catch (err) {" +
+            "  console.error('Erro na função playNotificationSound:', err);" +
+            "}"
+        );
+    }
+
+    @Override
+    protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
+        super.onAttach(attachEvent);
+        String js = String.format(
+            "window.audioData = window.audioData || {};" +
+            "window.audioData['new-message'] = 'data:audio/mp3;base64,%s';" +
+            "window.audioData['reply-to-me'] = 'data:audio/mp3;base64,%s';",
+            newMessageB64, replyToMeB64
+        );
+        attachEvent.getUI().getPage().executeJs(js);
+        showPermissionDialog();
+    }
+
+    private void showPermissionDialog() {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Notificações de Áudio");
+        
+        VerticalLayout dialogLayout = new VerticalLayout(
+            new Span("Para ouvir as notificações de novas mensagens, clique no botão abaixo para ativar o sistema de áudio.")
+        );
+        dialogLayout.setPadding(false);
+        dialogLayout.setSpacing(true);
+        dialog.add(dialogLayout);
+
+        Button startButton = new Button("Entrar no Chat", e -> {
+            dialog.close();
+            // O clique no botão já serve para desbloquear o áudio devido aos listeners globais
+        });
+        startButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        
+        dialog.getFooter().add(startButton);
+        dialog.setCloseOnEsc(false);
+        dialog.setCloseOnOutsideClick(false);
+        dialog.open();
+    }
+
     @Override
     protected void onDetach(com.vaadin.flow.component.DetachEvent detachEvent) {
-        if (group != null && listener != null) {
+        if (listener != null && group != null) {
             chatService.unregister(group.getId(), listener);
         }
         super.onDetach(detachEvent);

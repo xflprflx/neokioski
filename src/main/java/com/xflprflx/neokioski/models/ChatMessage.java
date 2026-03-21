@@ -29,6 +29,10 @@ public class ChatMessage {
     @OneToMany(mappedBy = "chatMessage", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<MessageReaction> reactions = new ArrayList<>();
 
+    @ManyToOne
+    @JoinColumn(name = "reply_to_id")
+    private ChatMessage replyTo;
+
     public ChatMessage() {
     }
 
@@ -37,6 +41,11 @@ public class ChatMessage {
         this.user = user;
         this.group = group;
         this.timestamp = Instant.now();
+    }
+
+    public ChatMessage(String content, User user, Group group, ChatMessage replyTo) {
+        this(content, user, group);
+        this.replyTo = replyTo;
     }
 
     public Long getId() {
@@ -85,5 +94,13 @@ public class ChatMessage {
 
     public void setReactions(List<MessageReaction> reactions) {
         this.reactions = reactions;
+    }
+
+    public ChatMessage getReplyTo() {
+        return replyTo;
+    }
+
+    public void setReplyTo(ChatMessage replyTo) {
+        this.replyTo = replyTo;
     }
 }

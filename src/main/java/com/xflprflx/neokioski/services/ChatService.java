@@ -30,7 +30,12 @@ public class ChatService {
 
     @Transactional
     public ChatMessage sendMessage(String content, User user, Group group) {
-        ChatMessage message = new ChatMessage(content, user, group);
+        return sendMessage(content, user, group, null);
+    }
+
+    @Transactional
+    public ChatMessage sendMessage(String content, User user, Group group, ChatMessage replyTo) {
+        ChatMessage message = new ChatMessage(content, user, group, replyTo);
         message = repository.save(message);
         broadcast(group.getId(), message);
         return message;

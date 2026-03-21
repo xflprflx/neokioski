@@ -29,6 +29,12 @@ public class ChatMessage {
     @OneToMany(mappedBy = "chatMessage", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<MessageReaction> reactions = new ArrayList<>();
 
+    @OneToMany(mappedBy = "chatMessage", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OrderBy("editTimestamp DESC")
+    private List<MessageEdit> edits = new ArrayList<>();
+
+    private boolean isDeleted = false;
+
     @ManyToOne
     @JoinColumn(name = "reply_to_id")
     private ChatMessage replyTo;
@@ -102,5 +108,21 @@ public class ChatMessage {
 
     public void setReplyTo(ChatMessage replyTo) {
         this.replyTo = replyTo;
+    }
+
+    public List<MessageEdit> getEdits() {
+        return edits;
+    }
+
+    public void setEdits(List<MessageEdit> edits) {
+        this.edits = edits;
+    }
+
+    public boolean isDeleted() {
+        return isDeleted;
+    }
+
+    public void setDeleted(boolean deleted) {
+        isDeleted = deleted;
     }
 }

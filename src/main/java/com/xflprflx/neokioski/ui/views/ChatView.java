@@ -23,7 +23,9 @@ import com.vaadin.flow.router.Route;
 import com.xflprflx.neokioski.models.ChatMessage;
 import com.xflprflx.neokioski.models.Group;
 import com.xflprflx.neokioski.models.MessageReaction;
+import com.xflprflx.neokioski.models.MessageEdit;
 import com.xflprflx.neokioski.models.User;
+import com.xflprflx.neokioski.models.enums.Role;
 import com.xflprflx.neokioski.security.SecurityService;
 import com.xflprflx.neokioski.services.ChatService;
 import com.xflprflx.neokioski.services.GroupService;
@@ -232,6 +234,25 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
     private HorizontalLayout createMessageLayout(ChatMessage msg) {
         boolean isMine = currentUser != null && msg.getUser().getId().equals(currentUser.getId());
+        boolean isAdmin = currentUser != null && currentUser.getRole() == Role.ADMIN;
+
+        // Se a mensagem foi excluída e o usuário não é ADMIN, mostrar apenas o indicador
+        if (msg.isDeleted() && !isAdmin) {
+            Span deletedText = new Span("Esta mensagem foi apagada.");
+            deletedText.getStyle().set("font-style", "italic");
+            deletedText.getStyle().set("color", "var(--lumo-secondary-text-color)");
+            deletedText.getStyle().set("font-size", "var(--lumo-font-size-s)");
+
+            Div content = new Div(deletedText);
+            content.getStyle().set("padding", "var(--lumo-space-s) var(--lumo-space-m)");
+            content.getStyle().set("background-color", "var(--lumo-contrast-5pct)");
+            content.getStyle().set("border-radius", "18px");
+
+            HorizontalLayout wrapper = new HorizontalLayout(content);
+            wrapper.setWidthFull();
+            wrapper.setJustifyContentMode(isMine ? FlexComponent.JustifyContentMode.END : FlexComponent.JustifyContentMode.START);
+            return wrapper;
+        }
 
         // Avatar
         Avatar avatar = new Avatar(msg.getUser().getName());
@@ -279,11 +300,31 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             quote.setVisible(false);
         }
 
-        // Conteúdo (Bolha)
         Div content = new Div();
         content.add(quote);
+        
+        if (msg.isDeleted()) {
+            Span deletedBadge = new Span("APAGADA");
+            deletedBadge.getStyle().set("background-color", "var(--lumo-error-color)");
+            deletedBadge.getStyle().set("color", "white");
+            deletedBadge.getStyle().set("padding", "2px 6px");
+            deletedBadge.getStyle().set("border-radius", "4px");
+            deletedBadge.getStyle().set("font-size", "var(--lumo-font-size-xxs)");
+            deletedBadge.getStyle().set("font-weight", "bold");
+            deletedBadge.getStyle().set("margin-bottom", "var(--lumo-space-xs)");
+            content.add(deletedBadge, new Div()); // New line after badge
+        }
+
         Span messageText = new Span(msg.getContent());
+        if (msg.isDeleted()) messageText.getStyle().set("opacity", "0.6");
         content.add(messageText);
+        
+        if (!msg.getEdits().isEmpty()) {
+            Span editedTag = new Span(" (editada)");
+            editedTag.getStyle().set("font-size", "var(--lumo-font-size-xxs)");
+            editedTag.getStyle().set("opacity", "0.6");
+            content.add(editedTag);
+        }
         content.getStyle().set("padding", "var(--lumo-space-s)");
         content.getStyle().set("font-size", "var(--lumo-font-size-m)");
         content.getStyle().set("box-shadow", "var(--lumo-box-shadow-s)");
@@ -352,14 +393,33 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         replyBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE, ButtonVariant.LUMO_SMALL);
         replyBtn.getStyle().set("opacity", "0.5");
 
+        // Botão de Edição
+        Button editBtn = new Button(VaadinIcon.EDIT.create(), e -> openEditDialog(msg));
+        editBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE, ButtonVariant.LUMO_SMALL);
+        editBtn.getStyle().set("opacity", "0.5");
+        editBtn.setVisible(isMine && !msg.isDeleted());
+
+        // Botão de Exclusão
+        Button deleteBtn = new Button(VaadinIcon.TRASH.create(), e -> openDeleteDialog(msg));
+        deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE, ButtonVariant.LUMO_SMALL);
+        deleteBtn.getStyle().set("opacity", "0.5");
+        deleteBtn.getStyle().set("color", "var(--lumo-error-text-color)");
+        deleteBtn.setVisible(isMine && !msg.isDeleted());
+
+        // Botão de Histórico (Só para ADMIN)
+        Button historyBtn = new Button(VaadinIcon.TIMER.create(), e -> openHistoryDialog(msg));
+        historyBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE, ButtonVariant.LUMO_SMALL);
+        historyBtn.getStyle().set("opacity", "0.5");
+        historyBtn.setVisible(isAdmin && (!msg.getEdits().isEmpty() || msg.isDeleted()));
+
         HorizontalLayout footer = new HorizontalLayout();
         footer.setSpacing(true);
         footer.setAlignItems(FlexComponent.Alignment.CENTER);
         
         if (isMine) {
-            footer.add(replyBtn, reactBtn, reactionsLayout, time);
+            footer.add(historyBtn, deleteBtn, editBtn, replyBtn, reactBtn, reactionsLayout, time);
         } else {
-            footer.add(time, reactionsLayout, reactBtn, replyBtn);
+            footer.add(time, reactionsLayout, reactBtn, replyBtn, editBtn, deleteBtn, historyBtn);
         }
 
         VerticalLayout bodyLayout = new VerticalLayout(header, content, footer);
@@ -421,6 +481,103 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         if (group != null) {
             chatService.register(group.getId(), listener);
         }
+    }
+
+    private void openEditDialog(ChatMessage msg) {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Editar Mensagem");
+
+        com.vaadin.flow.component.textfield.TextArea textArea = new com.vaadin.flow.component.textfield.TextArea();
+        textArea.setValue(msg.getContent());
+        textArea.setWidthFull();
+        textArea.setMinHeight("100px");
+
+        Button saveBtn = new Button("Salvar", e -> {
+            chatService.editMessage(msg.getId(), textArea.getValue(), currentUser);
+            dialog.close();
+        });
+        saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        
+        Button cancelBtn = new Button("Cancelar", e -> dialog.close());
+        
+        dialog.add(textArea);
+        dialog.getFooter().add(cancelBtn, saveBtn);
+        dialog.open();
+    }
+
+    private void openDeleteDialog(ChatMessage msg) {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Excluir Mensagem");
+        dialog.add(new Span("Tem certeza que deseja excluir esta mensagem? Esta ação não pode ser desfeita."));
+
+        Button deleteBtn = new Button("Excluir", e -> {
+            chatService.deleteMessage(msg.getId(), currentUser);
+            dialog.close();
+        });
+        deleteBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR);
+        
+        Button cancelBtn = new Button("Cancelar", e -> dialog.close());
+        
+        dialog.getFooter().add(cancelBtn, deleteBtn);
+        dialog.open();
+    }
+
+    private void openHistoryDialog(ChatMessage msg) {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Histórico de Edições");
+        dialog.setWidth("500px");
+
+        VerticalLayout historyContainer = new VerticalLayout();
+        historyContainer.setPadding(false);
+        historyContainer.setSpacing(true);
+
+        // Mensagem Atual (ou deletada)
+        Div currentVersion = new Div();
+        currentVersion.getStyle().set("padding", "var(--lumo-space-s)");
+        currentVersion.getStyle().set("background-color", "var(--lumo-contrast-5pct)");
+        currentVersion.getStyle().set("border-radius", "8px");
+        currentVersion.getStyle().set("width", "100%");
+        
+        Span currentLabel = new Span(msg.isDeleted() ? "Conteúdo Original (na exclusão):" : "Conteúdo Atual:");
+        currentLabel.getStyle().set("font-weight", "bold");
+        currentLabel.getStyle().set("font-size", "var(--lumo-font-size-xs)");
+        
+        Div currentContent = new Div(new Span(msg.getContent()));
+        currentContent.getStyle().set("margin-top", "var(--lumo-space-xs)");
+        
+        currentVersion.add(currentLabel, currentContent);
+        historyContainer.add(currentVersion);
+
+        // Edições Anteriores
+        for (MessageEdit edit : msg.getEdits()) {
+            Div editEntry = new Div();
+            editEntry.getStyle().set("padding", "var(--lumo-space-s)");
+            editEntry.getStyle().set("border-left", "2px solid var(--lumo-contrast-20pct)");
+            editEntry.getStyle().set("width", "100%");
+            
+            Span editTime = new Span("Editado em " + dateTimeFormatter.format(edit.getEditTimestamp()));
+            editTime.getStyle().set("font-size", "var(--lumo-font-size-xxs)");
+            editTime.getStyle().set("color", "var(--lumo-secondary-text-color)");
+            
+            Div oldContent = new Div(new Span(edit.getOldContent()));
+            oldContent.getStyle().set("margin-top", "var(--lumo-space-xs)");
+            oldContent.getStyle().set("opacity", "0.8");
+            
+            editEntry.add(editTime, oldContent);
+            historyContainer.add(editEntry);
+        }
+
+        if (msg.getEdits().isEmpty() && !msg.isDeleted()) {
+            historyContainer.add(new Span("Nenhuma edição realizada."));
+        }
+
+        Scroller historyScroller = new Scroller(historyContainer);
+        historyScroller.setMaxHeight("400px");
+        dialog.add(historyScroller);
+        
+        Button closeBtn = new Button("Fechar", e -> dialog.close());
+        dialog.getFooter().add(closeBtn);
+        dialog.open();
     }
 
     private void scrollToBottom() {

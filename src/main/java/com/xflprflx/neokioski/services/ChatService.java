@@ -3,6 +3,7 @@ package com.xflprflx.neokioski.services;
 import com.xflprflx.neokioski.models.ChatMessage;
 import com.xflprflx.neokioski.models.Group;
 import com.xflprflx.neokioski.models.MessageReaction;
+import com.xflprflx.neokioski.models.MessageEdit;
 import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.repositories.ChatMessageRepository;
 import com.xflprflx.neokioski.repositories.MessageReactionRepository;
@@ -61,6 +62,32 @@ public class ChatService {
                             }
                     );
             broadcast(message.getGroup().getId(), message);
+        });
+    }
+
+    @Transactional
+    public void editMessage(Long messageId, String newContent, User user) {
+        repository.findById(messageId).ifPresent(message -> {
+            // Apenas o autor pode editar (ou sistema se necessário, mas aqui assumimos autor)
+            if (message.getUser().equals(user) && !message.isDeleted()) {
+                MessageEdit edit = new MessageEdit(message.getContent(), message);
+                message.getEdits().add(edit);
+                message.setContent(newContent);
+                repository.save(message);
+                broadcast(message.getGroup().getId(), message);
+            }
+        });
+    }
+
+    @Transactional
+    public void deleteMessage(Long messageId, User user) {
+        repository.findById(messageId).ifPresent(message -> {
+            // Apenas o autor ou ADMIN (opcional, mas foco no autor por enquanto) pode excluir
+            if (message.getUser().equals(user) && !message.isDeleted()) {
+                message.setDeleted(true);
+                repository.save(message);
+                broadcast(message.getGroup().getId(), message);
+            }
         });
     }
 

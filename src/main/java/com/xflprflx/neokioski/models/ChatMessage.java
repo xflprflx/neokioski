@@ -2,6 +2,8 @@ package com.xflprflx.neokioski.models;
 
 import jakarta.persistence.*;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "tb_chat_messages")
@@ -24,8 +26,10 @@ public class ChatMessage {
     @JoinColumn(name = "group_id")
     private Group group;
 
+    @OneToMany(mappedBy = "chatMessage", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    private List<MessageReaction> reactions = new ArrayList<>();
+
     public ChatMessage() {
-        this.timestamp = Instant.now();
     }
 
     public ChatMessage(String content, User user, Group group) {
@@ -73,5 +77,13 @@ public class ChatMessage {
 
     public void setGroup(Group group) {
         this.group = group;
+    }
+
+    public List<MessageReaction> getReactions() {
+        return reactions;
+    }
+
+    public void setReactions(List<MessageReaction> reactions) {
+        this.reactions = reactions;
     }
 }

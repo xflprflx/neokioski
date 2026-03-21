@@ -6,9 +6,14 @@ import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.messages.MessageInput;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.contextmenu.ContextMenu;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.xflprflx.neokioski.models.MessageReaction;
 import com.vaadin.flow.router.BeforeEvent;
 import com.vaadin.flow.router.HasUrlParameter;
 import com.vaadin.flow.router.PageTitle;
@@ -23,9 +28,12 @@ import jakarta.annotation.security.PermitAll;
 
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 @PermitAll
 @Route(value = "chat", layout = MainLayout.class)
@@ -42,6 +50,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private final Scroller scroller = new Scroller(messageContainer);
     private final MessageInput messageInput = new MessageInput();
     private final H2 groupName = new H2();
+    private final Map<Long, HorizontalLayout> messageComponents = new HashMap<>();
 
     private Consumer<ChatMessage> listener;
     private final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
@@ -100,14 +109,28 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
     private void loadMessages() {
         messageContainer.removeAll();
+        messageComponents.clear();
         List<ChatMessage> messages = chatService.getMessagesByGroup(group);
         for (ChatMessage msg : messages) {
-            addMessageToUI(msg);
+            addOrUpdateMessageInUI(msg);
         }
         scrollToBottom();
     }
 
-    private void addMessageToUI(ChatMessage msg) {
+    private void addOrUpdateMessageInUI(ChatMessage msg) {
+        if (messageComponents.containsKey(msg.getId())) {
+            HorizontalLayout oldWrapper = messageComponents.get(msg.getId());
+            HorizontalLayout newWrapper = createMessageLayout(msg);
+            messageContainer.replace(oldWrapper, newWrapper);
+            messageComponents.put(msg.getId(), newWrapper);
+        } else {
+            HorizontalLayout wrapper = createMessageLayout(msg);
+            messageContainer.add(wrapper);
+            messageComponents.put(msg.getId(), wrapper);
+        }
+    }
+
+    private HorizontalLayout createMessageLayout(ChatMessage msg) {
         boolean isMine = currentUser != null && msg.getUser().getId().equals(currentUser.getId());
 
         // Avatar
@@ -157,8 +180,57 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         time.getStyle().set("color", "var(--lumo-secondary-text-color)");
         time.getStyle().set("margin-top", "var(--lumo-space-xs)");
 
+        // Reações
+        HorizontalLayout reactionsLayout = new HorizontalLayout();
+        reactionsLayout.setSpacing(true);
+        reactionsLayout.setPadding(false);
+        reactionsLayout.getStyle().set("margin-top", "var(--lumo-space-xs)");
+
+        Map<String, List<MessageReaction>> reactionsByEmoji = msg.getReactions().stream()
+                .collect(Collectors.groupingBy(MessageReaction::getEmoji));
+
+        reactionsByEmoji.forEach((emoji, reactions) -> {
+            Span badge = new Span(emoji + " " + reactions.size());
+            badge.getStyle().set("background-color", "var(--lumo-contrast-5pct)");
+            badge.getStyle().set("padding", "2px 8px");
+            badge.getStyle().set("border-radius", "12px");
+            badge.getStyle().set("font-size", "var(--lumo-font-size-xs)");
+            badge.getStyle().set("cursor", "pointer");
+            
+            boolean iReacted = reactions.stream().anyMatch(r -> r.getUser().getId().equals(currentUser.getId()));
+            if (iReacted) {
+                badge.getStyle().set("border", "1px solid var(--lumo-primary-color)");
+                badge.getStyle().set("background-color", "var(--lumo-primary-color-10pct)");
+            }
+
+            badge.addClickListener(e -> chatService.toggleReaction(msg.getId(), currentUser, emoji));
+            reactionsLayout.add(badge);
+        });
+
+        // Botão de Reação
+        Button reactBtn = new Button(VaadinIcon.SMILEY_O.create());
+        reactBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE, ButtonVariant.LUMO_SMALL);
+        reactBtn.getStyle().set("opacity", "0.5");
+        
+        ContextMenu contextMenu = new ContextMenu(reactBtn);
+        contextMenu.setOpenOnClick(true);
+        String[] commonEmojis = {"👍", "❤️", "😂", "😮", "😢", "🔥"};
+        for (String emoji : commonEmojis) {
+            contextMenu.addItem(emoji, e -> chatService.toggleReaction(msg.getId(), currentUser, emoji));
+        }
+
+        HorizontalLayout footer = new HorizontalLayout();
+        footer.setSpacing(true);
+        footer.setAlignItems(FlexComponent.Alignment.CENTER);
+        
+        if (isMine) {
+            footer.add(reactBtn, reactionsLayout, time);
+        } else {
+            footer.add(time, reactionsLayout, reactBtn);
+        }
+
         // Layout da bolha + cabeçalho + hora
-        VerticalLayout bodyLayout = new VerticalLayout(header, content, time);
+        VerticalLayout bodyLayout = new VerticalLayout(header, content, footer);
         bodyLayout.setSpacing(false);
         bodyLayout.setPadding(false);
         bodyLayout.setAlignItems(isMine ? FlexComponent.Alignment.END : FlexComponent.Alignment.START);
@@ -184,7 +256,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         wrapper.getStyle().set("padding-bottom", "var(--lumo-space-xs)");
         wrapper.setJustifyContentMode(isMine ? FlexComponent.JustifyContentMode.END : FlexComponent.JustifyContentMode.START);
 
-        messageContainer.add(wrapper);
+        return wrapper;
     }
 
     private void setupRealTimeUpdate() {
@@ -195,7 +267,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         listener = msg -> {
             if (getUI().isPresent()) {
                 getUI().get().access(() -> {
-                    addMessageToUI(msg);
+                    addOrUpdateMessageInUI(msg);
                     scrollToBottom();
                 });
             }

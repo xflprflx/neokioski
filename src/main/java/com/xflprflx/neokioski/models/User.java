@@ -4,6 +4,7 @@ import com.xflprflx.neokioski.models.enums.Role;
 import jakarta.persistence.*;
 
 import java.util.Objects;
+import java.util.Set;
 
 @Entity
 @Table(name = "tb_users")
@@ -22,7 +23,8 @@ public class User {
     private String isActive;
     @Enumerated(EnumType.STRING)
     private Role role;
-
+    @ManyToMany(mappedBy = "users")
+    private Set<Group> groups;
     public User() {
     }
 
@@ -72,6 +74,14 @@ public class User {
 
     public void setRole(Role role) {
         this.role = role;
+    }
+
+    public Set<Group> getGroups() {
+        return groups;
+    }
+
+    public void setGroups(Set<Group> groups) {
+        this.groups = groups;
     }
 
     @Override

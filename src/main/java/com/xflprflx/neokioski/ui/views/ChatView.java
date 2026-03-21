@@ -4,6 +4,7 @@ import com.vaadin.flow.component.avatar.Avatar;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.contextmenu.ContextMenu;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Span;
@@ -449,6 +450,30 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             newMessageB64, replyToMeB64
         );
         attachEvent.getUI().getPage().executeJs(js);
+        showPermissionDialog();
+    }
+
+    private void showPermissionDialog() {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Notificações de Áudio");
+        
+        VerticalLayout dialogLayout = new VerticalLayout(
+            new Span("Para ouvir as notificações de novas mensagens, clique no botão abaixo para ativar o sistema de áudio.")
+        );
+        dialogLayout.setPadding(false);
+        dialogLayout.setSpacing(true);
+        dialog.add(dialogLayout);
+
+        Button startButton = new Button("Entrar no Chat", e -> {
+            dialog.close();
+            // O clique no botão já serve para desbloquear o áudio devido aos listeners globais
+        });
+        startButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        
+        dialog.getFooter().add(startButton);
+        dialog.setCloseOnEsc(false);
+        dialog.setCloseOnOutsideClick(false);
+        dialog.open();
     }
 
     @Override

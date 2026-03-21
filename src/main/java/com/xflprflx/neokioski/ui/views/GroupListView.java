@@ -1,8 +1,10 @@
 package com.xflprflx.neokioski.ui.views;
 
 import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
@@ -74,6 +76,11 @@ public class GroupListView extends VerticalLayout {
         grid.addColumn(Group::getName).setHeader("Nome").setSortable(true);
         grid.addColumn(group -> group.isActive() ? "Sim" : "Não").setHeader("Ativo").setSortable(true);
         grid.addColumn(group -> group.getUsers() == null ? 0 : group.getUsers().size()).setHeader("Usuários");
+        grid.addComponentColumn(group -> {
+            Button chatButton = new Button(VaadinIcon.CHAT.create());
+            chatButton.addClickListener(e -> UI.getCurrent().navigate(ChatView.class, group.getId()));
+            return chatButton;
+        }).setHeader("Chat");
         grid.getColumns().forEach(col -> col.setAutoWidth(true));
 
         grid.asSingleSelect().addValueChangeListener(event ->

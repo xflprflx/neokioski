@@ -2,8 +2,10 @@ package com.xflprflx.neokioski.services;
 
 import com.xflprflx.neokioski.models.ChatMessage;
 import com.xflprflx.neokioski.models.Group;
+import com.xflprflx.neokioski.models.MessageReaction;
 import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.repositories.ChatMessageRepository;
+import com.xflprflx.neokioski.repositories.MessageReactionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,10 +20,12 @@ import java.util.function.Consumer;
 public class ChatService {
 
     private final ChatMessageRepository repository;
+    private final MessageReactionRepository reactionRepository;
     private final Map<Long, List<Consumer<ChatMessage>>> listeners = Collections.synchronizedMap(new HashMap<>());
 
-    public ChatService(ChatMessageRepository repository) {
+    public ChatService(ChatMessageRepository repository, MessageReactionRepository reactionRepository) {
         this.repository = repository;
+        this.reactionRepository = reactionRepository;
     }
 
     @Transactional
@@ -34,6 +38,25 @@ public class ChatService {
 
     public List<ChatMessage> getMessagesByGroup(Group group) {
         return repository.findByGroupOrderByTimestampAsc(group);
+    }
+
+    @Transactional
+    public void toggleReaction(Long messageId, User user, String emoji) {
+        repository.findById(messageId).ifPresent(message -> {
+            reactionRepository.findByChatMessageAndUserAndEmoji(message, user, emoji)
+                    .ifPresentOrElse(
+                            reaction -> {
+                                message.getReactions().remove(reaction);
+                                reactionRepository.delete(reaction);
+                            },
+                            () -> {
+                                MessageReaction reaction = new MessageReaction(emoji, user, message);
+                                message.getReactions().add(reaction);
+                                reactionRepository.save(reaction);
+                            }
+                    );
+            broadcast(message.getGroup().getId(), message);
+        });
     }
 
     public void register(Long groupId, Consumer<ChatMessage> listener) {

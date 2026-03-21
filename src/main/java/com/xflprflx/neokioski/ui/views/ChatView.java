@@ -457,10 +457,11 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         listener = msg -> {
             if (getUI().isPresent()) {
                 getUI().get().access(() -> {
+                    boolean isNew = !messageWrappers.containsKey(msg.getId());
                     addOrUpdateMessageInUI(msg);
                     scrollToBottom();
                     
-                    if (!msg.getUser().getId().equals(currentUser.getId())) {
+                    if (isNew && !msg.getUser().getId().equals(currentUser.getId())) {
                         boolean isReplyToMe = msg.getReplyTo() != null && 
                                              msg.getReplyTo().getUser().getId().equals(currentUser.getId());
                         

@@ -3,6 +3,7 @@ package com.xflprflx.neokioski.models;
 import com.xflprflx.neokioski.models.enums.Role;
 import jakarta.persistence.*;
 
+import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 
@@ -24,7 +25,7 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Role role;
     @ManyToMany(mappedBy = "users")
-    private Set<Group> groups;
+    private Set<Group> groups = new HashSet<>();
     public User() {
     }
 

@@ -1,9 +1,9 @@
 package com.xflprflx.neokioski.models;
 
+import com.xflprflx.neokioski.models.template.TaskTemplate;
 import jakarta.persistence.*;
 
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 
 @Entity
 @Table(name = "tb_groups")
@@ -21,7 +21,15 @@ public class Group {
             joinColumns = @JoinColumn(name = "group_id"),
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
-    private Set<User> users;
+    private Set<User> users = new HashSet<>();
+
+    @ManyToMany
+    @JoinTable(
+            name = "tb_task_templates_groups",
+            joinColumns = @JoinColumn(name = "group_id"),
+            inverseJoinColumns = @JoinColumn(name = "task_template_id")
+    )
+    private List<TaskTemplate> taskTemplates = new ArrayList<>();
 
     public Group() {
     }
@@ -56,6 +64,14 @@ public class Group {
 
     public void setUsers(Set<User> users) {
         this.users = users;
+    }
+
+    public List<TaskTemplate> getTaskTemplates() {
+        return taskTemplates;
+    }
+
+    public void addTaskTemplate(TaskTemplate taskTemplate) {
+        this.taskTemplates.add(taskTemplate);
     }
 
     @Override

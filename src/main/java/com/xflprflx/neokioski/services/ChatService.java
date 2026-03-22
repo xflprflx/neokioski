@@ -1,10 +1,7 @@
 package com.xflprflx.neokioski.services;
 
-import com.xflprflx.neokioski.models.ChatMessage;
-import com.xflprflx.neokioski.models.Group;
-import com.xflprflx.neokioski.models.MessageReaction;
-import com.xflprflx.neokioski.models.MessageEdit;
-import com.xflprflx.neokioski.models.User;
+import com.xflprflx.neokioski.models.*;
+import com.xflprflx.neokioski.models.enums.NotificationType;
 import com.xflprflx.neokioski.repositories.ChatMessageRepository;
 import com.xflprflx.neokioski.repositories.MessageReactionRepository;
 import org.springframework.stereotype.Service;
@@ -17,16 +14,23 @@ import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 @Service
 public class ChatService {
 
     private final ChatMessageRepository repository;
     private final MessageReactionRepository reactionRepository;
+    private final UserService userService;
+    private final MessageNotificationService notificationService;
     private final Map<Long, List<Consumer<ChatMessage>>> listeners = Collections.synchronizedMap(new HashMap<>());
 
-    public ChatService(ChatMessageRepository repository, MessageReactionRepository reactionRepository) {
+    public ChatService(ChatMessageRepository repository, MessageReactionRepository reactionRepository, UserService userService, MessageNotificationService notificationService) {
         this.repository = repository;
         this.reactionRepository = reactionRepository;
+        this.userService = userService;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -36,14 +40,54 @@ public class ChatService {
 
     @Transactional
     public ChatMessage sendMessage(String content, User user, Group group, ChatMessage replyTo) {
-        ChatMessage message = new ChatMessage(content, user, group, replyTo);
-        message = repository.save(message);
-        broadcast(group.getId(), message);
+        ChatMessage messageToSave = new ChatMessage(content, user, group, replyTo);
+        final ChatMessage message = repository.save(messageToSave);
+
+        // Disparando notificações se for resposta
+        if (replyTo != null && replyTo.getUser() != null && !replyTo.getUser().getId().equals(user.getId())) {
+            notificationService.createNotification(replyTo.getUser(), message, NotificationType.REPLY);
+        }
+
+        // Detectando menções
+        List<User> groupUsers = userService.findAll(); // Poderia ser findAll do grupo, mas filtrando na memória por hora
+        for (User u : groupUsers) {
+            if (!u.getId().equals(user.getId()) && isUserMentioned(content, u.getUsername())) {
+                notificationService.createNotification(u, message, NotificationType.MENTION);
+            }
+        }
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    broadcast(group.getId(), message);
+                }
+            });
+        } else {
+            broadcast(group.getId(), message);
+        }
+        
         return message;
+    }
+
+    private boolean isUserMentioned(String content, String username) {
+        if (content == null || username == null) return false;
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("@" + java.util.regex.Pattern.quote(username) + "(\\b|$)");
+        return pattern.matcher(content).find();
     }
 
     public List<ChatMessage> getMessagesByGroup(Group group) {
         return repository.findByGroupOrderByTimestampAsc(group);
+    }
+
+    private final List<Consumer<ChatMessage>> globalListeners = new CopyOnWriteArrayList<>();
+
+    public void registerGlobal(Consumer<ChatMessage> listener) {
+        globalListeners.add(listener);
+    }
+
+    public void unregisterGlobal(Consumer<ChatMessage> listener) {
+        globalListeners.remove(listener);
     }
 
     @Transactional
@@ -61,7 +105,16 @@ public class ChatService {
                                 reactionRepository.save(reaction);
                             }
                     );
-            broadcast(message.getGroup().getId(), message);
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        broadcast(message.getGroup().getId(), message);
+                    }
+                });
+            } else {
+                broadcast(message.getGroup().getId(), message);
+            }
         });
     }
 
@@ -74,7 +127,16 @@ public class ChatService {
                 message.getEdits().add(edit);
                 message.setContent(newContent);
                 repository.save(message);
-                broadcast(message.getGroup().getId(), message);
+                if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            broadcast(message.getGroup().getId(), message);
+                        }
+                    });
+                } else {
+                    broadcast(message.getGroup().getId(), message);
+                }
             }
         });
     }
@@ -87,7 +149,16 @@ public class ChatService {
             if ((message.getUser().equals(user) || isAdmin) && !message.isDeleted()) {
                 message.setDeleted(true);
                 repository.save(message);
-                broadcast(message.getGroup().getId(), message);
+                if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            broadcast(message.getGroup().getId(), message);
+                        }
+                    });
+                } else {
+                    broadcast(message.getGroup().getId(), message);
+                }
             }
         });
     }
@@ -108,5 +179,6 @@ public class ChatService {
         if (groupListeners != null) {
             groupListeners.forEach(listener -> listener.accept(message));
         }
+        globalListeners.forEach(listener -> listener.accept(message));
     }
 }

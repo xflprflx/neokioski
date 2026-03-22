@@ -33,13 +33,23 @@ import com.xflprflx.neokioski.security.SecurityService;
 import com.xflprflx.neokioski.services.ChatService;
 import com.xflprflx.neokioski.services.GroupService;
 import com.xflprflx.neokioski.services.UserService;
+import com.xflprflx.neokioski.services.MessageNotificationService;
+import com.xflprflx.neokioski.services.UserGroupStateService;
+import java.time.Instant;
 import jakarta.annotation.security.PermitAll;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.Collections;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -52,6 +62,10 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private final GroupService groupService;
     private final SecurityService securityService;
     private final UserService userService;
+    private final MessageNotificationService notificationService;
+    private final UserGroupStateService userGroupStateService;
+
+    private Set<Long> unreadMentionMessageIds = Collections.synchronizedSet(new HashSet<>());
 
     private Group group;
     private User currentUser;
@@ -72,6 +86,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private final Map<String, ListBox<User>> suggestionLists = new HashMap<>();
     private String activeMentionId = "main-input";
     private final Map<Long, HorizontalLayout> messageWrappers = new HashMap<>();
+    private final Map<Long, ChatMessage> messageObjects = new HashMap<>();
+    private Button mentionAlertBadge;
     
     private Consumer<ChatMessage> listener;
     
@@ -84,11 +100,13 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
             .withZone(ZoneId.systemDefault());
 
-    public ChatView(ChatService chatService, GroupService groupService, SecurityService securityService, UserService userService) {
+    public ChatView(ChatService chatService, GroupService groupService, SecurityService securityService, UserService userService, MessageNotificationService notificationService, UserGroupStateService userGroupStateService) {
         this.chatService = chatService;
         this.groupService = groupService;
         this.securityService = securityService;
         this.userService = userService;
+        this.notificationService = notificationService;
+        this.userGroupStateService = userGroupStateService;
 
         setSizeFull();
         setPadding(false);
@@ -102,6 +120,81 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
         configureUI();
         unlockAudio();
+        
+        com.vaadin.flow.component.UI.getCurrent().getPage().executeJs(
+            "const style = document.createElement('style');" +
+            "style.innerHTML = '@keyframes pulse-mention { 0% { background-color: rgba(255, 0, 0, 0.1); } 50% { background-color: rgba(255, 0, 0, 0.3); } 100% { background-color: rgba(255, 0, 0, 0.1); } } " +
+            ".unread-mention { animation: pulse-mention 1.5s infinite; border-radius: 8px; margin: 4px; padding: 4px; }';" +
+            "document.head.appendChild(style);"
+        );
+        triggerObserver();
+    }
+
+    private void triggerObserver() {
+        getElement().executeJs(
+            "setTimeout(() => {" +
+            "  const viewEl = $0;" +
+            "  const alertBadge = document.getElementById('mention-alert-badge');" +
+            "  const checkBadge = () => {" +
+            "    const remaining = document.querySelectorAll('.unread-mention');" +
+            "    if (alertBadge) {" +
+            "      if (remaining.length > 0) {" +
+            "        alertBadge.style.opacity = '1';" +
+            "        alertBadge.style.pointerEvents = 'auto';" +
+            "      } else {" +
+            "        alertBadge.style.opacity = '0';" +
+            "        alertBadge.style.pointerEvents = 'none';" +
+            "      }" +
+            "    }" +
+            "  };" +
+            "  if (!viewEl._chatMentionObserver) {" +
+            "    viewEl._chatMentionObserver = new IntersectionObserver((entries) => {" +
+            "      entries.forEach(entry => {" +
+            "        if (entry.isIntersecting) {" +
+            "          const msgId = entry.target.getAttribute('data-unread-id');" +
+            "          if (msgId) {" +
+            "            console.log('>>> [OBSERVER] Chamando markMentionAsRead para', msgId);" +
+            "            viewEl.$server.markMentionAsRead(msgId);" +
+            "            entry.target.classList.remove('unread-mention');" +
+            "            entry.target.removeAttribute('data-unread-id');" +
+            "            viewEl._chatMentionObserver.unobserve(entry.target);" +
+            "          }" +
+            "        }" +
+            "      });" +
+            "      checkBadge();" +
+            "    }, { threshold: 0.5 });" +
+            "  }" +
+            "  document.querySelectorAll('.unread-mention').forEach(el => {" +
+            "    viewEl._chatMentionObserver.observe(el);" +
+            "  });" +
+            "  checkBadge();" +
+            "}, 500);", getElement()
+        );
+    }
+
+    @com.vaadin.flow.component.ClientCallable
+    public void markMentionAsRead(String messageIdStr) {
+        System.out.println("======> markMentionAsRead chamado para ID: " + messageIdStr);
+        try {
+            Long messageId = Long.parseLong(messageIdStr);
+            System.out.println("======> currentUser != null? " + (currentUser != null));
+            System.out.println("======> group != null? " + (group != null));
+            System.out.println("======> unreadMentionMessageIds contem " + messageId + "? " + unreadMentionMessageIds.contains(messageId));
+
+            if (currentUser != null && group != null && unreadMentionMessageIds.contains(messageId)) {
+                chatService.getMessagesByGroup(group).stream()
+                    .filter(m -> m.getId().equals(messageId))
+                    .findFirst()
+                    .ifPresent(msg -> {
+                        System.out.println("======> Chamando markMessageNotificationsAsReadForUser no Service...");
+                        notificationService.markMessageNotificationsAsReadForUser(msg, currentUser);
+                        unreadMentionMessageIds.remove(messageId);
+                        System.out.println("======> Concluido!");
+                    });
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private String loadAudioAsBase64(String resourcePath) {
@@ -164,8 +257,31 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                 .set("padding-right", "var(--lumo-space-l)")
                 .set("font-size", "var(--lumo-font-size-xl)");
         
+        mentionAlertBadge = new Button("Menções ⇧");
+        mentionAlertBadge.setId("mention-alert-badge");
+        mentionAlertBadge.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR);
+        mentionAlertBadge.getStyle()
+                .set("position", "absolute")
+                .set("top", "16px")
+                .set("left", "50%")
+                .set("transform", "translateX(-50%)")
+                .set("z-index", "100")
+                .set("border-radius", "16px")
+                .set("box-shadow", "0 4px 6px rgba(0,0,0,0.3)")
+                .set("transition", "opacity 0.3s")
+                .set("opacity", "0")
+                .set("pointer-events", "none");
+        mentionAlertBadge.addClickListener(e -> {
+            getElement().executeJs(
+                "const firstUnread = document.querySelector('.unread-mention');" +
+                "if (firstUnread) {" +
+                "  firstUnread.scrollIntoView({ behavior: 'smooth', block: 'center' });" +
+                "}"
+            );
+        });
+
         getStyle().set("position", "relative"); // Para o suggestionWrapper absoluto funcionar
-        add(groupName, scroller, replyBar, messageInput);
+        add(groupName, mentionAlertBadge, scroller, replyBar, messageInput);
         configureSuggestions();
     }
 
@@ -405,6 +521,14 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         this.groupName.setText(group.getName());
         this.currentUser = securityService.getAuthenticatedInternalUser().orElse(null);
 
+        if (this.currentUser != null) {
+            userGroupStateService.updateLastRead(currentUser, group, Instant.now());
+            unreadMentionMessageIds = notificationService.getUnreadNotificationsForUser(currentUser).stream()
+                .filter(n -> n.getMessage().getGroup().getId().equals(group.getId()))
+                .map(n -> n.getMessage().getId())
+                .collect(Collectors.toSet());
+        }
+
         loadMessages();
         setupRealTimeUpdate();
     }
@@ -412,11 +536,14 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private void loadMessages() {
         messageContainer.removeAll();
         messageWrappers.clear();
+        messageObjects.clear();
         List<ChatMessage> messages = chatService.getMessagesByGroup(group);
         for (ChatMessage msg : messages) {
             addOrUpdateMessageInUI(msg);
+            messageObjects.put(msg.getId(), msg);
         }
         scrollToBottom();
+        triggerObserver();
     }
 
     private void addOrUpdateMessageInUI(ChatMessage msg) {
@@ -652,6 +779,11 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         wrapper.getStyle().set("padding-bottom", "var(--lumo-space-xs)");
         wrapper.setJustifyContentMode(isMine ? FlexComponent.JustifyContentMode.END : FlexComponent.JustifyContentMode.START);
 
+        if (unreadMentionMessageIds.contains(msg.getId())) {
+            wrapper.addClassName("unread-mention");
+            wrapper.getElement().setAttribute("data-unread-id", String.valueOf(msg.getId()));
+        }
+
         return wrapper;
     }
 
@@ -709,7 +841,12 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             if (getUI().isPresent()) {
                 getUI().get().access(() -> {
                     boolean isNew = !messageWrappers.containsKey(msg.getId());
+                    ChatMessage oldMsg = messageObjects.get(msg.getId());
+                    boolean contentChanged = oldMsg != null && !oldMsg.getContent().equals(msg.getContent());
+                    boolean deletedNow = oldMsg != null && !oldMsg.isDeleted() && msg.isDeleted();
+
                     addOrUpdateMessageInUI(msg);
+                    messageObjects.put(msg.getId(), msg);
                     scrollToBottom();
                     
                     if (!msg.getUser().getId().equals(currentUser.getId())) {
@@ -718,6 +855,9 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                         boolean mentioned = currentUser != null && isUserMentioned(msg.getContent(), currentUser.getUsername());
                         
                         if (isNew) {
+                            if (currentUser != null && (isReplyToMe || mentioned)) {
+                                unreadMentionMessageIds.add(msg.getId());
+                            }
                             if (isReplyToMe) {
                                 playNotificationSound("reply-to-me");
                                 Notification n = new Notification(msg.getUser().getName() + " respondeu a você!");
@@ -733,8 +873,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                             } else {
                                 playNotificationSound("new-message");
                             }
-                        } else {
-                            if (mentioned && !msg.isDeleted()) {
+                        } else if (contentChanged || deletedNow) {
+                            if (contentChanged && mentioned && !msg.isDeleted()) {
                                 playNotificationSound("i-was-mentioned");
                                 Notification n = new Notification(msg.getUser().getName() + " mencionou você na edição da mensagem!");
                                 n.setDuration(5000);
@@ -744,6 +884,11 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                                 playNotificationSound("remove-or-edit");
                             }
                         }
+                    }
+
+                    if (isNew && currentUser != null) {
+                        userGroupStateService.updateLastRead(currentUser, group, Instant.now());
+                        triggerObserver();
                     }
                 });
             }

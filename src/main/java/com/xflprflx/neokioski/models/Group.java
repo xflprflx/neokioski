@@ -23,12 +23,7 @@ public class Group {
     )
     private Set<User> users = new HashSet<>();
 
-    @ManyToMany
-    @JoinTable(
-            name = "tb_task_templates_groups",
-            joinColumns = @JoinColumn(name = "group_id"),
-            inverseJoinColumns = @JoinColumn(name = "task_template_id")
-    )
+    @ManyToMany(mappedBy = "groups")
     private List<TaskTemplate> taskTemplates = new ArrayList<>();
 
     public Group() {

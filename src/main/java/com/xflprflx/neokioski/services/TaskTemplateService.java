@@ -38,6 +38,11 @@ public class TaskTemplateService {
         
         TaskTemplate savedTemplate = taskTemplateRepository.save(template);
 
+        if (template.getId() != null) {
+            templateFieldRelationRepository.deleteByTaskTemplateId(savedTemplate.getId());
+            templateStepRelationRepository.deleteByTaskTemplateId(savedTemplate.getId());
+        }
+
         for (TemplateFieldRelation fr : fieldRelations) {
             TaskFieldDefinition fieldDef = fr.getTaskFieldDefinition();
             if (fieldDef.getTaskFieldOptions() != null) {
@@ -59,5 +64,28 @@ public class TaskTemplateService {
 
     public List<TaskTemplate> findAll() {
         return taskTemplateRepository.findAll();
+    }
+
+    public TaskTemplate getTemplateById(Long id) {
+        return taskTemplateRepository.findByIdWithGroups(id).orElse(null);
+    }
+
+    public List<TaskTemplate> getTemplatesByGroupId(Long groupId) {
+        return taskTemplateRepository.findByGroupId(groupId);
+    }
+
+    public List<TemplateFieldRelation> getFieldRelationsByTemplateId(Long templateId) {
+        return templateFieldRelationRepository.findByTaskTemplateIdOrderByOrderAsc(templateId);
+    }
+
+    public List<TemplateStepRelation> getStepRelationsByTemplateId(Long templateId) {
+        return templateStepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(templateId);
+    }
+
+    @Transactional
+    public void deleteTemplate(Long id) {
+        templateFieldRelationRepository.deleteByTaskTemplateId(id);
+        templateStepRelationRepository.deleteByTaskTemplateId(id);
+        taskTemplateRepository.deleteById(id);
     }
 }

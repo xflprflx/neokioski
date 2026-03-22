@@ -21,7 +21,12 @@ public class TaskTemplate {
     private boolean showSendButton;
     @Column(nullable = false)
     private boolean requiresSignature;
-    @ManyToMany(mappedBy = "taskTemplates")
+    @ManyToMany
+    @JoinTable(
+            name = "tb_task_templates_groups",
+            joinColumns = @JoinColumn(name = "task_template_id"),
+            inverseJoinColumns = @JoinColumn(name = "group_id")
+    )
     private List<Group> groups = new ArrayList<>();
     @OneToMany(mappedBy = "taskTemplate")
     private List<TemplateStepRelation> templateStepRelation = new ArrayList<>();

@@ -90,7 +90,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
 
         if (authContext.hasAnyRole("ADMIN")) {
             nav.addItem(new SideNavItem("Grupos", GroupListView.class, VaadinIcon.USERS.create()));
-            nav.addItem(new SideNavItem("Templates", TaskTemplateEditorView.class, VaadinIcon.FILE_TEXT.create()));
+            nav.addItem(new SideNavItem("Templates", TaskTemplateListView.class, VaadinIcon.FILE_TEXT.create()));
         }
 
         drawerContainer.add(nav);

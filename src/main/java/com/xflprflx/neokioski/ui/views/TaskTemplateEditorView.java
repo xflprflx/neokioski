@@ -22,6 +22,9 @@ import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.router.HasUrlParameter;
+import com.vaadin.flow.router.OptionalParameter;
+import com.vaadin.flow.router.BeforeEvent;
 import com.xflprflx.neokioski.models.Group;
 import com.xflprflx.neokioski.models.template.*;
 import com.xflprflx.neokioski.services.GroupService;
@@ -34,7 +37,9 @@ import java.util.List;
 @RolesAllowed("ADMIN")
 @Route(value = "task-template-editor", layout = MainLayout.class)
 @PageTitle("Editor de Template de Tarefa | NeoKioski")
-public class TaskTemplateEditorView extends VerticalLayout {
+public class TaskTemplateEditorView extends VerticalLayout implements HasUrlParameter<Long> {
+
+    private Long editingTemplateId = null;
 
     private final TaskTemplateService templateService;
     private final GroupService groupService;
@@ -58,6 +63,7 @@ public class TaskTemplateEditorView extends VerticalLayout {
         public InputType inputType;
         public boolean isRequired;
         public String description;
+        public List<String> options = new ArrayList<>();
     }
 
     public static class StepDTO {
@@ -188,8 +194,18 @@ public class TaskTemplateEditorView extends VerticalLayout {
         typeCombo.setItemLabelGenerator(InputType::name);
         Checkbox requiredCheck = new Checkbox("Obrigatório");
         TextField descField = new TextField("Descrição");
+        com.vaadin.flow.component.textfield.TextArea optionsField = new com.vaadin.flow.component.textfield.TextArea("Opções (separadas por vírgula)");
+        optionsField.setHelperText("Ex: Opção A, Opção B, Opção C");
+        optionsField.setWidthFull();
+        optionsField.setVisible(false);
 
-        VerticalLayout layout = new VerticalLayout(labelField, typeCombo, requiredCheck, descField);
+        typeCombo.addValueChangeListener(e -> {
+            InputType t = e.getValue();
+            boolean needsOptions = t == InputType.RADIO || t == InputType.CHECKBOX || t == InputType.DROPDOWN || t == InputType.MULTISELECT_DROPDOWN;
+            optionsField.setVisible(needsOptions);
+        });
+
+        VerticalLayout layout = new VerticalLayout(labelField, typeCombo, optionsField, requiredCheck, descField);
         dialog.add(layout);
 
         Button saveBtn = new Button("Salvar", e -> {
@@ -202,6 +218,9 @@ public class TaskTemplateEditorView extends VerticalLayout {
             dto.inputType = typeCombo.getValue();
             dto.isRequired = requiredCheck.getValue();
             dto.description = descField.getValue();
+            if (optionsField.isVisible() && !optionsField.isEmpty()) {
+                dto.options = List.of(optionsField.getValue().split("\\s*,\\s*"));
+            }
             fields.add(dto);
             fieldsGrid.getDataProvider().refreshAll();
             dialog.close();
@@ -354,13 +373,7 @@ public class TaskTemplateEditorView extends VerticalLayout {
         saveBtn.addClickListener(e -> saveTemplate());
 
         Button cancelBtn = new Button("Cancelar", e -> {
-            fields.clear();
-            steps.clear();
-            fieldsGrid.getDataProvider().refreshAll();
-            stepsGrid.getDataProvider().refreshAll();
-            updateWorkflowPreview();
-            nameField.clear();
-            groupComboBox.clear();
+            getUI().ifPresent(ui -> ui.navigate(TaskTemplateListView.class));
         });
         
         footer.add(saveBtn, cancelBtn);
@@ -368,10 +381,18 @@ public class TaskTemplateEditorView extends VerticalLayout {
     }
 
     private void saveTemplate() {
-        TaskTemplate t = new TaskTemplate();
+        TaskTemplate t;
+        if (editingTemplateId != null) {
+            t = templateService.getTemplateById(editingTemplateId);
+            if (t == null) t = new TaskTemplate();
+        } else {
+            t = new TaskTemplate();
+        }
+
         t.setName(nameField.getValue());
         t.setShowSendButton(showSendButton.getValue());
         t.setRequiresSignature(requireSignature.getValue());
+        t.getGroups().clear();
         if (groupComboBox.getValue() != null) {
             for (Group g : groupComboBox.getValue()) {
                 t.addGroups(g);
@@ -385,6 +406,15 @@ public class TaskTemplateEditorView extends VerticalLayout {
             def.setLabel(dto.label);
             def.setInputType(dto.inputType);
             def.setDescription(dto.description);
+
+            if (dto.options != null && !dto.options.isEmpty()) {
+                for (String optStr : dto.options) {
+                    TaskFieldOption option = new TaskFieldOption();
+                    option.setOptionLabel(optStr.trim());
+                    option.setOptionValue(optStr.trim());
+                    def.addTaskFieldOption(option);
+                }
+            }
 
             TemplateFieldRelation rel = new TemplateFieldRelation();
             rel.setTaskFieldDefinition(def);
@@ -410,5 +440,47 @@ public class TaskTemplateEditorView extends VerticalLayout {
 
         templateService.saveTemplate(t, fieldRelations, stepRelations);
         Notification.show("Template Salvo com Sucesso!");
+        getUI().ifPresent(ui -> ui.navigate(TaskTemplateListView.class));
+    }
+
+    @Override
+    public void setParameter(BeforeEvent event, @OptionalParameter Long parameter) {
+        if (parameter != null) {
+            this.editingTemplateId = parameter;
+            TaskTemplate t = templateService.getTemplateById(parameter);
+            if (t != null) {
+                nameField.setValue(t.getName());
+                showSendButton.setValue(t.isShowSendButton());
+                requireSignature.setValue(t.isRequiresSignature());
+                groupComboBox.setValue(t.getGroups());
+
+                fields.clear();
+                for (TemplateFieldRelation fr : templateService.getFieldRelationsByTemplateId(parameter)) {
+                    FieldDTO dto = new FieldDTO();
+                    dto.label = fr.getTaskFieldDefinition().getLabel();
+                    dto.inputType = fr.getTaskFieldDefinition().getInputType();
+                    dto.description = fr.getTaskFieldDefinition().getDescription();
+                    dto.isRequired = fr.isRequired();
+                    if (fr.getTaskFieldDefinition().getTaskFieldOptions() != null) {
+                        for (TaskFieldOption opt : fr.getTaskFieldDefinition().getTaskFieldOptions()) {
+                            dto.options.add(opt.getOptionLabel());
+                        }
+                    }
+                    fields.add(dto);
+                }
+                fieldsGrid.getDataProvider().refreshAll();
+
+                steps.clear();
+                for (TemplateStepRelation sr : templateService.getStepRelationsByTemplateId(parameter)) {
+                    StepDTO dto = new StepDTO();
+                    dto.label = sr.getTaskStepDefinition().getLabel();
+                    dto.colorTheme = sr.getTaskStepDefinition().getColorTheme();
+                    dto.isFinalizer = sr.isFinalizer();
+                    steps.add(dto);
+                }
+                stepsGrid.getDataProvider().refreshAll();
+                updateWorkflowPreview();
+            }
+        }
     }
 }

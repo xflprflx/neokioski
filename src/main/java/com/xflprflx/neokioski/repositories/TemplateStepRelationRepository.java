@@ -4,6 +4,10 @@ import com.xflprflx.neokioski.models.template.TemplateStepRelation;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 @Repository
 public interface TemplateStepRelationRepository extends JpaRepository<TemplateStepRelation, Long> {
+    List<TemplateStepRelation> findByTaskTemplateIdOrderByOrderAsc(Long taskTemplateId);
+    void deleteByTaskTemplateId(Long taskTemplateId);
 }

@@ -18,7 +18,8 @@ public class TaskFieldDefinition {
     private String description;
     @Enumerated(EnumType.STRING)
     private InputType inputType;
-    @OneToMany
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "task_field_definition_id")
     private List<TaskFieldOption> taskFieldOptions = new ArrayList<>();
 
     public TaskFieldDefinition() {

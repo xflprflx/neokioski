@@ -33,6 +33,11 @@ import com.xflprflx.neokioski.security.SecurityService;
 import com.xflprflx.neokioski.services.ChatService;
 import com.xflprflx.neokioski.services.GroupService;
 import com.xflprflx.neokioski.services.UserService;
+import com.xflprflx.neokioski.services.TaskTemplateService;
+import com.xflprflx.neokioski.models.template.TaskTemplate;
+import com.xflprflx.neokioski.models.template.TemplateFieldRelation;
+import com.xflprflx.neokioski.models.template.TaskFieldOption;
+import com.xflprflx.neokioski.models.template.InputType;
 import jakarta.annotation.security.PermitAll;
 
 import java.io.IOException;
@@ -52,6 +57,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private final GroupService groupService;
     private final SecurityService securityService;
     private final UserService userService;
+    private final TaskTemplateService taskTemplateService;
 
     private Group group;
     private User currentUser;
@@ -61,6 +67,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private final MessageInput messageInput = new MessageInput();
     private final H2 groupName = new H2();
     private final HorizontalLayout replyBar = new HorizontalLayout();
+    private final HorizontalLayout templateBar = new HorizontalLayout();
     private Div suggestionWrapper;
     private ListBox<User> suggestionList;
     
@@ -84,11 +91,12 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
             .withZone(ZoneId.systemDefault());
 
-    public ChatView(ChatService chatService, GroupService groupService, SecurityService securityService, UserService userService) {
+    public ChatView(ChatService chatService, GroupService groupService, SecurityService securityService, UserService userService, TaskTemplateService taskTemplateService) {
         this.chatService = chatService;
         this.groupService = groupService;
         this.securityService = securityService;
         this.userService = userService;
+        this.taskTemplateService = taskTemplateService;
 
         setSizeFull();
         setPadding(false);
@@ -165,8 +173,191 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                 .set("font-size", "var(--lumo-font-size-xl)");
         
         getStyle().set("position", "relative"); // Para o suggestionWrapper absoluto funcionar
-        add(groupName, scroller, replyBar, messageInput);
+        
+        configureTemplateBar();
+        add(groupName, scroller, replyBar, templateBar, messageInput);
         configureSuggestions();
+    }
+
+    private void configureTemplateBar() {
+        templateBar.setWidthFull();
+        templateBar.setPadding(true);
+        templateBar.setSpacing(true);
+        templateBar.setAlignItems(FlexComponent.Alignment.CENTER);
+        templateBar.getStyle().set("overflow-x", "auto");
+        templateBar.getStyle().set("border-top", "1px solid var(--lumo-contrast-10pct)");
+        templateBar.getStyle().set("background-color", "var(--lumo-base-color)");
+        templateBar.setVisible(false);
+    }
+
+    private void loadTemplates() {
+        templateBar.removeAll();
+        List<TaskTemplate> templates = taskTemplateService.getTemplatesByGroupId(group.getId());
+        if (templates.isEmpty()) {
+            templateBar.setVisible(false);
+            return;
+        }
+
+        Span templateLabel = new Span("Criar tarefa com modelo:");
+        templateLabel.getStyle().set("font-weight", "bold");
+        templateLabel.getStyle().set("margin-right", "8px");
+        templateLabel.getStyle().set("white-space", "nowrap");
+        
+        templateBar.add(templateLabel);
+
+        for (TaskTemplate t : templates) {
+            Button btn = new Button(t.getName(), e -> openTemplateDialog(t));
+            btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+            btn.getStyle().set("border", "1px solid var(--lumo-contrast-20pct)");
+            btn.getStyle().set("border-radius", "8px");
+            btn.getStyle().set("white-space", "nowrap");
+            btn.getStyle().set("color", "var(--lumo-body-text-color)");
+            btn.getStyle().set("background-color", "var(--lumo-contrast-5pct)");
+            
+            // Icon visual hint
+            if (t.getName().toLowerCase().contains("bug")) {
+                btn.setIcon(new Span("\uD83D\uDC1B")); // Bug emoji
+            } else if (t.getName().toLowerCase().contains("feature") || t.getName().toLowerCase().contains("review")) {
+                btn.setIcon(new Span("⭐"));
+            } else if (t.getName().toLowerCase().contains("meeting")) {
+                btn.setIcon(new Span("\uD83D\uDCC4")); // Paper
+            } else if (t.getName().toLowerCase().contains("design")) {
+                btn.setIcon(new Span("\uD83C\uDFA8")); // Palette
+            } else {
+                btn.setIcon(new Span("\uD83D\uDCDD")); // Memo
+            }
+            
+            templateBar.add(btn);
+        }
+        templateBar.setVisible(true);
+    }
+
+    private void openTemplateDialog(TaskTemplate template) {
+        Dialog dialog = new Dialog();
+        dialog.setWidth("600px");
+        dialog.setMaxWidth("90%");
+        dialog.setHeaderTitle("Novo: " + template.getName());
+
+        VerticalLayout formLayout = new VerticalLayout();
+        formLayout.setPadding(false);
+        formLayout.setSpacing(true);
+
+        List<TemplateFieldRelation> fields = taskTemplateService.getFieldRelationsByTemplateId(template.getId());
+        
+        for (TemplateFieldRelation rel : fields) {
+            InputType type = rel.getTaskFieldDefinition().getInputType();
+            String label = rel.getTaskFieldDefinition().getLabel();
+            String desc = rel.getTaskFieldDefinition().getDescription();
+
+            List<String> options = new ArrayList<>();
+            if (rel.getTaskFieldDefinition().getTaskFieldOptions() != null) {
+                options = rel.getTaskFieldDefinition().getTaskFieldOptions().stream()
+                        .map(TaskFieldOption::getOptionLabel)
+                        .toList();
+            }
+
+            com.vaadin.flow.component.Component fieldComponent = null;
+
+            switch (type) {
+                case TEXT:
+                    com.vaadin.flow.component.textfield.TextField tf = new com.vaadin.flow.component.textfield.TextField(label);
+                    tf.setHelperText(desc);
+                    tf.setWidthFull();
+                    tf.setRequiredIndicatorVisible(rel.isRequired());
+                    fieldComponent = tf;
+                    break;
+                case DATE:
+                    com.vaadin.flow.component.datepicker.DatePicker dp = new com.vaadin.flow.component.datepicker.DatePicker(label);
+                    dp.setHelperText(desc);
+                    dp.setWidthFull();
+                    dp.setRequiredIndicatorVisible(rel.isRequired());
+                    fieldComponent = dp;
+                    break;
+                case TIME:
+                    com.vaadin.flow.component.timepicker.TimePicker tp = new com.vaadin.flow.component.timepicker.TimePicker(label);
+                    tp.setHelperText(desc);
+                    tp.setWidthFull();
+                    tp.setRequiredIndicatorVisible(rel.isRequired());
+                    fieldComponent = tp;
+                    break;
+                case NUMBER:
+                    com.vaadin.flow.component.textfield.NumberField nf = new com.vaadin.flow.component.textfield.NumberField(label);
+                    nf.setHelperText(desc);
+                    nf.setWidthFull();
+                    nf.setRequiredIndicatorVisible(rel.isRequired());
+                    fieldComponent = nf;
+                    break;
+                case CHECKBOX:
+                    com.vaadin.flow.component.checkbox.CheckboxGroup<String> cbGroup = new com.vaadin.flow.component.checkbox.CheckboxGroup<>();
+                    cbGroup.setLabel(label);
+                    cbGroup.setItems(options);
+                    cbGroup.setRequiredIndicatorVisible(rel.isRequired());
+                    fieldComponent = cbGroup;
+                    break;
+                case RADIO:
+                    com.vaadin.flow.component.radiobutton.RadioButtonGroup<String> radio = new com.vaadin.flow.component.radiobutton.RadioButtonGroup<>();
+                    radio.setLabel(label);
+                    radio.setHelperText(desc);
+                    radio.setItems(options);
+                    radio.setRequiredIndicatorVisible(rel.isRequired());
+                    fieldComponent = radio;
+                    break;
+                case DROPDOWN:
+                    com.vaadin.flow.component.combobox.ComboBox<String> combo = new com.vaadin.flow.component.combobox.ComboBox<>(label);
+                    combo.setHelperText(desc);
+                    combo.setWidthFull();
+                    combo.setRequiredIndicatorVisible(rel.isRequired());
+                    combo.setItems(options); 
+                    fieldComponent = combo;
+                    break;
+                case MULTISELECT_DROPDOWN:
+                    com.vaadin.flow.component.combobox.MultiSelectComboBox<String> multiCombo = new com.vaadin.flow.component.combobox.MultiSelectComboBox<>(label);
+                    multiCombo.setHelperText(desc);
+                    multiCombo.setWidthFull();
+                    multiCombo.setRequiredIndicatorVisible(rel.isRequired());
+                    multiCombo.setItems(options);
+                    fieldComponent = multiCombo;
+                    break;
+                case TEXT_LIST:
+                    com.vaadin.flow.component.combobox.MultiSelectComboBox<String> textList = new com.vaadin.flow.component.combobox.MultiSelectComboBox<>(label);
+                    textList.setHelperText(desc);
+                    textList.setWidthFull();
+                    textList.setRequiredIndicatorVisible(rel.isRequired());
+                    textList.setAllowCustomValue(true);
+                    textList.addCustomValueSetListener(e -> {
+                        String customValue = e.getDetail();
+                        Set<String> items = new LinkedHashSet<>(textList.getGenericDataView().getItems().toList());
+                        items.add(customValue);
+                        textList.setItems(items);
+                        Set<String> currentValues = new HashSet<>(textList.getValue());
+                        currentValues.add(customValue);
+                        textList.setValue(currentValues);
+                    });
+                    fieldComponent = textList;
+                    break;
+            }
+
+            if (fieldComponent != null) {
+                formLayout.add(fieldComponent);
+            }
+        }
+
+        if (fields.isEmpty()) {
+            formLayout.add(new Span("Este template não possui campos configurados."));
+        }
+
+        Button cancelBtn = new Button("Cancelar", e -> dialog.close());
+        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        Button submitBtn = new Button("Enviar", e -> {
+            dialog.close();
+            Notification.show("Template '" + template.getName() + "' preenchido! (Implementação pendente)", 3000, Notification.Position.BOTTOM_CENTER);
+        });
+        submitBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        dialog.add(formLayout);
+        dialog.getFooter().add(cancelBtn, submitBtn);
+        dialog.open();
     }
 
     private void configureSuggestions() {
@@ -421,6 +612,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
         this.groupName.setText(group.getName());
         loadMessages();
+        loadTemplates();
         setupRealTimeUpdate();
     }
 

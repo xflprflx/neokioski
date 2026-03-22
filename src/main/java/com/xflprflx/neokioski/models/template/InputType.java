@@ -7,7 +7,9 @@ public enum InputType {
     CHECKBOX(4, "Checkbox"),
     DATE(5, "Data"),
     TIME(6, "Hora"),
-    DROPDOWN(7, "Menu Suspenso");
+    DROPDOWN(7, "Menu Suspenso"),
+    TEXT_LIST(8, "Lista de Texto (Chips)"),
+    MULTISELECT_DROPDOWN(9, "Menu Suspenso Múltiplo");
 
     private int code;
     private String label;

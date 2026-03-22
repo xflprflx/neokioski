@@ -398,13 +398,28 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     public void setParameter(BeforeEvent event, Long groupId) {
         Optional<Group> groupOpt = groupService.findById(groupId);
         if (groupOpt.isEmpty()) {
+            event.forwardTo("");
             return;
         }
 
         this.group = groupOpt.get();
-        this.groupName.setText(group.getName());
         this.currentUser = securityService.getAuthenticatedInternalUser().orElse(null);
 
+        // Verificação de associação ao grupo
+        if (currentUser == null || !group.getUsers().contains(currentUser)) {
+            // Se não for membro, redireciona para a home
+            event.forwardTo("");
+            // Mostramos uma notificação após o redirecionamento (na home)
+            com.vaadin.flow.component.UI.getCurrent().access(() -> {
+                Notification n = new Notification("Você não tem permissão para acessar este chat.");
+                n.setDuration(3000);
+                n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                n.open();
+            });
+            return;
+        }
+
+        this.groupName.setText(group.getName());
         loadMessages();
         setupRealTimeUpdate();
     }

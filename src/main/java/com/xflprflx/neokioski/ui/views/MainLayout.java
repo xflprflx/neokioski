@@ -18,6 +18,7 @@ import com.vaadin.flow.router.RouteConfiguration;
 import com.vaadin.flow.spring.security.AuthenticationContext;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 import com.xflprflx.neokioski.models.Group;
+import com.xflprflx.neokioski.security.SecurityService;
 import com.xflprflx.neokioski.services.GroupService;
 import jakarta.annotation.security.PermitAll;
 
@@ -30,14 +31,16 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
 
     private final transient AuthenticationContext authContext;
     private final GroupService groupService;
+    private final SecurityService securityService;
     private final VerticalLayout drawerContainer = new VerticalLayout();
 
     /**
      * Construtor que monta a estrutura básica da página.
      */
-    public MainLayout(AuthenticationContext authContext, GroupService groupService) {
+    public MainLayout(AuthenticationContext authContext, GroupService groupService, SecurityService securityService) {
         this.authContext = authContext;
         this.groupService = groupService;
+        this.securityService = securityService;
         createHeader(); // Cria o topo da página
         createDrawer(); // Cria a barra de navegação lateral
     }
@@ -103,13 +106,14 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         SideNav chatNav = new SideNav();
         chatNav.setLabel("Meus Grupos");
 
-        groupService.findAll().stream()
-                .filter(Group::isActive)
-                .forEach(group -> {
-                    String url = RouteConfiguration.forSessionScope().getUrl(ChatView.class, group.getId());
-                    SideNavItem item = new SideNavItem(group.getName(), url, VaadinIcon.GROUP.create());
-                    chatNav.addItem(item);
-                });
+        securityService.getAuthenticatedInternalUser().ifPresent(user -> {
+            groupService.findActiveGroupsByUser(user)
+                    .forEach(group -> {
+                        String url = RouteConfiguration.forSessionScope().getUrl(ChatView.class, group.getId());
+                        SideNavItem item = new SideNavItem(group.getName(), url, VaadinIcon.GROUP.create());
+                        chatNav.addItem(item);
+                    });
+        });
 
         drawerContainer.add(backButton, chatNav);
     }

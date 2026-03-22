@@ -1,6 +1,7 @@
 package com.xflprflx.neokioski.services;
 
 import com.xflprflx.neokioski.models.Group;
+import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.repositories.GroupRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +16,13 @@ public class GroupService {
 
     public GroupService(GroupRepository repository) {
         this.repository = repository;
+    }
+
+    public List<Group> findActiveGroupsByUser(User user) {
+        if (user == null || user.getId() == null) {
+            return List.of();
+        }
+        return repository.findByUsersIdAndIsActiveTrue(user.getId());
     }
 
     public List<Group> findAll() {
@@ -34,7 +42,7 @@ public class GroupService {
     }
 
     public Optional<Group> findById(Long id) {
-        return repository.findById(id);
+        return repository.findByIdWithUsers(id);
     }
 
     @Transactional

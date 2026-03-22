@@ -83,7 +83,8 @@ public class ChatService {
     public void deleteMessage(Long messageId, User user) {
         repository.findById(messageId).ifPresent(message -> {
             // Apenas o autor ou ADMIN (opcional, mas foco no autor por enquanto) pode excluir
-            if (message.getUser().equals(user) && !message.isDeleted()) {
+            boolean isAdmin = user.getRole() == com.xflprflx.neokioski.models.enums.Role.ADMIN;
+            if ((message.getUser().equals(user) || isAdmin) && !message.isDeleted()) {
                 message.setDeleted(true);
                 repository.save(message);
                 broadcast(message.getGroup().getId(), message);

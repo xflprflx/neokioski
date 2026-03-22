@@ -1,4 +1,5 @@
 package com.xflprflx.neokioski.ui.views;
+// v2 - forced refresh
 
 import com.vaadin.flow.component.avatar.Avatar;
 import com.vaadin.flow.component.button.Button;
@@ -9,6 +10,7 @@ import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.listbox.ListBox;
 import com.vaadin.flow.component.messages.MessageInput;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
@@ -16,6 +18,7 @@ import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.dom.Element;
 import com.vaadin.flow.router.BeforeEvent;
 import com.vaadin.flow.router.HasUrlParameter;
 import com.vaadin.flow.router.PageTitle;
@@ -29,6 +32,7 @@ import com.xflprflx.neokioski.models.enums.Role;
 import com.xflprflx.neokioski.security.SecurityService;
 import com.xflprflx.neokioski.services.ChatService;
 import com.xflprflx.neokioski.services.GroupService;
+import com.xflprflx.neokioski.services.UserService;
 import jakarta.annotation.security.PermitAll;
 
 import java.io.IOException;
@@ -47,6 +51,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private final ChatService chatService;
     private final GroupService groupService;
     private final SecurityService securityService;
+    private final UserService userService;
 
     private Group group;
     private User currentUser;
@@ -56,21 +61,34 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private final MessageInput messageInput = new MessageInput();
     private final H2 groupName = new H2();
     private final HorizontalLayout replyBar = new HorizontalLayout();
+    private Div suggestionWrapper;
+    private ListBox<User> suggestionList;
+    
+    // Contexto de menções
+    private Element activeMentionTarget;
+    private Div activeSuggestionWrapper;
+    private ListBox<User> activeSuggestionList;
+    private final Map<String, Div> suggestionWrappers = new HashMap<>();
+    private final Map<String, ListBox<User>> suggestionLists = new HashMap<>();
+    private String activeMentionId = "main-input";
     private final Map<Long, HorizontalLayout> messageWrappers = new HashMap<>();
     
     private Consumer<ChatMessage> listener;
     
     private final String newMessageB64;
     private final String replyToMeB64;
+    private final String mentionedB64;
+    private final String removeOrEditB64;
     private ChatMessage replyTo = null;
 
     private final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
             .withZone(ZoneId.systemDefault());
 
-    public ChatView(ChatService chatService, GroupService groupService, SecurityService securityService) {
+    public ChatView(ChatService chatService, GroupService groupService, SecurityService securityService, UserService userService) {
         this.chatService = chatService;
         this.groupService = groupService;
         this.securityService = securityService;
+        this.userService = userService;
 
         setSizeFull();
         setPadding(false);
@@ -79,6 +97,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         // Load audio data as Base64 from resources
         this.newMessageB64 = loadAudioAsBase64("themes/neokioski/sounds/new-message.mp3");
         this.replyToMeB64 = loadAudioAsBase64("themes/neokioski/sounds/reply-to-me.mp3");
+        this.mentionedB64 = loadAudioAsBase64("themes/neokioski/sounds/i-was-mentioned.mp3");
+        this.removeOrEditB64 = loadAudioAsBase64("themes/neokioski/sounds/remove-or-edit.mp3");
 
         configureUI();
         unlockAudio();
@@ -103,7 +123,9 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         getElement().executeJs(
             "window.audioData = {" +
             "  'new-message': 'data:audio/mp3;base64," + newMessageB64 + "'," +
-            "  'reply-to-me': 'data:audio/mp3;base64," + replyToMeB64 + "'" +
+            "  'reply-to-me': 'data:audio/mp3;base64," + replyToMeB64 + "'," +
+            "  'i-was-mentioned': 'data:audio/mp3;base64," + mentionedB64 + "'," +
+            "  'remove-or-edit': 'data:audio/mp3;base64," + removeOrEditB64 + "'" +
             "};" +
             "const unlock = () => {" +
             "  const ctx = new (window.AudioContext || window.webkitAudioContext)();" +
@@ -142,7 +164,185 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                 .set("padding-right", "var(--lumo-space-l)")
                 .set("font-size", "var(--lumo-font-size-xl)");
         
+        getStyle().set("position", "relative"); // Para o suggestionWrapper absoluto funcionar
         add(groupName, scroller, replyBar, messageInput);
+        configureSuggestions();
+    }
+
+    private void configureSuggestions() {
+        suggestionList = new ListBox<>();
+        suggestionWrapper = new Div(suggestionList);
+        suggestionWrapper.setId("main-suggestion-wrapper");
+        suggestionWrapper.getStyle()
+                .set("position", "absolute")
+                .set("bottom", "80px")
+                .set("left", "20px")
+                .set("z-index", "10005")
+                .set("background", "var(--lumo-base-color)")
+                .set("box-shadow", "0 4px 12px rgba(0,0,0,0.15)")
+                .set("border-radius", "8px")
+                .set("padding", "4px")
+                .set("border", "1px solid var(--lumo-contrast-10pct)");
+        suggestionWrapper.setVisible(false);
+
+        activeSuggestionWrapper = suggestionWrapper;
+        activeSuggestionList = suggestionList;
+        activeMentionTarget = messageInput.getElement();
+        activeMentionId = "main-input";
+
+        String mainId = "main-input";
+        messageInput.getElement().setAttribute("mention-id", mainId);
+        suggestionWrappers.put(mainId, suggestionWrapper);
+        suggestionLists.put(mainId, suggestionList);
+
+        // Expor funções globalmente no carregar da página
+        com.vaadin.flow.component.UI.getCurrent().getPage().executeJs(
+            "window.nkChatServer = {" +
+            "  show: (query) => $0.$server.showSuggestions(query)," +
+            "  hide: () => $0.$server.hideSuggestions()," +
+            "  setActive: (id) => $0.$server.setActiveTargetById(id)" +
+            "};",
+            getElement()
+        );
+
+        configureSuggestionList(suggestionList);
+        setupMentionLogic(messageInput.getElement(), mainId);
+        add(suggestionWrapper);
+    }
+
+    private void configureSuggestionList(ListBox<User> list) {
+        list.setRenderer(new com.vaadin.flow.data.renderer.ComponentRenderer<>(user -> {
+            Span name = new Span(user.getName());
+            Span username = new Span("@" + user.getUsername());
+            username.getStyle().set("font-size", "var(--lumo-font-size-xs)");
+            username.getStyle().set("color", "var(--lumo-secondary-text-color)");
+            username.getStyle().set("margin-left", "8px");
+            return new HorizontalLayout(name, username);
+        }));
+
+        list.addValueChangeListener(event -> {
+            if (event.getValue() != null) {
+                applyMention(event.getValue());
+                list.setValue(null);
+            }
+        });
+    }
+
+    @com.vaadin.flow.component.ClientCallable
+    public void showSuggestions(String query) {
+        if (activeSuggestionWrapper == null || activeSuggestionList == null) {
+            this.activeSuggestionWrapper = suggestionWrapper;
+            this.activeSuggestionList = suggestionList;
+            if (activeSuggestionWrapper == null) return;
+        }
+
+        List<User> suggestions = userService.findAll().stream()
+                .filter(u -> !u.equals(currentUser))
+                .filter(u -> u.getUsername().toLowerCase().contains(query.toLowerCase()) || 
+                             u.getName().toLowerCase().contains(query.toLowerCase()))
+                .collect(Collectors.toList());
+
+        if (suggestions.isEmpty()) {
+            activeSuggestionWrapper.setVisible(false);
+        } else {
+            activeSuggestionList.setItems(suggestions);
+            activeSuggestionWrapper.setVisible(true);
+            activeSuggestionWrapper.getStyle().set("z-index", "10005");
+        }
+    }
+
+    @com.vaadin.flow.component.ClientCallable
+    public void hideSuggestions() {
+        if (activeSuggestionWrapper != null) {
+            activeSuggestionWrapper.setVisible(false);
+        }
+    }
+
+    @com.vaadin.flow.component.ClientCallable
+    public void setActiveTargetById(String mentionId) {
+        if (mentionId == null) {
+             mentionId = "main-input";
+        }
+
+        Div wrapper = suggestionWrappers.get(mentionId);
+        ListBox<User> list = suggestionLists.get(mentionId);
+        
+        if (wrapper != null && list != null) {
+            this.activeMentionId = mentionId;
+            if (mentionId.equals("main-input")) {
+                this.activeMentionTarget = messageInput.getElement();
+            }
+            this.activeSuggestionWrapper = wrapper;
+            this.activeSuggestionList = list;
+        }
+    }
+
+    private void applyMention(User user) {
+        String mention = "@" + user.getUsername() + " ";
+        getElement().executeJs(
+            "const findT = (el) => {\n" +
+            "  if (!el) return null;\n" +
+            "  if (el.tagName === 'TEXTAREA') return el;\n" +
+            "  if (el.shadowRoot) {\n" +
+            "    const internal = el.shadowRoot.querySelector('textarea, vaadin-message-input-textarea');\n" +
+            "    if (internal) return findT(internal);\n" +
+            "  }\n" +
+            "  return el.querySelector('textarea');\n" +
+            "};\n" +
+            "const host = document.querySelector('[mention-id=\"' + $1 + '\"]');\n" +
+            "const target = findT(host);\n" +
+            "if (!target) return;\n" +
+            "const val = target.value;\n" +
+            "const pos = target.selectionStart;\n" +
+            "const textBefore = val.substring(0, pos);\n" +
+            "const textAfter = val.substring(pos);\n" +
+            "const atIndex = textBefore.lastIndexOf('@');\n" +
+            "const newVal = textBefore.substring(0, atIndex) + $0 + textAfter;\n" +
+            "target.value = newVal;\n" +
+            "const newPos = atIndex + $0.length;\n" +
+            "target.focus();\n" +
+            "target.setSelectionRange(newPos, newPos);\n" +
+            "target.dispatchEvent(new Event('input', { bubbles: true, composed: true }));\n" +
+            "target.dispatchEvent(new Event('change', { bubbles: true, composed: true }));\n" +
+            "if (host && host.value !== undefined) host.value = newVal;",
+            mention, activeMentionId
+        );
+        hideSuggestions();
+    }
+
+    private void setupMentionLogic(Element element, String mentionId) {
+        element.executeJs(
+            "const mentionId = $0;\n" +
+            "const findT = (el) => {\n" +
+            "  if (el.tagName === 'TEXTAREA') return el;\n" +
+            "  if (el.shadowRoot) {\n" +
+            "    const internal = el.shadowRoot.querySelector('textarea, vaadin-message-input-textarea');\n" +
+            "    if (internal) return findT(internal);\n" +
+            "  }\n" +
+            "  return el.querySelector('textarea');\n" +
+            "};\n" +
+            "const host = this;\n" +
+            "const target = findT(host);\n" +
+            "if (!target) return;\n" +
+            "const handleInput = e => {\n" +
+            "  const val = target.value;\n" +
+            "  const pos = target.selectionStart;\n" +
+            "  const textBefore = val.substring(0, pos);\n" +
+            "  const atIndex = textBefore.lastIndexOf('@');\n" +
+            "  if (atIndex !== -1 && (atIndex === 0 || textBefore[atIndex-1] === ' ')) {\n" +
+            "    const query = textBefore.substring(atIndex + 1);\n" +
+            "    if (!query.includes(' ')) {\n" +
+            "      if (window.nkChatServer) window.nkChatServer.setActive(mentionId);\n" +
+            "      if (window.nkChatServer) window.nkChatServer.show(query);\n" +
+            "      return;\n" +
+            "    }\n" +
+            "  }\n" +
+            "  if (window.nkChatServer) window.nkChatServer.hide();\n" +
+            "};\n" +
+            "target.addEventListener('input', handleInput);\n" +
+            "target.addEventListener('focus', () => { if (window.nkChatServer) window.nkChatServer.setActive(mentionId); });",
+            mentionId
+        );
     }
 
     private void configureReplyBar() {
@@ -305,17 +505,23 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         
         if (msg.isDeleted()) {
             Span deletedBadge = new Span("APAGADA");
-            deletedBadge.getStyle().set("background-color", "var(--lumo-error-color)");
-            deletedBadge.getStyle().set("color", "white");
-            deletedBadge.getStyle().set("padding", "2px 6px");
-            deletedBadge.getStyle().set("border-radius", "4px");
-            deletedBadge.getStyle().set("font-size", "var(--lumo-font-size-xxs)");
-            deletedBadge.getStyle().set("font-weight", "bold");
-            deletedBadge.getStyle().set("margin-bottom", "var(--lumo-space-xs)");
-            content.add(deletedBadge, new Div()); // New line after badge
+            deletedBadge.getStyle()
+                    .set("background-color", "var(--lumo-error-color)")
+                    .set("color", "white")
+                    .set("padding", "2px 8px")
+                    .set("border-radius", "4px")
+                    .set("font-size", "10px")
+                    .set("font-weight", "bold")
+                    .set("display", "inline-block")
+                    .set("margin-bottom", "4px")
+                    .set("box-shadow", "0 2px 4px rgba(0,0,0,0.2)");
+            
+            Div badgeWrapper = new Div(deletedBadge);
+            badgeWrapper.getStyle().set("margin-bottom", "4px");
+            content.add(badgeWrapper);
         }
 
-        Span messageText = new Span(msg.getContent());
+        Div messageText = renderMessageContent(msg.getContent());
         if (msg.isDeleted()) messageText.getStyle().set("opacity", "0.6");
         content.add(messageText);
         
@@ -404,7 +610,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE, ButtonVariant.LUMO_SMALL);
         deleteBtn.getStyle().set("opacity", "0.5");
         deleteBtn.getStyle().set("color", "var(--lumo-error-text-color)");
-        deleteBtn.setVisible(isMine && !msg.isDeleted());
+        deleteBtn.setVisible((isMine || isAdmin) && !msg.isDeleted());
 
         // Botão de Histórico (Só para ADMIN)
         Button historyBtn = new Button(VaadinIcon.TIMER.create(), e -> openHistoryDialog(msg));
@@ -449,6 +655,51 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         return wrapper;
     }
 
+    private Div renderMessageContent(String content) {
+        Div container = new Div();
+        if (content == null || content.isEmpty()) return container;
+
+        // Regex to find mentions like @username
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("@(\\w+)");
+        java.util.regex.Matcher matcher = pattern.matcher(content);
+
+        int lastEnd = 0;
+        while (matcher.find()) {
+            // Append text before the mention
+            if (matcher.start() > lastEnd) {
+                container.add(new Span(content.substring(lastEnd, matcher.start())));
+            }
+
+            String username = matcher.group(1);
+            Span mention = new Span("@" + username);
+            mention.getStyle()
+                    .set("font-weight", "bold")
+                    .set("color", "var(--lumo-primary-text-color)")
+                    .set("background", "var(--lumo-primary-color-10pct)")
+                    .set("padding", "0 4px")
+                    .set("border-radius", "4px")
+                    .set("white-space", "nowrap")
+                    .set("display", "inline-block")
+                    .set("vertical-align", "middle");
+            container.add(mention);
+
+            lastEnd = matcher.end();
+        }
+
+        // Append remaining text
+        if (lastEnd < content.length()) {
+            container.add(new Span(content.substring(lastEnd)));
+        }
+
+        return container;
+    }
+
+    private boolean isUserMentioned(String content, String username) {
+        if (content == null || username == null) return false;
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("@" + java.util.regex.Pattern.quote(username) + "(\\b|$)");
+        return pattern.matcher(content).find();
+    }
+
     private void setupRealTimeUpdate() {
         if (listener != null && group != null) {
             chatService.unregister(group.getId(), listener);
@@ -461,18 +712,37 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     addOrUpdateMessageInUI(msg);
                     scrollToBottom();
                     
-                    if (isNew && !msg.getUser().getId().equals(currentUser.getId())) {
+                    if (!msg.getUser().getId().equals(currentUser.getId())) {
                         boolean isReplyToMe = msg.getReplyTo() != null && 
                                              msg.getReplyTo().getUser().getId().equals(currentUser.getId());
+                        boolean mentioned = currentUser != null && isUserMentioned(msg.getContent(), currentUser.getUsername());
                         
-                        if (isReplyToMe) {
-                            playNotificationSound("reply-to-me");
-                            Notification n = new Notification(msg.getUser().getName() + " respondeu a você!");
-                            n.setDuration(5000);
-                            n.addThemeVariants(NotificationVariant.LUMO_PRIMARY);
-                            n.open();
+                        if (isNew) {
+                            if (isReplyToMe) {
+                                playNotificationSound("reply-to-me");
+                                Notification n = new Notification(msg.getUser().getName() + " respondeu a você!");
+                                n.setDuration(5000);
+                                n.addThemeVariants(NotificationVariant.LUMO_PRIMARY);
+                                n.open();
+                            } else if (mentioned) {
+                                playNotificationSound("i-was-mentioned");
+                                Notification n = new Notification(msg.getUser().getName() + " mencionou você!");
+                                n.setDuration(5000);
+                                n.addThemeVariants(NotificationVariant.LUMO_PRIMARY);
+                                n.open();
+                            } else {
+                                playNotificationSound("new-message");
+                            }
                         } else {
-                            playNotificationSound("new-message");
+                            if (mentioned && !msg.isDeleted()) {
+                                playNotificationSound("i-was-mentioned");
+                                Notification n = new Notification(msg.getUser().getName() + " mencionou você na edição da mensagem!");
+                                n.setDuration(5000);
+                                n.addThemeVariants(NotificationVariant.LUMO_PRIMARY);
+                                n.open();
+                            } else {
+                                playNotificationSound("remove-or-edit");
+                            }
                         }
                     }
                 });
@@ -486,12 +756,59 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
     private void openEditDialog(ChatMessage msg) {
         Dialog dialog = new Dialog();
+        dialog.setWidth("600px");
+        dialog.setMaxWidth("90%");
         dialog.setHeaderTitle("Editar Mensagem");
 
         com.vaadin.flow.component.textfield.TextArea textArea = new com.vaadin.flow.component.textfield.TextArea();
         textArea.setValue(msg.getContent());
         textArea.setWidthFull();
         textArea.setMinHeight("100px");
+
+        ListBox<User> dialogSuggestionList = new ListBox<>();
+        dialogSuggestionList.setRenderer(new com.vaadin.flow.data.renderer.ComponentRenderer<>(user -> {
+            Span name = new Span(user.getName());
+            name.getStyle().set("font-weight", "bold");
+            Span username = new Span("@" + user.getUsername());
+            username.getStyle().set("font-size", "var(--lumo-font-size-xs)");
+            username.getStyle().set("color", "var(--lumo-secondary-text-color)");
+            
+            VerticalLayout info = new VerticalLayout(name, username);
+            info.getStyle()
+                    .set("display", "flex")
+                    .set("flex-direction", "column")
+                    .set("gap", "2px")
+                    .set("white-space", "nowrap");
+            info.setSpacing(false);
+            info.setPadding(false);
+            return info;
+        }));
+
+        Div dialogSuggestionWrapper = new Div(dialogSuggestionList);
+        dialogSuggestionWrapper.setId("dialog-suggestion-wrapper-" + System.currentTimeMillis());
+        dialogSuggestionWrapper.getStyle()
+                .set("position", "absolute")
+                .set("z-index", "10001")
+                .set("background", "var(--lumo-base-color)")
+                .set("box-shadow", "0 4px 12px rgba(0,0,0,0.15)")
+                .set("border-radius", "8px")
+                .set("padding", "4px")
+                .set("border", "1px solid var(--lumo-contrast-10pct)");
+        dialogSuggestionWrapper.setVisible(false);
+
+        configureSuggestionList(dialogSuggestionList);
+        // Ao focar ou digitar, definir este target como ativo
+        String dialogId = "dialog-" + System.currentTimeMillis();
+        textArea.getElement().setAttribute("mention-id", dialogId);
+        suggestionWrappers.put(dialogId, dialogSuggestionWrapper);
+        suggestionLists.put(dialogId, dialogSuggestionList);
+        
+        this.activeMentionId = dialogId;
+        this.activeSuggestionWrapper = dialogSuggestionWrapper;
+        this.activeSuggestionList = dialogSuggestionList;
+        this.activeMentionTarget = textArea.getElement();
+
+        setupMentionLogic(textArea.getElement(), dialogId);
 
         Button saveBtn = new Button("Salvar", e -> {
             chatService.editMessage(msg.getId(), textArea.getValue(), currentUser);
@@ -501,7 +818,10 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         
         Button cancelBtn = new Button("Cancelar", e -> dialog.close());
         
-        dialog.add(textArea);
+        Div container = new Div(textArea, dialogSuggestionWrapper);
+        container.getStyle().set("position", "relative");
+        
+        dialog.add(container);
         dialog.getFooter().add(cancelBtn, saveBtn);
         dialog.open();
     }
@@ -604,8 +924,9 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         String js = String.format(
             "window.audioData = window.audioData || {};" +
             "window.audioData['new-message'] = 'data:audio/mp3;base64,%s';" +
-            "window.audioData['reply-to-me'] = 'data:audio/mp3;base64,%s';",
-            newMessageB64, replyToMeB64
+            "window.audioData['reply-to-me'] = 'data:audio/mp3;base64,%s';" +
+            "window.audioData['i-was-mentioned'] = 'data:audio/mp3;base64,%s';",
+            newMessageB64, replyToMeB64, mentionedB64
         );
         attachEvent.getUI().getPage().executeJs(js);
         showPermissionDialog();

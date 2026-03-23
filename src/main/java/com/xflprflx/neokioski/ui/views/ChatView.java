@@ -88,6 +88,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private final Map<String, ListBox<User>> suggestionLists = new HashMap<>();
     private String activeMentionId = "main-input";
     private final Map<Long, HorizontalLayout> messageWrappers = new HashMap<>();
+    private final Map<Long, Long> taskIdToMessageId = new HashMap<>();
     
     private Consumer<ChatMessage> listener;
     private Consumer<Task> taskListener;
@@ -657,6 +658,9 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     private void addOrUpdateMessageInUI(ChatMessage msg) {
+        if (msg.getTask() != null) {
+            taskIdToMessageId.put(msg.getTask().getId(), msg.getId());
+        }
         if (messageWrappers.containsKey(msg.getId())) {
             HorizontalLayout oldWrapper = messageWrappers.get(msg.getId());
             HorizontalLayout newWrapper;
@@ -1026,6 +1030,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                 Button stepBtn = new Button(step.getLabel(), ev -> {
                     taskService.executeStep(task.getId(), step, currentUser);
                 });
+                stepBtn.setEnabled(!taskService.isTaskFinalized(task));
                 stepBtn.addThemeVariants(ButtonVariant.LUMO_SMALL);
                 if (sr.isFinalizer()) {
                     stepBtn.addThemeVariants(ButtonVariant.LUMO_SUCCESS);
@@ -1212,6 +1217,27 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
         if (group != null) {
             chatService.register(group.getId(), listener);
+        }
+
+        taskListener = task -> {
+            if (getUI().isPresent()) {
+                getUI().get().access(() -> {
+                    Long messageId = taskIdToMessageId.get(task.getId());
+                    if (messageId != null) {
+                        // Buscar a mensagem novamente para garantir que tenha o estado mais recente
+                        // ou apenas atualizar o card diretamente se possível.
+                        // Como addOrUpdateMessageInUI reconstrói o layout, precisamos da ChatMessage completa.
+                        chatService.getMessagesByGroup(group).stream()
+                            .filter(m -> m.getId().equals(messageId))
+                            .findFirst()
+                            .ifPresent(this::addOrUpdateMessageInUI);
+                    }
+                });
+            }
+        };
+
+        if (group != null) {
+            taskService.register(group.getId(), taskListener);
         }
     }
 
@@ -1420,6 +1446,9 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     protected void onDetach(com.vaadin.flow.component.DetachEvent detachEvent) {
         if (listener != null && group != null) {
             chatService.unregister(group.getId(), listener);
+        }
+        if (taskListener != null && group != null) {
+            taskService.unregister(group.getId(), taskListener);
         }
         super.onDetach(detachEvent);
     }

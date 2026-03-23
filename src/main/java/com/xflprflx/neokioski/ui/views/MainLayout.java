@@ -29,6 +29,7 @@ import com.xflprflx.neokioski.services.TaskService;
 import jakarta.annotation.security.PermitAll;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * Layout principal da aplicação que define o cabeçalho (Header) e o menu lateral (Drawer).
@@ -42,6 +43,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     private final SecurityService securityService;
     private final TaskService taskService;
     private final VerticalLayout drawerContainer = new VerticalLayout();
+    private final VerticalLayout taskList = new VerticalLayout();
+    private Consumer<Task> taskListener;
+    private Long registeredGroupId;
 
     // Filtros ativos
     private String filterOwner = "todas"; // "minhas", "todas", ou username de um membro
@@ -155,8 +159,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
                 .set("padding", "var(--lumo-space-xs) var(--lumo-space-s)")
                 .set("display", "block");
 
-        // Container da lista de tasks
-        VerticalLayout taskList = new VerticalLayout();
+        // Container da lista de tasks (usando o campo da classe agora)
         taskList.setPadding(false);
         taskList.setSpacing(false);
         taskList.setWidthFull();
@@ -188,7 +191,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
             if (val == null || val.equals("Todas")) filterOwner = "todas";
             else if (val.equals("Minhas")) filterOwner = "minhas";
             else filterOwner = val; // username
-            refreshTaskList(taskList, group);
+            refreshTaskList(this.taskList, group);
         });
 
         // ── Dropdown 2: Status ──────────────────────────────────────────
@@ -201,7 +204,8 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         // Popular com steps distintos das tasks do grupo
         java.util.List<String> stepOptions = new java.util.ArrayList<>();
         stepOptions.add("Todos");
-        stepOptions.add("Pendente"); // tasks sem currentStep
+        stepOptions.add("Pendentes");
+        stepOptions.add("Finalizadas");
         taskService.getTasksByGroup(group).stream()
                 .filter(t -> t.getCurrentStep() != null)
                 .map(t -> t.getCurrentStep().getLabel())
@@ -215,7 +219,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         statusFilter.addValueChangeListener(e -> {
             String val = e.getValue();
             filterStatus = (val == null || val.equals("Todos")) ? "todos" : val;
-            refreshTaskList(taskList, group);
+            refreshTaskList(this.taskList, group);
         });
 
         VerticalLayout filters = new VerticalLayout(ownerFilter, statusFilter);
@@ -224,7 +228,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         filters.getStyle().set("padding", "0 var(--lumo-space-xs)");
 
         // Carregar tasks iniciais
-        refreshTaskList(taskList, group);
+        refreshTaskList(this.taskList, group);
 
         panel.add(divider, sectionTitle, filters, taskList);
         return panel;
@@ -255,7 +259,8 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         if (!filterStatus.equals("todos")) {
             tasks = tasks.stream()
                     .filter(t -> {
-                        if (filterStatus.equals("Pendente")) return t.getCurrentStep() == null;
+                        if (filterStatus.equals("Pendentes")) return !taskService.isTaskFinalized(t);
+                        if (filterStatus.equals("Finalizadas")) return taskService.isTaskFinalized(t);
                         return t.getCurrentStep() != null && t.getCurrentStep().getLabel().equals(filterStatus);
                     })
                     .collect(java.util.stream.Collectors.toList());
@@ -352,7 +357,35 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         content.setSpacing(true);
 
         if (task.getCurrentStep() != null) {
-            content.add(new Span("Status: " + task.getCurrentStep().getLabel()));
+            String stepLabel = task.getCurrentStep().getLabel();
+            String colorTheme = task.getCurrentStep().getColorTheme();
+            Span stepBadge = new Span(stepLabel);
+            stepBadge.getStyle()
+                    .set("background-color", colorTheme != null ? colorTheme : "var(--lumo-primary-color-10pct)")
+                    .set("color", "var(--lumo-primary-text-color)")
+                    .set("padding", "2px 10px")
+                    .set("border-radius", "12px")
+                    .set("font-size", "var(--lumo-font-size-xs)")
+                    .set("font-weight", "bold");
+            
+            HorizontalLayout statusRow = new HorizontalLayout(new Span("Status: "), stepBadge);
+            statusRow.setAlignItems(FlexComponent.Alignment.CENTER);
+            
+            if (taskService.isTaskFinalized(task)) {
+                Span finalizedBadge = new Span("Finalizada");
+                finalizedBadge.getStyle()
+                    .set("background-color", "var(--lumo-success-color)")
+                    .set("color", "white")
+                    .set("padding", "2px 10px")
+                    .set("border-radius", "12px")
+                    .set("font-size", "var(--lumo-font-size-xs)")
+                    .set("font-weight", "bold")
+                    .set("margin-left", "var(--lumo-space-s)");
+                statusRow.add(finalizedBadge);
+            }
+            content.add(statusRow);
+        } else {
+            content.add(new Span("Status: Pendente"));
         }
         if (task.getCreator() != null) {
             content.add(new Span("Criado por: @" + task.getCreator().getUsername()));
@@ -400,6 +433,31 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
             }
             currentGroup = group;
             showChatNav(group);
+            setupTaskListener();
         }
+    }
+
+    private void setupTaskListener() {
+        if (taskListener != null && registeredGroupId != null) {
+            taskService.unregister(registeredGroupId, taskListener);
+        }
+
+        if (currentGroup != null) {
+            taskListener = task -> {
+                getUI().ifPresent(ui -> ui.access(() -> {
+                    refreshTaskList(this.taskList, currentGroup);
+                }));
+            };
+            registeredGroupId = currentGroup.getId();
+            taskService.register(registeredGroupId, taskListener);
+        }
+    }
+
+    @Override
+    protected void onDetach(com.vaadin.flow.component.DetachEvent detachEvent) {
+        if (taskListener != null && registeredGroupId != null) {
+            taskService.unregister(registeredGroupId, taskListener);
+        }
+        super.onDetach(detachEvent);
     }
 }

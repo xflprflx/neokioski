@@ -11,18 +11,19 @@ import java.util.List;
 
 public interface TaskRepository extends JpaRepository<Task, Long> {
 
-    List<Task> findByGroupOrderByCreatedAtDesc(Group group);
+    @Query("SELECT DISTINCT t FROM Task t LEFT JOIN FETCH t.taskFieldValues LEFT JOIN FETCH t.taskEvents WHERE t.group = :group ORDER BY t.createdAt DESC")
+    List<Task> findByGroupWithCollections(@Param("group") Group group);
 
     @Query("SELECT DISTINCT t FROM Task t LEFT JOIN t.taskEvents e WHERE t.group = :group AND (t.creator = :user OR e.user = :user) ORDER BY t.createdAt DESC")
     List<Task> findMyTasksByGroup(@Param("group") Group group, @Param("user") User user);
 
     @Query("""
            SELECT t FROM Task t
-           JOIN TemplateStepRelation sr
+           LEFT JOIN TemplateStepRelation sr
              ON sr.taskTemplate = t.taskTemplate
             AND sr.taskStepDefinition = t.currentStep
            WHERE t.group = :group
-             AND sr.isFinalizer = false
+             AND (t.currentStep IS NULL OR sr.isFinalizer = false)
            ORDER BY t.createdAt DESC
            """)
     List<Task> findPendingByGroup(@Param("group") Group group);

@@ -83,7 +83,7 @@ public class TaskService {
     }
 
     public List<Task> getTasksByGroup(Group group) {
-        return taskRepository.findByGroupOrderByCreatedAtDesc(group);
+        return taskRepository.findByGroupWithCollections(group);
     }
 
     public List<Task> getMyTasks(Group group, User user) {
@@ -101,6 +101,13 @@ public class TaskService {
     public void unregister(Long groupId, Consumer<Task> listener) {
         List<Consumer<Task>> groupListeners = listeners.get(groupId);
         if (groupListeners != null) groupListeners.remove(listener);
+    }
+
+    public boolean isTaskFinalized(Task task) {
+        if (task.getCurrentStep() == null) return false;
+        return stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
+                task.getTaskTemplate().getId(), task.getCurrentStep().getId()
+        ).map(TemplateStepRelation::isFinalizer).orElse(false);
     }
 
     private void broadcast(Long groupId, Task task) {

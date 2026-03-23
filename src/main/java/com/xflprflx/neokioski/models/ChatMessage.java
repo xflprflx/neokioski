@@ -39,6 +39,9 @@ public class ChatMessage {
     @JoinColumn(name = "reply_to_id")
     private ChatMessage replyTo;
 
+    @OneToOne
+    private Task task;
+
     public ChatMessage() {
     }
 
@@ -124,5 +127,13 @@ public class ChatMessage {
 
     public void setDeleted(boolean deleted) {
         isDeleted = deleted;
+    }
+
+    public Task getTask() {
+        return task;
+    }
+
+    public void setTask(Task task) {
+        this.task = task;
     }
 }

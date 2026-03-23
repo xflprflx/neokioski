@@ -33,7 +33,6 @@ public class TaskTemplate {
     @OneToMany(mappedBy = "taskTemplate")
     private List<TemplateFieldRelation> templateFieldRelation = new ArrayList<>();
 
-
     public TaskTemplate() {
     }
 

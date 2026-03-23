@@ -27,15 +27,23 @@ import com.xflprflx.neokioski.models.ChatMessage;
 import com.xflprflx.neokioski.models.Group;
 import com.xflprflx.neokioski.models.MessageReaction;
 import com.xflprflx.neokioski.models.MessageEdit;
+import com.xflprflx.neokioski.models.Task;
+import com.xflprflx.neokioski.models.TaskEvent;
 import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.models.enums.Role;
+import com.xflprflx.neokioski.models.template.TaskFieldDefinition;
+import com.xflprflx.neokioski.models.TaskFieldValue;
+
+import com.xflprflx.neokioski.models.template.TaskStepDefinition;
 import com.xflprflx.neokioski.security.SecurityService;
 import com.xflprflx.neokioski.services.ChatService;
 import com.xflprflx.neokioski.services.GroupService;
+import com.xflprflx.neokioski.services.TaskService;
 import com.xflprflx.neokioski.services.UserService;
 import com.xflprflx.neokioski.services.TaskTemplateService;
 import com.xflprflx.neokioski.models.template.TaskTemplate;
 import com.xflprflx.neokioski.models.template.TemplateFieldRelation;
+import com.xflprflx.neokioski.models.template.TemplateStepRelation;
 import com.xflprflx.neokioski.models.template.TaskFieldOption;
 import com.xflprflx.neokioski.models.template.InputType;
 import jakarta.annotation.security.PermitAll;
@@ -58,6 +66,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private final SecurityService securityService;
     private final UserService userService;
     private final TaskTemplateService taskTemplateService;
+    private final TaskService taskService;
 
     private Group group;
     private User currentUser;
@@ -81,6 +90,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private final Map<Long, HorizontalLayout> messageWrappers = new HashMap<>();
     
     private Consumer<ChatMessage> listener;
+    private Consumer<Task> taskListener;
     
     private final String newMessageB64;
     private final String replyToMeB64;
@@ -91,12 +101,13 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
             .withZone(ZoneId.systemDefault());
 
-    public ChatView(ChatService chatService, GroupService groupService, SecurityService securityService, UserService userService, TaskTemplateService taskTemplateService) {
+    public ChatView(ChatService chatService, GroupService groupService, SecurityService securityService, UserService userService, TaskTemplateService taskTemplateService, TaskService taskService) {
         this.chatService = chatService;
         this.groupService = groupService;
         this.securityService = securityService;
         this.userService = userService;
         this.taskTemplateService = taskTemplateService;
+        this.taskService = taskService;
 
         setSizeFull();
         setPadding(false);
@@ -236,14 +247,18 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         Dialog dialog = new Dialog();
         dialog.setWidth("600px");
         dialog.setMaxWidth("90%");
-        dialog.setHeaderTitle("Novo: " + template.getName());
+        dialog.setHeaderTitle("Nova Tarefa: " + template.getName());
 
         VerticalLayout formLayout = new VerticalLayout();
         formLayout.setPadding(false);
         formLayout.setSpacing(true);
 
         List<TemplateFieldRelation> fields = taskTemplateService.getFieldRelationsByTemplateId(template.getId());
-        
+
+        // Mapa de campo → componente para coletar valor depois
+        java.util.LinkedHashMap<TaskFieldDefinition, com.vaadin.flow.component.Component> fieldComponents = new java.util.LinkedHashMap<>();
+
+
         for (TemplateFieldRelation rel : fields) {
             InputType type = rel.getTaskFieldDefinition().getInputType();
             String label = rel.getTaskFieldDefinition().getLabel();
@@ -307,7 +322,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     combo.setHelperText(desc);
                     combo.setWidthFull();
                     combo.setRequiredIndicatorVisible(rel.isRequired());
-                    combo.setItems(options); 
+                    combo.setItems(options);
                     fieldComponent = combo;
                     break;
                 case MULTISELECT_DROPDOWN:
@@ -338,6 +353,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             }
 
             if (fieldComponent != null) {
+                fieldComponents.put(rel.getTaskFieldDefinition(), fieldComponent);
                 formLayout.add(fieldComponent);
             }
         }
@@ -350,8 +366,22 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
 
         Button submitBtn = new Button("Enviar", e -> {
+            // Coletar valores dos campos
+            java.util.Map<TaskFieldDefinition, String> fieldValues = new java.util.LinkedHashMap<>();
+            for (java.util.Map.Entry<TaskFieldDefinition, com.vaadin.flow.component.Component> entry : fieldComponents.entrySet()) {
+                String value = extractFieldValue(entry.getValue());
+                fieldValues.put(entry.getKey(), value);
+            }
+
             dialog.close();
-            Notification.show("Template '" + template.getName() + "' preenchido! (Implementação pendente)", 3000, Notification.Position.BOTTOM_CENTER);
+
+            // Criar task
+            Task task = taskService.createTask(template, fieldValues, currentUser, group);
+
+            // Enviar mensagem vinculada à task
+            ChatMessage msg = chatService.sendMessage("📋 Tarefa: " + template.getName(), currentUser, group);
+            // Vincular task à mensagem
+            chatService.linkTaskToMessage(msg.getId(), task);
         });
         submitBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
@@ -629,11 +659,21 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private void addOrUpdateMessageInUI(ChatMessage msg) {
         if (messageWrappers.containsKey(msg.getId())) {
             HorizontalLayout oldWrapper = messageWrappers.get(msg.getId());
-            HorizontalLayout newWrapper = createMessageLayout(msg);
+            HorizontalLayout newWrapper;
+            if (msg.getTask() != null) {
+                newWrapper = createTaskCardLayout(msg.getTask());
+            } else {
+                newWrapper = createMessageLayout(msg);
+            }
             messageContainer.replace(oldWrapper, newWrapper);
             messageWrappers.put(msg.getId(), newWrapper);
         } else {
-            HorizontalLayout wrapper = createMessageLayout(msg);
+            HorizontalLayout wrapper;
+            if (msg.getTask() != null) {
+                wrapper = createTaskCardLayout(msg.getTask());
+            } else {
+                wrapper = createMessageLayout(msg);
+            }
             messageContainer.add(wrapper);
             messageWrappers.put(msg.getId(), wrapper);
         }
@@ -860,6 +900,220 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         wrapper.setJustifyContentMode(isMine ? FlexComponent.JustifyContentMode.END : FlexComponent.JustifyContentMode.START);
 
         return wrapper;
+    }
+
+    /**
+     * Extrai o valor de texto de qualquer tipo de campo do formulário.
+     */
+    @SuppressWarnings("unchecked")
+    private String extractFieldValue(com.vaadin.flow.component.Component component) {
+        if (component instanceof com.vaadin.flow.component.textfield.TextField tf) return tf.getValue();
+        if (component instanceof com.vaadin.flow.component.textfield.NumberField nf)
+            return nf.getValue() != null ? String.valueOf(nf.getValue()) : "";
+        if (component instanceof com.vaadin.flow.component.datepicker.DatePicker dp)
+            return dp.getValue() != null ? dp.getValue().toString() : "";
+        if (component instanceof com.vaadin.flow.component.timepicker.TimePicker tp)
+            return tp.getValue() != null ? tp.getValue().toString() : "";
+        if (component instanceof com.vaadin.flow.component.checkbox.CheckboxGroup<?> cb)
+            return String.join(", ", (Set<String>) cb.getValue());
+        if (component instanceof com.vaadin.flow.component.radiobutton.RadioButtonGroup<?> rb)
+            return rb.getValue() != null ? rb.getValue().toString() : "";
+        if (component instanceof com.vaadin.flow.component.combobox.ComboBox<?> combo)
+            return combo.getValue() != null ? combo.getValue().toString() : "";
+        if (component instanceof com.vaadin.flow.component.combobox.MultiSelectComboBox<?> multi)
+            return String.join(", ", (Set<String>) multi.getValue());
+        return "";
+    }
+
+    /**
+     * Cria o card visual de uma task para exibir no fluxo de mensagens.
+     */
+    private HorizontalLayout createTaskCardLayout(Task task) {
+        // Container principal do card
+        Div card = new Div();
+        card.getStyle()
+                .set("border", "1px solid var(--lumo-contrast-20pct)")
+                .set("border-left", "4px solid var(--lumo-primary-color)")
+                .set("border-radius", "12px")
+                .set("padding", "var(--lumo-space-m)")
+                .set("background", "var(--lumo-base-color)")
+                .set("box-shadow", "var(--lumo-box-shadow-s)")
+                .set("max-width", "480px")
+                .set("min-width", "280px");
+
+        // Emoji + template name (cabeçalho)
+        String templateName = task.getTaskTemplate() != null ? task.getTaskTemplate().getName() : "Tarefa";
+        String emoji = resolveTemplateEmoji(templateName);
+        Span header = new Span(emoji + " " + (task.getTaskTemplate() != null ? task.getTaskTemplate().getName() : "Tarefa"));
+        header.getStyle()
+                .set("font-weight", "bold")
+                .set("font-size", "var(--lumo-font-size-m)")
+                .set("display", "block")
+                .set("margin-bottom", "var(--lumo-space-xs)");
+        card.add(header);
+
+        // Status badge
+        HorizontalLayout statusRow = new HorizontalLayout();
+        statusRow.setSpacing(true);
+        statusRow.setPadding(false);
+        statusRow.setAlignItems(FlexComponent.Alignment.CENTER);
+        statusRow.getStyle().set("margin-bottom", "var(--lumo-space-xs)");
+
+        Span statusLabel = new Span("Status: ");
+        statusLabel.getStyle().set("font-size", "var(--lumo-font-size-s)");
+        statusLabel.getStyle().set("color", "var(--lumo-secondary-text-color)");
+
+        if (task.getCurrentStep() != null) {
+            String stepLabel = task.getCurrentStep().getLabel();
+            String colorTheme = task.getCurrentStep().getColorTheme();
+            Span stepBadge = new Span("⏳ " + stepLabel);
+            stepBadge.getStyle()
+                    .set("background-color", colorTheme != null ? colorTheme : "var(--lumo-primary-color-10pct)")
+                    .set("color", "var(--lumo-primary-text-color)")
+                    .set("padding", "2px 10px")
+                    .set("border-radius", "12px")
+                    .set("font-size", "var(--lumo-font-size-xs)")
+                    .set("font-weight", "bold");
+            statusRow.add(statusLabel, stepBadge);
+        } else {
+            Span pendenteBadge = new Span("⏳ Pendente");
+            pendenteBadge.getStyle()
+                    .set("background-color", "var(--lumo-contrast-20pct)")
+                    .set("color", "var(--lumo-secondary-text-color)")
+                    .set("padding", "2px 10px")
+                    .set("border-radius", "12px")
+                    .set("font-size", "var(--lumo-font-size-xs)")
+                    .set("font-weight", "bold");
+            statusRow.add(statusLabel, pendenteBadge);
+        }
+
+        // Designado (criador como referência inicial)
+        Span creatorSpan = new Span(" | Criado por: @" + (task.getCreator() != null ? task.getCreator().getUsername() : "?"));
+        creatorSpan.getStyle().set("font-size", "var(--lumo-font-size-s)");
+        creatorSpan.getStyle().set("color", "var(--lumo-secondary-text-color)");
+        statusRow.add(creatorSpan);
+        card.add(statusRow);
+
+        // Campos preenchidos
+        if (!task.getTaskFieldValues().isEmpty()) {
+            Div fieldsDiv = new Div();
+            fieldsDiv.getStyle()
+                    .set("background", "var(--lumo-contrast-5pct)")
+                    .set("border-radius", "8px")
+                    .set("padding", "var(--lumo-space-s)")
+                    .set("margin-bottom", "var(--lumo-space-s)")
+                    .set("font-size", "var(--lumo-font-size-s)");
+            for (TaskFieldValue fv : task.getTaskFieldValues()) {
+                String fieldLabel = fv.getTaskFieldDefinition() != null ? fv.getTaskFieldDefinition().getLabel() : "Campo";
+                Div row = new Div();
+                Span lbl = new Span(fieldLabel + ": ");
+                lbl.getStyle().set("font-weight", "bold");
+                row.add(lbl, new Span(fv.getValue()));
+                fieldsDiv.add(row);
+            }
+            card.add(fieldsDiv);
+        }
+
+        // Botões dos steps do template
+        HorizontalLayout actions = new HorizontalLayout();
+        actions.setSpacing(true);
+        actions.setPadding(false);
+
+        if (task.getTaskTemplate() != null) {
+            List<TemplateStepRelation> stepRelations = taskTemplateService.getStepRelationsByTemplateId(task.getTaskTemplate().getId());
+            for (TemplateStepRelation sr : stepRelations) {
+                TaskStepDefinition step = sr.getTaskStepDefinition();
+                Button stepBtn = new Button(step.getLabel(), ev -> {
+                    taskService.executeStep(task.getId(), step, currentUser);
+                });
+                stepBtn.addThemeVariants(ButtonVariant.LUMO_SMALL);
+                if (sr.isFinalizer()) {
+                    stepBtn.addThemeVariants(ButtonVariant.LUMO_SUCCESS);
+                } else {
+                    stepBtn.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
+                }
+                actions.add(stepBtn);
+            }
+        }
+
+        // Botão Ver Detalhes
+        Button detailsBtn = new Button("Ver Detalhes", ev -> openTaskDetailsDialog(task));
+        detailsBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
+        actions.add(detailsBtn);
+
+        card.add(actions);
+
+        // Wrapper alinhado à esquerda (tasks são neutras, não têm side mine/other)
+        HorizontalLayout wrapper = new HorizontalLayout(card);
+        wrapper.setWidthFull();
+        wrapper.setJustifyContentMode(FlexComponent.JustifyContentMode.START);
+        wrapper.getStyle().set("padding-top", "var(--lumo-space-xs)");
+        wrapper.getStyle().set("padding-bottom", "var(--lumo-space-xs)");
+        return wrapper;
+    }
+
+    private String resolveTemplateEmoji(String templateName) {
+        if (templateName == null) return "📋";
+        String lower = templateName.toLowerCase();
+        if (lower.contains("bug")) return "🐛";
+        if (lower.contains("feature")) return "⭐";
+        if (lower.contains("review")) return "🔄";
+        if (lower.contains("meeting")) return "📄";
+        if (lower.contains("design")) return "🎨";
+        if (lower.contains("qa")) return "🔍";
+        return "📋";
+    }
+
+    private void openTaskDetailsDialog(Task task) {
+        Dialog dialog = new Dialog();
+        dialog.setWidth("500px");
+        dialog.setHeaderTitle("Detalhes da Tarefa");
+
+        VerticalLayout content = new VerticalLayout();
+        content.setPadding(false);
+        content.setSpacing(true);
+
+        Span title = new Span(resolveTemplateEmoji(task.getTaskTemplate() != null ? task.getTaskTemplate().getName() : "") + " " + (task.getTaskTemplate() != null ? task.getTaskTemplate().getName() : "Tarefa"));
+        title.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-l)");
+        content.add(title);
+
+        if (task.getCurrentStep() != null) {
+            Span status = new Span("Status: " + task.getCurrentStep().getLabel());
+            status.getStyle().set("font-size", "var(--lumo-font-size-s)");
+            content.add(status);
+        }
+
+        if (task.getCreator() != null) {
+            content.add(new Span("Criado por: @" + task.getCreator().getUsername()));
+        }
+
+        if (!task.getTaskFieldValues().isEmpty()) {
+            Span fieldsTitle = new Span("Campos:");
+            fieldsTitle.getStyle().set("font-weight", "bold");
+            content.add(fieldsTitle);
+            for (TaskFieldValue fv : task.getTaskFieldValues()) {
+                String lbl = fv.getTaskFieldDefinition() != null ? fv.getTaskFieldDefinition().getLabel() : "Campo";
+                content.add(new Span("• " + lbl + ": " + fv.getValue()));
+            }
+        }
+
+        if (!task.getTaskEvents().isEmpty()) {
+            Span histTitle = new Span("Histórico:");
+            histTitle.getStyle().set("font-weight", "bold");
+            content.add(histTitle);
+            for (com.xflprflx.neokioski.models.TaskEvent ev : task.getTaskEvents()) {
+                String who = ev.getUser() != null ? "@" + ev.getUser().getUsername() : "sistema";
+                String when = ev.getTimestamp() != null ? dateTimeFormatter.format(ev.getTimestamp()) : "";
+                String step = ev.getTaskStepDefinition() != null ? ev.getTaskStepDefinition().getLabel() : "";
+                content.add(new Span("• " + who + " → " + step + " (" + when + ")"));
+            }
+        }
+
+        Scroller scroller2 = new Scroller(content);
+        scroller2.setMaxHeight("400px");
+        dialog.add(scroller2);
+        dialog.getFooter().add(new Button("Fechar", ev -> dialog.close()));
+        dialog.open();
     }
 
     private Div renderMessageContent(String content) {

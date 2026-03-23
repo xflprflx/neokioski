@@ -19,13 +19,16 @@ public class TaskService {
 
     private final TaskRepository taskRepository;
     private final TemplateStepRelationRepository stepRelationRepository;
+    private final ChatService chatService;
     private final java.util.Map<Long, List<Consumer<Task>>> listeners =
             Collections.synchronizedMap(new java.util.HashMap<>());
 
     public TaskService(TaskRepository taskRepository,
-                       TemplateStepRelationRepository stepRelationRepository) {
+                       TemplateStepRelationRepository stepRelationRepository,
+                       ChatService chatService) {
         this.taskRepository = taskRepository;
         this.stepRelationRepository = stepRelationRepository;
+        this.chatService = chatService;
     }
 
     @Transactional
@@ -73,6 +76,20 @@ public class TaskService {
             task.getTaskEvents().add(event);
 
             Task saved = taskRepository.save(task);
+
+            // Verificar se deve mencionar o autor
+            stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
+                    task.getTaskTemplate().getId(), step.getId()
+            ).ifPresent(relation -> {
+                if (relation.isMentionAuthor() && relation.getMentionMessage() != null && !relation.getMentionMessage().isEmpty()) {
+                    String message = relation.getMentionMessage();
+                    if (task.getCreator() != null) {
+                        message = message.replace("@autor", "@" + task.getCreator().getUsername());
+                    }
+                    chatService.sendMessage(message, user, task.getGroup());
+                }
+            });
+
             broadcast(task.getGroup().getId(), saved);
             return saved;
         }).orElseThrow(() -> new RuntimeException("Task não encontrada: " + taskId));

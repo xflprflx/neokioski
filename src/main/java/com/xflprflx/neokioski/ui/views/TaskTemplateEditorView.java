@@ -13,6 +13,7 @@ import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.listbox.ListBox;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
@@ -29,10 +30,15 @@ import com.xflprflx.neokioski.models.Group;
 import com.xflprflx.neokioski.models.template.*;
 import com.xflprflx.neokioski.services.GroupService;
 import com.xflprflx.neokioski.services.TaskTemplateService;
+import com.xflprflx.neokioski.services.UserService;
+import com.xflprflx.neokioski.models.User;
 import jakarta.annotation.security.RolesAllowed;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.stream.Collectors;
 
 @RolesAllowed("ADMIN")
 @Route(value = "task-template-editor", layout = MainLayout.class)
@@ -40,9 +46,6 @@ import java.util.List;
 public class TaskTemplateEditorView extends VerticalLayout implements HasUrlParameter<Long> {
 
     private Long editingTemplateId = null;
-
-    private final TaskTemplateService templateService;
-    private final GroupService groupService;
 
     // UI Top Components
     private TextField nameField = new TextField("Nome do Template");
@@ -57,6 +60,11 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     private VerticalLayout tabContent = new VerticalLayout();
     private VerticalLayout workflowPreview = new VerticalLayout();
 
+    // Sugestões de menção
+    private Div suggestionWrapper;
+    private ListBox<User> suggestionList;
+    private String activeMentionId = "";
+
     // DTOs para Grid dinâmico antes de Salvar no BD
     public static class FieldDTO {
         public String label;
@@ -70,6 +78,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         public String label;
         public String colorTheme;
         public boolean isFinalizer;
+        public boolean mentionAuthor;
+        public String mentionMessage;
     }
 
     private List<FieldDTO> fields = new ArrayList<>();
@@ -78,9 +88,14 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     private Grid<FieldDTO> fieldsGrid = new Grid<>(FieldDTO.class, false);
     private Grid<StepDTO> stepsGrid = new Grid<>(StepDTO.class, false);
 
-    public TaskTemplateEditorView(TaskTemplateService templateService, GroupService groupService) {
+    private final TaskTemplateService templateService;
+    private final GroupService groupService;
+    private final UserService userService;
+
+    public TaskTemplateEditorView(TaskTemplateService templateService, GroupService groupService, UserService userService) {
         this.templateService = templateService;
         this.groupService = groupService;
+        this.userService = userService;
 
         setSizeFull();
         setPadding(true);
@@ -104,7 +119,151 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
 
         add(title, mainContent);
 
+        configureSuggestions();
         showFormFieldsTab(); // Inicia com aba de campos
+    }
+
+    private void configureSuggestions() {
+        suggestionList = new ListBox<>();
+        suggestionList.setRenderer(new com.vaadin.flow.data.renderer.ComponentRenderer<>(user -> {
+            Span name = new Span(user.getName());
+            Span username = new Span("@" + user.getUsername());
+            username.getStyle().set("font-size", "var(--lumo-font-size-xs)");
+            username.getStyle().set("color", "var(--lumo-secondary-text-color)");
+            username.getStyle().set("margin-left", "8px");
+            return new HorizontalLayout(name, username);
+        }));
+
+        suggestionList.addValueChangeListener(event -> {
+            if (event.getValue() != null) {
+                applyMention(event.getValue());
+                suggestionList.setValue(null);
+            }
+        });
+
+        suggestionWrapper = new Div(suggestionList);
+        suggestionWrapper.getStyle()
+                .set("position", "absolute")
+                .set("z-index", "10005")
+                .set("background", "var(--lumo-base-color)")
+                .set("box-shadow", "0 4px 12px rgba(0,0,0,0.15)")
+                .set("border-radius", "8px")
+                .set("padding", "4px")
+                .set("border", "1px solid var(--lumo-contrast-10pct)");
+        suggestionWrapper.setVisible(false);
+
+        getElement().executeJs(
+            "window.nkChatServer = {" +
+            "  show: (query) => $0.$server.showSuggestions(query)," +
+            "  hide: () => $0.$server.hideSuggestions()," +
+            "  setActive: (id) => $0.$server.setActiveTargetById(id)" +
+            "};",
+            getElement()
+        );
+    }
+
+    @com.vaadin.flow.component.ClientCallable
+    public void showSuggestions(String query) {
+        List<User> suggestions = userService.findAll().stream()
+                .filter(u -> u.getUsername().toLowerCase().contains(query.toLowerCase()) || 
+                             u.getName().toLowerCase().contains(query.toLowerCase()))
+                .collect(Collectors.toList());
+
+        // Adicionar sugestão virtual para o Autor da Tarefa
+        if ("autor".contains(query.toLowerCase()) || "@autor".contains(query.toLowerCase())) {
+            User virtualAuthor = new User();
+            virtualAuthor.setName("Autor da Tarefa");
+            virtualAuthor.setUsername("autor");
+            suggestions.add(0, virtualAuthor);
+        }
+
+        if (suggestions.isEmpty()) {
+            suggestionWrapper.setVisible(false);
+        } else {
+            suggestionList.setItems(suggestions);
+            suggestionWrapper.setVisible(true);
+            
+            // Posicionar próximo ao elemento ativo se possível
+            suggestionWrapper.getStyle().set("bottom", "100px");
+            suggestionWrapper.getStyle().set("left", "50px");
+        }
+    }
+
+    @com.vaadin.flow.component.ClientCallable
+    public void hideSuggestions() {
+        suggestionWrapper.setVisible(false);
+    }
+
+    @com.vaadin.flow.component.ClientCallable
+    public void setActiveTargetById(String mentionId) {
+        this.activeMentionId = mentionId;
+    }
+
+    private void applyMention(User user) {
+        String mention = "@" + user.getUsername() + " ";
+        getElement().executeJs(
+            "const findT = (el) => {\n" +
+            "  if (!el) return null;\n" +
+            "  if (el.tagName === 'TEXTAREA') return el;\n" +
+            "  if (el.shadowRoot) {\n" +
+            "    const internal = el.shadowRoot.querySelector('textarea, vaadin-message-input-textarea');\n" +
+            "    if (internal) return findT(internal);\n" +
+            "  }\n" +
+            "  return el.querySelector('textarea');\n" +
+            "};\n" +
+            "const host = document.querySelector('[mention-id=\"' + $1 + '\"]');\n" +
+            "const target = findT(host);\n" +
+            "if (!target) return;\n" +
+            "const val = target.value;\n" +
+            "const pos = target.selectionStart;\n" +
+            "const textBefore = val.substring(0, pos);\n" +
+            "const textAfter = val.substring(pos);\n" +
+            "const atIndex = textBefore.lastIndexOf('@');\n" +
+            "const newVal = textBefore.substring(0, atIndex) + $0 + textAfter;\n" +
+            "target.value = newVal;\n" +
+            "const newPos = atIndex + $0.length;\n" +
+            "target.focus();\n" +
+            "target.setSelectionRange(newPos, newPos);\n" +
+            "target.dispatchEvent(new Event('input', { bubbles: true, composed: true }));\n" +
+            "target.dispatchEvent(new Event('change', { bubbles: true, composed: true }));",
+            mention, activeMentionId
+        );
+        hideSuggestions();
+    }
+
+    private void setupMentionLogic(com.vaadin.flow.dom.Element element, String mentionId) {
+        element.executeJs(
+            "const mentionId = $0;\n" +
+            "const findT = (el) => {\n" +
+            "  if (el.tagName === 'TEXTAREA') return el;\n" +
+            "  if (el.shadowRoot) {\n" +
+            "    const internal = el.shadowRoot.querySelector('textarea, vaadin-message-input-textarea');\n" +
+            "    if (internal) return findT(internal);\n" +
+            "  }\n" +
+            "  return el.querySelector('textarea');\n" +
+            "};\n" +
+            "const host = this;\n" +
+            "const target = findT(host);\n" +
+            "if (!target) return;\n" +
+            "const handleInput = e => {\n" +
+            "  const val = target.value;\n" +
+            "  const pos = target.selectionStart;\n" +
+            "  const textBefore = val.substring(0, pos);\n" +
+            "  const atIndex = textBefore.lastIndexOf('@');\n" +
+            "  if (atIndex !== -1 && (atIndex === 0 || textBefore[atIndex-1] === ' ')) {\n" +
+            "    const query = textBefore.substring(atIndex + 1);\n" +
+            "    if (!query.includes(' ')) {\n" +
+            "      if (window.nkChatServer) window.nkChatServer.setActive(mentionId);\n" +
+            "      if (window.nkChatServer) window.nkChatServer.show(query);\n" +
+            "      return;\n" +
+            "    }\n" +
+            "  }\n" +
+            "  if (window.nkChatServer) window.nkChatServer.hide();\n" +
+            "};\n" +
+            "target.addEventListener('input', handleInput);\n" +
+            "target.addEventListener('focus', () => { if (window.nkChatServer) window.nkChatServer.setActive(mentionId); });",
+            mentionId
+        );
     }
 
     private Component createTopConfiguration() {
@@ -273,7 +432,20 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         ComboBox<String> colorCombo = new ComboBox<>("Tema", List.of("blue", "yellow", "green"));
         Checkbox finalizerCheck = new Checkbox("É Finalizador?");
         
-        VerticalLayout layout = new VerticalLayout(labelField, colorCombo, finalizerCheck);
+        Checkbox mentionAuthorCheck = new Checkbox("Mencionar autor");
+        com.vaadin.flow.component.textfield.TextArea mentionMessageField = new com.vaadin.flow.component.textfield.TextArea("Mensagem da menção");
+        mentionMessageField.setWidthFull();
+        mentionMessageField.setPlaceholder("Ex: Olá @autor, favor verificar...");
+        mentionMessageField.setVisible(false);
+        mentionMessageField.getElement().setAttribute("mention-id", "mention-message-input");
+
+        mentionAuthorCheck.addValueChangeListener(ev -> {
+            mentionMessageField.setVisible(ev.getValue());
+        });
+
+        setupMentionLogic(mentionMessageField.getElement(), "mention-message-input");
+
+        VerticalLayout layout = new VerticalLayout(labelField, colorCombo, finalizerCheck, mentionAuthorCheck, mentionMessageField, suggestionWrapper);
         dialog.add(layout);
 
         Button saveBtn = new Button("Salvar", e -> {
@@ -285,6 +457,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             dto.label = labelField.getValue();
             dto.colorTheme = colorCombo.getValue();
             dto.isFinalizer = finalizerCheck.getValue();
+            dto.mentionAuthor = mentionAuthorCheck.getValue();
+            dto.mentionMessage = mentionMessageField.getValue();
             steps.add(dto);
             stepsGrid.getDataProvider().refreshAll();
             updateWorkflowPreview();
@@ -434,6 +608,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             rel.setTaskStepDefinition(def);
             rel.setOrder(sOrder);
             rel.setFinalizer(dto.isFinalizer);
+            rel.setMentionAuthor(dto.mentionAuthor);
+            rel.setMentionMessage(dto.mentionMessage);
             stepRelations.add(rel);
             sOrder++;
         }
@@ -476,6 +652,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     dto.label = sr.getTaskStepDefinition().getLabel();
                     dto.colorTheme = sr.getTaskStepDefinition().getColorTheme();
                     dto.isFinalizer = sr.isFinalizer();
+                    dto.mentionAuthor = sr.isMentionAuthor();
+                    dto.mentionMessage = sr.getMentionMessage();
                     steps.add(dto);
                 }
                 stepsGrid.getDataProvider().refreshAll();

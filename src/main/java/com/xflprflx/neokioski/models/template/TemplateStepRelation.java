@@ -15,6 +15,10 @@ public class TemplateStepRelation {
     private int order;
     @Column(nullable = false)
     private boolean isFinalizer;
+    @Column(nullable = false)
+    private boolean mentionAuthor;
+    @Column(columnDefinition = "TEXT")
+    private String mentionMessage;
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "task_template_id")
@@ -50,6 +54,22 @@ public class TemplateStepRelation {
         isFinalizer = finalizer;
     }
 
+    public boolean isMentionAuthor() {
+        return mentionAuthor;
+    }
+
+    public void setMentionAuthor(boolean mentionAuthor) {
+        this.mentionAuthor = mentionAuthor;
+    }
+
+    public String getMentionMessage() {
+        return mentionMessage;
+    }
+
+    public void setMentionMessage(String mentionMessage) {
+        this.mentionMessage = mentionMessage;
+    }
+
     public TaskTemplate getTaskTemplate() {
         return taskTemplate;
     }
@@ -70,11 +90,11 @@ public class TemplateStepRelation {
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
         TemplateStepRelation that = (TemplateStepRelation) o;
-        return order == that.order && isFinalizer == that.isFinalizer && Objects.equals(id, that.id) && Objects.equals(taskTemplate, that.taskTemplate) && Objects.equals(taskStepDefinition, that.taskStepDefinition);
+        return order == that.order && isFinalizer == that.isFinalizer && mentionAuthor == that.mentionAuthor && Objects.equals(id, that.id) && Objects.equals(mentionMessage, that.mentionMessage) && Objects.equals(taskTemplate, that.taskTemplate) && Objects.equals(taskStepDefinition, that.taskStepDefinition);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, order, isFinalizer, taskTemplate, taskStepDefinition);
+        return Objects.hash(id, order, isFinalizer, mentionAuthor, mentionMessage, taskTemplate, taskStepDefinition);
     }
 }

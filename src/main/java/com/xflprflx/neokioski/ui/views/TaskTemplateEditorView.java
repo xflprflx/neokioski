@@ -450,7 +450,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         dialog.setHeaderTitle(existingDto == null ? "Nova Etapa" : "Editar Etapa");
 
         TextField labelField = new TextField("Rótulo da Etapa");
-        ComboBox<String> colorCombo = new ComboBox<>("Tema", List.of("blue", "yellow", "green"));
+        ComboBox<String> colorCombo = new ComboBox<>("Tema", List.of("blue", "yellow", "green", "red", "purple", "orange", "cyan", "pink", "gray", "black"));
         Checkbox finalizerCheck = new Checkbox("É Finalizador?");
         
         Checkbox mentionAuthorCheck = new Checkbox("Mencionar autor");
@@ -589,11 +589,39 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         } else if ("yellow".equals(colorScheme)) {
             step.getStyle().set("background-color", "#fff9c4");
             step.getStyle().set("border", "1px solid #fff59d");
-            step.getStyle().set("color", "#f57f17");
+            step.getStyle().set("color", "#dc6d00");
         } else if ("green".equals(colorScheme)) {
             step.getStyle().set("background-color", "#e8f5e9");
             step.getStyle().set("border", "1px solid #a5d6a7");
             step.getStyle().set("color", "#2e7d32");
+        } else if ("red".equals(colorScheme)) {
+            step.getStyle().set("background-color", "#ffebee");
+            step.getStyle().set("border", "1px solid #ef9a9a");
+            step.getStyle().set("color", "#c62828");
+        } else if ("purple".equals(colorScheme)) {
+            step.getStyle().set("background-color", "#f3e5f5");
+            step.getStyle().set("border", "1px solid #ce93d8");
+            step.getStyle().set("color", "#7b1fa2");
+        } else if ("orange".equals(colorScheme)) {
+            step.getStyle().set("background-color", "#fff3e0");
+            step.getStyle().set("border", "1px solid #ffcc80");
+            step.getStyle().set("color", "#ef6c00");
+        } else if ("cyan".equals(colorScheme)) {
+            step.getStyle().set("background-color", "#e0f7fa");
+            step.getStyle().set("border", "1px solid #80deea");
+            step.getStyle().set("color", "#00838f");
+        } else if ("pink".equals(colorScheme)) {
+            step.getStyle().set("background-color", "#fce4ec");
+            step.getStyle().set("border", "1px solid #f48fb1");
+            step.getStyle().set("color", "#c2185b");
+        } else if ("gray".equals(colorScheme)) {
+            step.getStyle().set("background-color", "#f5f5f5");
+            step.getStyle().set("border", "1px solid #e0e0e0");
+            step.getStyle().set("color", "#616161");
+        } else if ("black".equals(colorScheme)) {
+            step.getStyle().set("background-color", "#212121");
+            step.getStyle().set("border", "1px solid #000000");
+            step.getStyle().set("color", "#ffffff");
         } else {
             step.getStyle().set("border", "1px solid var(--lumo-contrast-20pct)");
         }

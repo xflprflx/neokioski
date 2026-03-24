@@ -972,12 +972,11 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             String colorTheme = task.getCurrentStep().getColorTheme();
             Span stepBadge = new Span("⏳ " + stepLabel);
             stepBadge.getStyle()
-                    .set("background-color", colorTheme != null ? colorTheme : "var(--lumo-primary-color-10pct)")
-                    .set("color", "var(--lumo-primary-text-color)")
                     .set("padding", "2px 10px")
                     .set("border-radius", "12px")
                     .set("font-size", "var(--lumo-font-size-xs)")
                     .set("font-weight", "bold");
+            applyThemeStyles(stepBadge, colorTheme);
             statusRow.add(statusLabel, stepBadge);
         } else {
             Span pendenteBadge = new Span("⏳ Pendente");
@@ -1113,9 +1112,20 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         content.add(title);
 
         if (task.getCurrentStep() != null) {
-            Span status = new Span("Status: " + task.getCurrentStep().getLabel());
-            status.getStyle().set("font-size", "var(--lumo-font-size-s)");
-            content.add(status);
+            String stepLabel = task.getCurrentStep().getLabel();
+            String colorTheme = task.getCurrentStep().getColorTheme();
+            Span stepBadge = new Span(stepLabel);
+            stepBadge.getStyle()
+                    .set("padding", "2px 10px")
+                    .set("border-radius", "12px")
+                    .set("font-size", "var(--lumo-font-size-xs)")
+                    .set("font-weight", "bold");
+            
+            applyThemeStyles(stepBadge, colorTheme);
+            
+            HorizontalLayout statusRow = new HorizontalLayout(new Span("Status: "), stepBadge);
+            statusRow.setAlignItems(FlexComponent.Alignment.CENTER);
+            content.add(statusRow);
         }
 
         if (task.getCreator() != null) {
@@ -1481,5 +1491,29 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             taskService.unregister(group.getId(), taskListener);
         }
         super.onDetach(detachEvent);
+    }
+
+    private void applyThemeStyles(Span span, String theme) {
+        if (theme == null) theme = "gray";
+        
+        String bg, fg;
+        switch (theme.toLowerCase()) {
+            case "blue": bg = "#e3f2fd"; fg = "#1565c0"; break;
+            case "yellow": bg = "#fff9c4"; fg = "#dc6d00"; break;
+            case "green": bg = "#e8f5e9"; fg = "#2e7d32"; break;
+            case "red": bg = "#ffebee"; fg = "#c62828"; break;
+            case "purple": bg = "#f3e5f5"; fg = "#7b1fa2"; break;
+            case "orange": bg = "#fff3e0"; fg = "#ef6c00"; break;
+            case "cyan": bg = "#e0f7fa"; fg = "#00838f"; break;
+            case "pink": bg = "#fce4ec"; fg = "#c2185b"; break;
+            case "gray": bg = "#f5f5f5"; fg = "#616161"; break;
+            case "black": bg = "#212121"; fg = "#ffffff"; break;
+            default:
+                bg = "var(--lumo-contrast-10pct)";
+                fg = "var(--lumo-contrast-80pct)";
+        }
+        
+        span.getStyle().set("background-color", bg);
+        span.getStyle().set("color", fg);
     }
 }

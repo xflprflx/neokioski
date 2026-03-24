@@ -29,6 +29,8 @@ import com.xflprflx.neokioski.services.TaskService;
 import jakarta.annotation.security.PermitAll;
 
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.function.Consumer;
 
 /**
@@ -311,25 +313,23 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
 
         // Status + criador
         String stepLabel = task.getCurrentStep() != null ? task.getCurrentStep().getLabel() : "Pendente";
-        String stepColor = task.getCurrentStep() != null ? task.getCurrentStep().getColorTheme() : "var(--lumo-contrast-20pct)";
+        String stepColorTheme = task.getCurrentStep() != null ? task.getCurrentStep().getColorTheme() : "gray";
         String creatorUsername = task.getCreator() != null ? "@" + task.getCreator().getUsername() : "";
 
-        Span statusSpan = new Span("Status: ");
-        statusSpan.getStyle().set("font-size", "var(--lumo-font-size-xxs)").set("color", "var(--lumo-secondary-text-color)");
-
-        Span badge = new Span(stepLabel);
-        badge.getStyle()
-                .set("background-color", stepColor != null ? stepColor : "var(--lumo-primary-color-10pct)")
-                .set("color", "var(--lumo-primary-text-color)")
-                .set("padding", "1px 6px")
-                .set("border-radius", "8px")
+        Span statusSpan = new Span(stepLabel);
+        statusSpan.getStyle()
+                .set("padding", "2px 10px")
+                .set("border-radius", "20px")
                 .set("font-size", "var(--lumo-font-size-xxs)")
-                .set("font-weight", "bold");
+                .set("font-weight", "600")
+                .set("white-space", "nowrap");
+
+        applyThemeStyles(statusSpan, stepColorTheme);
 
         Span creatorSpan = new Span(" | " + creatorUsername);
         creatorSpan.getStyle().set("font-size", "var(--lumo-font-size-xxs)").set("color", "var(--lumo-secondary-text-color)");
 
-        HorizontalLayout infoRow = new HorizontalLayout(statusSpan, badge, creatorSpan);
+        HorizontalLayout infoRow = new HorizontalLayout(statusSpan, creatorSpan);
         infoRow.setSpacing(false);
         infoRow.setAlignItems(FlexComponent.Alignment.CENTER);
         infoRow.getStyle().set("gap", "4px");
@@ -370,12 +370,12 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
             String colorTheme = task.getCurrentStep().getColorTheme();
             Span stepBadge = new Span(stepLabel);
             stepBadge.getStyle()
-                    .set("background-color", colorTheme != null ? colorTheme : "var(--lumo-primary-color-10pct)")
-                    .set("color", "var(--lumo-primary-text-color)")
                     .set("padding", "2px 10px")
                     .set("border-radius", "12px")
                     .set("font-size", "var(--lumo-font-size-xs)")
                     .set("font-weight", "bold");
+            
+            applyThemeStyles(stepBadge, colorTheme);
             
             HorizontalLayout statusRow = new HorizontalLayout(new Span("Status: "), stepBadge);
             statusRow.setAlignItems(FlexComponent.Alignment.CENTER);
@@ -468,5 +468,29 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
             taskService.unregister(registeredGroupId, taskListener);
         }
         super.onDetach(detachEvent);
+    }
+
+    private void applyThemeStyles(Span span, String theme) {
+        if (theme == null) theme = "gray";
+        
+        String bg, fg;
+        switch (theme.toLowerCase()) {
+            case "blue": bg = "#e3f2fd"; fg = "#1565c0"; break;
+            case "yellow": bg = "#fff9c4"; fg = "#dc6d00"; break;
+            case "green": bg = "#e8f5e9"; fg = "#2e7d32"; break;
+            case "red": bg = "#ffebee"; fg = "#c62828"; break;
+            case "purple": bg = "#f3e5f5"; fg = "#7b1fa2"; break;
+            case "orange": bg = "#fff3e0"; fg = "#ef6c00"; break;
+            case "cyan": bg = "#e0f7fa"; fg = "#00838f"; break;
+            case "pink": bg = "#fce4ec"; fg = "#c2185b"; break;
+            case "gray": bg = "#f5f5f5"; fg = "#616161"; break;
+            case "black": bg = "#212121"; fg = "#ffffff"; break;
+            default:
+                bg = "var(--lumo-contrast-10pct)";
+                fg = "var(--lumo-contrast-80pct)";
+        }
+        
+        span.getStyle().set("background-color", bg);
+        span.getStyle().set("color", fg);
     }
 }

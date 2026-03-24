@@ -1025,10 +1025,16 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         if (task.getTaskTemplate() != null) {
             List<TemplateStepRelation> allRelations = taskTemplateService.getStepRelationsByTemplateId(task.getTaskTemplate().getId());
             
+            // Etapas que são restritas (aparecem em algum allowedNextSteps de qualquer relação do template)
+            Set<Long> restrictedStepIds = allRelations.stream()
+                    .flatMap(r -> r.getAllowedNextSteps().stream())
+                    .map(TaskStepDefinition::getId)
+                    .collect(Collectors.toSet());
+            
             // Determinar quais steps mostrar
             List<TemplateStepRelation> visibleRelations;
             if (task.getCurrentStep() != null) {
-                // Buscar a relação da etapa atual para ver as próximas permitidas
+                // Buscar a relação da etapa atual
                 Optional<TemplateStepRelation> currentRelOpt = allRelations.stream()
                         .filter(r -> r.getTaskStepDefinition().getId().equals(task.getCurrentStep().getId()))
                         .findFirst();
@@ -1041,12 +1047,16 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                             .filter(r -> allowedIds.contains(r.getTaskStepDefinition().getId()))
                             .toList();
                 } else {
-                    // Se não houver restrição, mostrar todas exceto a atual (opcional, vamos manter todas por enquanto como era)
-                    visibleRelations = allRelations;
+                    // Fallback: mostrar apenas as que NÃO são restritas (fluxo livre)
+                    visibleRelations = allRelations.stream()
+                            .filter(r -> !restrictedStepIds.contains(r.getTaskStepDefinition().getId()))
+                            .toList();
                 }
             } else {
-                // Task Pendente: mostrar todas
-                visibleRelations = allRelations;
+                // Task Pendente: mostrar apenas as que NÃO são restritas
+                visibleRelations = allRelations.stream()
+                        .filter(r -> !restrictedStepIds.contains(r.getTaskStepDefinition().getId()))
+                        .toList();
             }
 
             for (TemplateStepRelation sr : visibleRelations) {

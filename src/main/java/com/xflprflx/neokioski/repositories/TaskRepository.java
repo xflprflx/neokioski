@@ -23,7 +23,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
              ON sr.taskTemplate = t.taskTemplate
             AND sr.taskStepDefinition = t.currentStep
            WHERE t.group = :group
-             AND (t.currentStep IS NULL OR sr.isFinalizer = false)
+             AND (t.currentStep IS NULL OR sr IS NULL OR sr.isFinalizer = false)
            ORDER BY t.createdAt DESC
            """)
     List<Task> findPendingByGroup(@Param("group") Group group);

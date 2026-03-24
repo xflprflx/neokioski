@@ -206,6 +206,14 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         stepOptions.add("Todos");
         stepOptions.add("Pendentes");
         stepOptions.add("Finalizadas");
+        
+        // Adicionar "Pendente" explicitamente se houver tasks sem step
+        boolean hasNoStepTasks = taskService.getTasksByGroup(group).stream()
+                .anyMatch(t -> t.getCurrentStep() == null);
+        if (hasNoStepTasks) {
+            stepOptions.add("Pendente");
+        }
+
         taskService.getTasksByGroup(group).stream()
                 .filter(t -> t.getCurrentStep() != null)
                 .map(t -> t.getCurrentStep().getLabel())
@@ -259,8 +267,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         if (!filterStatus.equals("todos")) {
             tasks = tasks.stream()
                     .filter(t -> {
-                        if (filterStatus.equals("Pendentes")) return !taskService.isTaskFinalized(t);
+                        if (filterStatus.equals("Pendentes")) return taskService.isTaskPending(t);
                         if (filterStatus.equals("Finalizadas")) return taskService.isTaskFinalized(t);
+                        if (filterStatus.equals("Pendente")) return t.getCurrentStep() == null;
                         return t.getCurrentStep() != null && t.getCurrentStep().getLabel().equals(filterStatus);
                     })
                     .collect(java.util.stream.Collectors.toList());

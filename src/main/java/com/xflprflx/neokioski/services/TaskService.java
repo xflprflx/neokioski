@@ -141,9 +141,28 @@ public class TaskService {
 
     public boolean isTaskFinalized(Task task) {
         if (task.getCurrentStep() == null) return false;
-        return stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
+        
+        // Tentar encontrar a relação exata pelo ID do Step
+        Optional<TemplateStepRelation> relationOpt = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
                 task.getTaskTemplate().getId(), task.getCurrentStep().getId()
-        ).map(TemplateStepRelation::isFinalizer).orElse(false);
+        );
+
+        if (relationOpt.isPresent()) {
+            return relationOpt.get().isFinalizer();
+        }
+
+        // Fallback: Se a relação exata não existe (ex: template atualizado), 
+        // buscar por Label no template atual
+        String currentLabel = task.getCurrentStep().getLabel();
+        return stepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(task.getTaskTemplate().getId())
+                .stream()
+                .filter(r -> r.getTaskStepDefinition().getLabel().equals(currentLabel))
+                .anyMatch(TemplateStepRelation::isFinalizer);
+    }
+
+    public boolean isTaskPending(Task task) {
+        // Uma tarefa é pendente se não tem step OU se o step atual não é finalizador
+        return task.getCurrentStep() == null || !isTaskFinalized(task);
     }
 
     private void broadcast(Long groupId, Task task) {

@@ -304,6 +304,25 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
                 .set("background", "var(--lumo-base-color)")
                 .set("cursor", "pointer");
 
+        if (taskService.shouldTaskPulse(task)) {
+            String themeColor = task.getCurrentStep().getColorTheme();
+            String rgb = getThemeColorRGB(themeColor);
+            
+            card.getStyle().set("border", "2px solid rgb(" + rgb + ")");
+            card.getStyle().set("border-left", "6px solid rgb(" + rgb + ")");
+            
+            String pulseName = "pulse-" + (themeColor != null ? themeColor : "gray");
+            card.getElement().executeJs(
+                "if (!document.getElementById('" + pulseName + "')) {" +
+                "  const s = document.createElement('style');" +
+                "  s.id = '" + pulseName + "';" +
+                "  s.textContent = '@keyframes " + pulseName + " { 0% { box-shadow: 0 0 0 0 rgba(" + rgb + ", 0.7); } 70% { box-shadow: 0 0 0 15px rgba(" + rgb + ", 0); } 100% { box-shadow: 0 0 0 0 rgba(" + rgb + ", 0); } }';" +
+                "  document.head.appendChild(s);" +
+                "}" +
+                "this.style.animation = '" + pulseName + " 2s infinite';"
+            );
+        }
+
         // Título
         Span titleSpan = new Span(task.getTaskTemplate() != null ? task.getTaskTemplate().getName() : "Sem título");
         titleSpan.getStyle()
@@ -492,5 +511,22 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         
         span.getStyle().set("background-color", bg);
         span.getStyle().set("color", fg);
+    }
+
+    private String getThemeColorRGB(String theme) {
+        if (theme == null) theme = "gray";
+        return switch (theme.toLowerCase()) {
+            case "blue" -> "21, 101, 192";
+            case "yellow" -> "220, 109, 0";
+            case "green" -> "46, 125, 50";
+            case "red" -> "198, 40, 40";
+            case "purple" -> "123, 31, 162";
+            case "orange" -> "239, 108, 0";
+            case "cyan" -> "0, 131, 143";
+            case "pink" -> "194, 24, 91";
+            case "gray" -> "97, 97, 97";
+            case "black" -> "255, 255, 255";
+            default -> "110, 110, 110";
+        };
     }
 }

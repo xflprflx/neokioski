@@ -85,6 +85,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         public List<String> allowedNextStepLabels = new ArrayList<>();
         public boolean mentionPreviousActor;
         public String mentionPreviousActorMessage;
+        public boolean shouldPulse;
     }
 
     private List<FieldDTO> fields = new ArrayList<>();
@@ -452,6 +453,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         TextField labelField = new TextField("Rótulo da Etapa");
         ComboBox<String> colorCombo = new ComboBox<>("Tema", List.of("blue", "yellow", "green", "red", "purple", "orange", "cyan", "pink", "gray", "black"));
         Checkbox finalizerCheck = new Checkbox("É Finalizador?");
+        Checkbox shouldPulseCheck = new Checkbox("Deve pulsar?");
         
         Checkbox mentionAuthorCheck = new Checkbox("Mencionar autor");
         com.vaadin.flow.component.textfield.TextArea mentionMessageField = new com.vaadin.flow.component.textfield.TextArea("Mensagem da menção");
@@ -464,6 +466,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             labelField.setValue(existingDto.label);
             colorCombo.setValue(existingDto.colorTheme);
             finalizerCheck.setValue(existingDto.isFinalizer);
+            shouldPulseCheck.setValue(existingDto.shouldPulse);
             mentionAuthorCheck.setValue(existingDto.mentionAuthor);
             mentionMessageField.setValue(existingDto.mentionMessage != null ? existingDto.mentionMessage : "");
             mentionMessageField.setVisible(existingDto.mentionAuthor);
@@ -502,7 +505,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         setupMentionLogic(mentionMessageField.getElement(), "mention-message-input");
         setupMentionLogic(mentionPrevMessageField.getElement(), "mention-prev-message-input");
 
-        VerticalLayout layout = new VerticalLayout(labelField, colorCombo, finalizerCheck, 
+        VerticalLayout layout = new VerticalLayout(labelField, colorCombo, finalizerCheck, shouldPulseCheck,
                 mentionAuthorCheck, mentionMessageField, 
                 mentionPrevCheck, mentionPrevMessageField,
                 nextStepsCombo, suggestionWrapper);
@@ -517,6 +520,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             dto.label = labelField.getValue();
             dto.colorTheme = colorCombo.getValue();
             dto.isFinalizer = finalizerCheck.getValue();
+            dto.shouldPulse = shouldPulseCheck.getValue();
             dto.mentionAuthor = mentionAuthorCheck.getValue();
             dto.mentionMessage = mentionMessageField.getValue();
             dto.mentionPreviousActor = mentionPrevCheck.getValue();
@@ -710,6 +714,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             rel.setTaskStepDefinition(def);
             rel.setOrder(sOrder++);
             rel.setFinalizer(dto.isFinalizer);
+            rel.setShouldPulse(dto.shouldPulse);
             rel.setMentionAuthor(dto.mentionAuthor);
             rel.setMentionMessage(dto.mentionMessage);
             rel.setMentionPreviousActor(dto.mentionPreviousActor);
@@ -764,6 +769,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     dto.label = sr.getTaskStepDefinition().getLabel();
                     dto.colorTheme = sr.getTaskStepDefinition().getColorTheme();
                     dto.isFinalizer = sr.isFinalizer();
+                    dto.shouldPulse = sr.isShouldPulse();
                     dto.mentionAuthor = sr.isMentionAuthor();
                     dto.mentionMessage = sr.getMentionMessage();
                     dto.mentionPreviousActor = sr.isMentionPreviousActor();

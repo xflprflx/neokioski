@@ -160,6 +160,24 @@ public class TaskService {
                 .anyMatch(TemplateStepRelation::isFinalizer);
     }
 
+    public boolean shouldTaskPulse(Task task) {
+        if (task.getCurrentStep() == null) return false;
+
+        Optional<TemplateStepRelation> relationOpt = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
+                task.getTaskTemplate().getId(), task.getCurrentStep().getId()
+        );
+
+        if (relationOpt.isPresent()) {
+            return relationOpt.get().isShouldPulse();
+        }
+
+        String currentLabel = task.getCurrentStep().getLabel();
+        return stepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(task.getTaskTemplate().getId())
+                .stream()
+                .filter(r -> r.getTaskStepDefinition().getLabel().equals(currentLabel))
+                .anyMatch(TemplateStepRelation::isShouldPulse);
+    }
+
     public boolean isTaskPending(Task task) {
         // Uma tarefa é pendente se não tem step OU se o step atual não é finalizador
         return task.getCurrentStep() == null || !isTaskFinalized(task);

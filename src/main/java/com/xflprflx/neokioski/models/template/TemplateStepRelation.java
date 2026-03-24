@@ -19,6 +19,8 @@ public class TemplateStepRelation {
     private boolean isFinalizer;
     @Column(nullable = false)
     private boolean mentionAuthor;
+    @Column(nullable = false)
+    private boolean shouldPulse;
     @Column(columnDefinition = "TEXT")
     private String mentionMessage;
 
@@ -126,12 +128,21 @@ public class TemplateStepRelation {
         this.mentionPreviousActorMessage = mentionPreviousActorMessage;
     }
 
+    public boolean isShouldPulse() {
+        return shouldPulse;
+    }
+
+    public void setShouldPulse(boolean shouldPulse) {
+        this.shouldPulse = shouldPulse;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
         TemplateStepRelation that = (TemplateStepRelation) o;
         return order == that.order && isFinalizer == that.isFinalizer && 
                mentionAuthor == that.mentionAuthor && 
+               shouldPulse == that.shouldPulse &&
                mentionPreviousActor == that.mentionPreviousActor && 
                Objects.equals(id, that.id) && 
                Objects.equals(mentionMessage, that.mentionMessage) && 
@@ -142,7 +153,7 @@ public class TemplateStepRelation {
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, order, isFinalizer, mentionAuthor, mentionMessage, 
+        return Objects.hash(id, order, isFinalizer, mentionAuthor, shouldPulse, mentionMessage, 
                             mentionPreviousActor, mentionPreviousActorMessage, 
                             taskTemplate, taskStepDefinition);
     }

@@ -55,6 +55,9 @@ public class TaskTemplateService {
 
         for (TemplateStepRelation sr : stepRelations) {
             taskStepDefinitionRepository.save(sr.getTaskStepDefinition());
+        }
+
+        for (TemplateStepRelation sr : stepRelations) {
             sr.setTaskTemplate(savedTemplate);
             templateStepRelationRepository.save(sr);
         }

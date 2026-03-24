@@ -35,7 +35,9 @@ import com.xflprflx.neokioski.models.User;
 import jakarta.annotation.security.RolesAllowed;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.stream.Collectors;
@@ -80,6 +82,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         public boolean isFinalizer;
         public boolean mentionAuthor;
         public String mentionMessage;
+        public List<String> allowedNextStepLabels = new ArrayList<>();
+        public boolean mentionPreviousActor;
+        public String mentionPreviousActorMessage;
     }
 
     private List<FieldDTO> fields = new ArrayList<>();
@@ -175,6 +180,14 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             virtualAuthor.setName("Autor da Tarefa");
             virtualAuthor.setUsername("autor");
             suggestions.add(0, virtualAuthor);
+        }
+        
+        // Adicionar sugestão virtual para o Ator Anterior
+        if ("autor_anterior".contains(query.toLowerCase()) || "@autor_anterior".contains(query.toLowerCase())) {
+            User virtualPrev = new User();
+            virtualPrev.setName("Ator Anterior");
+            virtualPrev.setUsername("autor_anterior");
+            suggestions.add(1, virtualPrev);
         }
 
         if (suggestions.isEmpty()) {
@@ -409,6 +422,10 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 return cb;
             }).setHeader("Finalizador");
             stepsGrid.addComponentColumn(item -> {
+                Button editBtn = new Button(VaadinIcon.EDIT.create());
+                editBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+                editBtn.addClickListener(e -> openStepDialog(item));
+
                 Button deleteBtn = new Button(VaadinIcon.TRASH.create());
                 deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
                 deleteBtn.addClickListener(e -> {
@@ -416,7 +433,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     stepsGrid.getDataProvider().refreshAll();
                     updateWorkflowPreview();
                 });
-                return deleteBtn;
+                return new HorizontalLayout(editBtn, deleteBtn);
             }).setHeader("Ações");
             stepsGrid.setItems(steps);
         }
@@ -425,8 +442,12 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     private void openStepDialog() {
+        openStepDialog(null);
+    }
+
+    private void openStepDialog(StepDTO existingDto) {
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Nova Etapa");
+        dialog.setHeaderTitle(existingDto == null ? "Nova Etapa" : "Editar Etapa");
 
         TextField labelField = new TextField("Rótulo da Etapa");
         ComboBox<String> colorCombo = new ComboBox<>("Tema", List.of("blue", "yellow", "green"));
@@ -439,13 +460,52 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         mentionMessageField.setVisible(false);
         mentionMessageField.getElement().setAttribute("mention-id", "mention-message-input");
 
+        if (existingDto != null) {
+            labelField.setValue(existingDto.label);
+            colorCombo.setValue(existingDto.colorTheme);
+            finalizerCheck.setValue(existingDto.isFinalizer);
+            mentionAuthorCheck.setValue(existingDto.mentionAuthor);
+            mentionMessageField.setValue(existingDto.mentionMessage != null ? existingDto.mentionMessage : "");
+            mentionMessageField.setVisible(existingDto.mentionAuthor);
+        }
+
         mentionAuthorCheck.addValueChangeListener(ev -> {
             mentionMessageField.setVisible(ev.getValue());
         });
 
-        setupMentionLogic(mentionMessageField.getElement(), "mention-message-input");
+        Checkbox mentionPrevCheck = new Checkbox("Mencionar ator anterior");
+        com.vaadin.flow.component.textfield.TextArea mentionPrevMessageField = new com.vaadin.flow.component.textfield.TextArea("Mensagem da menção anterior");
+        mentionPrevMessageField.setWidthFull();
+        mentionPrevMessageField.setPlaceholder("Ex: Olá @autor_anterior, favor verificar...");
+        mentionPrevMessageField.setVisible(false);
+        mentionPrevMessageField.getElement().setAttribute("mention-id", "mention-prev-message-input");
 
-        VerticalLayout layout = new VerticalLayout(labelField, colorCombo, finalizerCheck, mentionAuthorCheck, mentionMessageField, suggestionWrapper);
+        mentionPrevCheck.addValueChangeListener(ev -> {
+            mentionPrevMessageField.setVisible(ev.getValue());
+        });
+
+        if (existingDto != null) {
+            mentionPrevCheck.setValue(existingDto.mentionPreviousActor);
+            mentionPrevMessageField.setValue(existingDto.mentionPreviousActorMessage != null ? existingDto.mentionPreviousActorMessage : "");
+            mentionPrevMessageField.setVisible(existingDto.mentionPreviousActor);
+        }
+
+        MultiSelectComboBox<String> nextStepsCombo = new MultiSelectComboBox<>("Próximas Etapas Permitidas");
+        nextStepsCombo.setItems(steps.stream().map(s -> s.label).collect(Collectors.toList()));
+        
+        if (existingDto != null && existingDto.allowedNextStepLabels != null) {
+            nextStepsCombo.setValue(new HashSet<>(existingDto.allowedNextStepLabels));
+        }
+        nextStepsCombo.setWidthFull();
+        nextStepsCombo.setHelperText("Se vazio, todas as etapas serão permitidas.");
+
+        setupMentionLogic(mentionMessageField.getElement(), "mention-message-input");
+        setupMentionLogic(mentionPrevMessageField.getElement(), "mention-prev-message-input");
+
+        VerticalLayout layout = new VerticalLayout(labelField, colorCombo, finalizerCheck, 
+                mentionAuthorCheck, mentionMessageField, 
+                mentionPrevCheck, mentionPrevMessageField,
+                nextStepsCombo, suggestionWrapper);
         dialog.add(layout);
 
         Button saveBtn = new Button("Salvar", e -> {
@@ -453,13 +513,19 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 Notification.show("Rótulo e Tema são obrigatórios");
                 return;
             }
-            StepDTO dto = new StepDTO();
+            StepDTO dto = existingDto != null ? existingDto : new StepDTO();
             dto.label = labelField.getValue();
             dto.colorTheme = colorCombo.getValue();
             dto.isFinalizer = finalizerCheck.getValue();
             dto.mentionAuthor = mentionAuthorCheck.getValue();
             dto.mentionMessage = mentionMessageField.getValue();
-            steps.add(dto);
+            dto.mentionPreviousActor = mentionPrevCheck.getValue();
+            dto.mentionPreviousActorMessage = mentionPrevMessageField.getValue();
+            dto.allowedNextStepLabels = new ArrayList<>(nextStepsCombo.getValue());
+            
+            if (existingDto == null) {
+                steps.add(dto);
+            }
             stepsGrid.getDataProvider().refreshAll();
             updateWorkflowPreview();
             dialog.close();
@@ -599,19 +665,37 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
 
         List<TemplateStepRelation> stepRelations = new ArrayList<>();
         int sOrder = 1;
+
+        // Primeiro passo: criar todos os TaskStepDefinition e mapeá-los para uso posterior
+        Map<String, TaskStepDefinition> defMap = new HashMap<>();
         for (StepDTO dto : steps) {
             TaskStepDefinition def = new TaskStepDefinition();
             def.setLabel(dto.label);
             def.setColorTheme(dto.colorTheme);
+            defMap.put(dto.label, def);
+        }
 
+        // Segundo passo: criar as relações e associar as próximas etapas permitidas
+        for (StepDTO dto : steps) {
+            TaskStepDefinition def = defMap.get(dto.label);
             TemplateStepRelation rel = new TemplateStepRelation();
             rel.setTaskStepDefinition(def);
-            rel.setOrder(sOrder);
+            rel.setOrder(sOrder++);
             rel.setFinalizer(dto.isFinalizer);
             rel.setMentionAuthor(dto.mentionAuthor);
             rel.setMentionMessage(dto.mentionMessage);
+            rel.setMentionPreviousActor(dto.mentionPreviousActor);
+            rel.setMentionPreviousActorMessage(dto.mentionPreviousActorMessage);
+
+            if (dto.allowedNextStepLabels != null && !dto.allowedNextStepLabels.isEmpty()) {
+                for (String nextLabel : dto.allowedNextStepLabels) {
+                    TaskStepDefinition nextDef = defMap.get(nextLabel);
+                    if (nextDef != null) {
+                        rel.getAllowedNextSteps().add(nextDef);
+                    }
+                }
+            }
             stepRelations.add(rel);
-            sOrder++;
         }
 
         templateService.saveTemplate(t, fieldRelations, stepRelations);
@@ -654,6 +738,11 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     dto.isFinalizer = sr.isFinalizer();
                     dto.mentionAuthor = sr.isMentionAuthor();
                     dto.mentionMessage = sr.getMentionMessage();
+                    dto.mentionPreviousActor = sr.isMentionPreviousActor();
+                    dto.mentionPreviousActorMessage = sr.getMentionPreviousActorMessage();
+                    dto.allowedNextStepLabels = sr.getAllowedNextSteps().stream()
+                            .map(TaskStepDefinition::getLabel)
+                            .collect(Collectors.toList());
                     steps.add(dto);
                 }
                 stepsGrid.getDataProvider().refreshAll();

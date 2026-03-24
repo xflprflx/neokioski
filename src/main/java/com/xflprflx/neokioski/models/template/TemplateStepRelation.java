@@ -3,6 +3,8 @@ package com.xflprflx.neokioski.models.template;
 
 import jakarta.persistence.*;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 @Entity
@@ -26,6 +28,20 @@ public class TemplateStepRelation {
     @ManyToOne(optional = false)
     @JoinColumn(name = "task_step_definition_id")
     private TaskStepDefinition taskStepDefinition;
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "tb_template_step_next_allowed",
+            joinColumns = @JoinColumn(name = "template_step_relation_id"),
+            inverseJoinColumns = @JoinColumn(name = "next_step_definition_id")
+    )
+    private List<TaskStepDefinition> allowedNextSteps = new ArrayList<>();
+
+    @Column(nullable = false)
+    private boolean mentionPreviousActor;
+
+    @Column(columnDefinition = "TEXT")
+    private String mentionPreviousActorMessage;
 
     public TemplateStepRelation() {
     }
@@ -86,15 +102,48 @@ public class TemplateStepRelation {
         this.taskStepDefinition = taskStepDefinition;
     }
 
+    public List<TaskStepDefinition> getAllowedNextSteps() {
+        return allowedNextSteps;
+    }
+
+    public void setAllowedNextSteps(List<TaskStepDefinition> allowedNextSteps) {
+        this.allowedNextSteps = allowedNextSteps;
+    }
+
+    public boolean isMentionPreviousActor() {
+        return mentionPreviousActor;
+    }
+
+    public void setMentionPreviousActor(boolean mentionPreviousActor) {
+        this.mentionPreviousActor = mentionPreviousActor;
+    }
+
+    public String getMentionPreviousActorMessage() {
+        return mentionPreviousActorMessage;
+    }
+
+    public void setMentionPreviousActorMessage(String mentionPreviousActorMessage) {
+        this.mentionPreviousActorMessage = mentionPreviousActorMessage;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
         TemplateStepRelation that = (TemplateStepRelation) o;
-        return order == that.order && isFinalizer == that.isFinalizer && mentionAuthor == that.mentionAuthor && Objects.equals(id, that.id) && Objects.equals(mentionMessage, that.mentionMessage) && Objects.equals(taskTemplate, that.taskTemplate) && Objects.equals(taskStepDefinition, that.taskStepDefinition);
+        return order == that.order && isFinalizer == that.isFinalizer && 
+               mentionAuthor == that.mentionAuthor && 
+               mentionPreviousActor == that.mentionPreviousActor && 
+               Objects.equals(id, that.id) && 
+               Objects.equals(mentionMessage, that.mentionMessage) && 
+               Objects.equals(mentionPreviousActorMessage, that.mentionPreviousActorMessage) && 
+               Objects.equals(taskTemplate, that.taskTemplate) && 
+               Objects.equals(taskStepDefinition, that.taskStepDefinition);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, order, isFinalizer, mentionAuthor, mentionMessage, taskTemplate, taskStepDefinition);
+        return Objects.hash(id, order, isFinalizer, mentionAuthor, mentionMessage, 
+                            mentionPreviousActor, mentionPreviousActorMessage, 
+                            taskTemplate, taskStepDefinition);
     }
 }

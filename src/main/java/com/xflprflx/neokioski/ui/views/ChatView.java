@@ -1024,9 +1024,39 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         actions.setPadding(false);
 
         if (task.getTaskTemplate() != null) {
-            List<TemplateStepRelation> stepRelations = taskTemplateService.getStepRelationsByTemplateId(task.getTaskTemplate().getId());
-            for (TemplateStepRelation sr : stepRelations) {
+            List<TemplateStepRelation> allRelations = taskTemplateService.getStepRelationsByTemplateId(task.getTaskTemplate().getId());
+            
+            // Determinar quais steps mostrar
+            List<TemplateStepRelation> visibleRelations;
+            if (task.getCurrentStep() != null) {
+                // Buscar a relação da etapa atual para ver as próximas permitidas
+                Optional<TemplateStepRelation> currentRelOpt = allRelations.stream()
+                        .filter(r -> r.getTaskStepDefinition().getId().equals(task.getCurrentStep().getId()))
+                        .findFirst();
+                
+                if (currentRelOpt.isPresent() && !currentRelOpt.get().getAllowedNextSteps().isEmpty()) {
+                    List<Long> allowedIds = currentRelOpt.get().getAllowedNextSteps().stream()
+                            .map(TaskStepDefinition::getId)
+                            .toList();
+                    visibleRelations = allRelations.stream()
+                            .filter(r -> allowedIds.contains(r.getTaskStepDefinition().getId()))
+                            .toList();
+                } else {
+                    // Se não houver restrição, mostrar todas exceto a atual (opcional, vamos manter todas por enquanto como era)
+                    visibleRelations = allRelations;
+                }
+            } else {
+                // Task Pendente: mostrar todas
+                visibleRelations = allRelations;
+            }
+
+            for (TemplateStepRelation sr : visibleRelations) {
                 TaskStepDefinition step = sr.getTaskStepDefinition();
+                // Não mostrar botão para a etapa em que já estamos
+                if (task.getCurrentStep() != null && step.getId().equals(task.getCurrentStep().getId())) {
+                    continue;
+                }
+
                 Button stepBtn = new Button(step.getLabel(), ev -> {
                     taskService.executeStep(task.getId(), step, currentUser);
                 });

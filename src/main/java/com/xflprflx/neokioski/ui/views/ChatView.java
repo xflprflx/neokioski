@@ -15,6 +15,7 @@ import com.vaadin.flow.component.messages.MessageInput;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
+import com.vaadin.flow.component.orderedlayout.FlexLayout;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -1018,9 +1019,9 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         }
 
         // Botões dos steps do template
-        HorizontalLayout actions = new HorizontalLayout();
-        actions.setSpacing(true);
-        actions.setPadding(false);
+        FlexLayout actions = new FlexLayout();
+        actions.getStyle().set("flex-wrap", "wrap");
+        actions.getStyle().set("gap", "var(--lumo-space-s)");
 
         if (task.getTaskTemplate() != null) {
             List<TemplateStepRelation> allRelations = taskTemplateService.getStepRelationsByTemplateId(task.getTaskTemplate().getId());

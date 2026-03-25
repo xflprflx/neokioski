@@ -20,15 +20,18 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final TemplateStepRelationRepository stepRelationRepository;
     private final ChatService chatService;
+    private final ChatMessageRepository chatMessageRepository;
     private final java.util.Map<Long, List<Consumer<Task>>> listeners =
             Collections.synchronizedMap(new java.util.HashMap<>());
 
     public TaskService(TaskRepository taskRepository,
                        TemplateStepRelationRepository stepRelationRepository,
-                       ChatService chatService) {
+                       ChatService chatService,
+                       ChatMessageRepository chatMessageRepository) {
         this.taskRepository = taskRepository;
         this.stepRelationRepository = stepRelationRepository;
         this.chatService = chatService;
+        this.chatMessageRepository = chatMessageRepository;
     }
 
     @Transactional
@@ -81,20 +84,21 @@ public class TaskService {
             stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
                     task.getTaskTemplate().getId(), step.getId()
             ).ifPresent(relation -> {
+                // Buscar a mensagem original do card da tarefa para dar "Reply"
+                ChatMessage originalMsg = chatMessageRepository.findByTask(task).orElse(null);
+
                 // Menção ao Autor
                 if (relation.isMentionAuthor() && relation.getMentionMessage() != null && !relation.getMentionMessage().isEmpty()) {
                     String message = relation.getMentionMessage();
                     if (task.getCreator() != null) {
                         message = message.replace("@autor", "@" + task.getCreator().getUsername());
                     }
-                    chatService.sendMessage(message, user, task.getGroup());
+                    chatService.sendMessage(message, user, task.getGroup(), originalMsg);
                 }
 
                 // Menção ao Ator Anterior
                 if (relation.isMentionPreviousActor() && relation.getMentionPreviousActorMessage() != null && !relation.getMentionPreviousActorMessage().isEmpty()) {
                     String message = relation.getMentionPreviousActorMessage();
-                    // O evento anterior é o penúltimo na lista (o último é o que acabamos de adicionar agora na linha 76)
-                    // Como taskEvents é um Set, precisamos converter para uma lista ordenada por timestamp
                     List<TaskEvent> events = task.getTaskEvents().stream()
                             .sorted(java.util.Comparator.comparing(TaskEvent::getTimestamp))
                             .toList();
@@ -103,7 +107,7 @@ public class TaskService {
                         User previousActor = events.get(events.size() - 2).getUser();
                         if (previousActor != null) {
                             message = message.replace("@autor_anterior", "@" + previousActor.getUsername());
-                            chatService.sendMessage(message, user, task.getGroup());
+                            chatService.sendMessage(message, user, task.getGroup(), originalMsg);
                         }
                     }
                 }

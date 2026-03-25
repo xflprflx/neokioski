@@ -34,6 +34,8 @@ import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.models.enums.Role;
 import com.xflprflx.neokioski.models.template.TaskFieldDefinition;
 import com.xflprflx.neokioski.models.TaskFieldValue;
+import com.vaadin.flow.component.splitlayout.SplitLayout;
+import com.vaadin.flow.component.combobox.ComboBox;
 
 import com.xflprflx.neokioski.models.template.TaskStepDefinition;
 import com.xflprflx.neokioski.security.SecurityService;
@@ -90,6 +92,20 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private String activeMentionId = "main-input";
     private final Map<Long, HorizontalLayout> messageWrappers = new HashMap<>();
     private final Map<Long, Long> taskIdToMessageId = new HashMap<>();
+    
+    // Novas áreas de layout
+    private final VerticalLayout chatArea = new VerticalLayout();
+    private final VerticalLayout taskArea = new VerticalLayout();
+    private final VerticalLayout taskListArea = new VerticalLayout();
+    private final SplitLayout mainSplit = new SplitLayout(chatArea, taskArea);
+    
+    // Filtros de tarefas
+    private boolean showTasksInChat = true;
+    private String filterOwner = "todas";
+    private String filterStatus = "todos";
+    private ComboBox<String> ownerFilter;
+    private ComboBox<String> statusFilter;
+    private com.vaadin.flow.component.checkbox.Checkbox showTasksInChatCheckbox;
     
     private Consumer<ChatMessage> listener;
     private Consumer<Task> taskListener;
@@ -162,6 +178,18 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     private void configureUI() {
+        setSizeFull();
+        setPadding(false);
+        setSpacing(false);
+
+        // Header de Controle (Toggle e Configurações)
+        HorizontalLayout controls = createTopHeader();
+        
+        // Área de Chat
+        chatArea.setSizeFull();
+        chatArea.setPadding(false);
+        chatArea.setSpacing(false);
+        
         messageContainer.setWidthFull();
         messageContainer.setPadding(true);
         messageContainer.setSpacing(true);
@@ -177,19 +205,171 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         });
 
         configureReplyBar();
-
-        groupName.getStyle()
-                .set("padding-top", "var(--lumo-space-m)")
-                .set("padding-bottom", "var(--lumo-space-m)")
-                .set("padding-left", "var(--lumo-space-l)")
-                .set("padding-right", "var(--lumo-space-l)")
-                .set("font-size", "var(--lumo-font-size-xl)");
-        
-        getStyle().set("position", "relative"); // Para o suggestionWrapper absoluto funcionar
-        
         configureTemplateBar();
-        add(groupName, scroller, replyBar, templateBar, messageInput);
+        
+        chatArea.add(scroller, replyBar, templateBar, messageInput);
+
+        // Área de Tarefas
+        configureTaskArea();
+
+        // Split Layout
+        mainSplit.setSizeFull();
+        mainSplit.setSplitterPosition(50);
+        
+        add(controls, mainSplit);
         configureSuggestions();
+    }
+
+    private HorizontalLayout createTopHeader() {
+        groupName.getStyle().set("margin", "0").set("font-size", "var(--lumo-font-size-l)");
+        
+        Button showChatOnly = new Button(VaadinIcon.CHAT.create(), e -> mainSplit.setSplitterPosition(100));
+        showChatOnly.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        showChatOnly.setTooltipText("Apenas Chat");
+
+        Button showSplit = new Button(VaadinIcon.TABLE.create(), e -> mainSplit.setSplitterPosition(50));
+        showSplit.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        showSplit.setTooltipText("Dividido");
+
+        Button showTasksOnly = new Button(VaadinIcon.TASKS.create(), e -> mainSplit.setSplitterPosition(0));
+        showTasksOnly.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        showTasksOnly.setTooltipText("Apenas Tarefas");
+
+        HorizontalLayout toggleButtons = new HorizontalLayout(showChatOnly, showSplit, showTasksOnly);
+        toggleButtons.setSpacing(false);
+
+        showTasksInChatCheckbox = new com.vaadin.flow.component.checkbox.Checkbox("Ver tarefas no chat", showTasksInChat);
+        showTasksInChatCheckbox.getStyle().set("margin-left", "auto").set("margin-right", "var(--lumo-space-l)");
+        showTasksInChatCheckbox.addValueChangeListener(e -> {
+            showTasksInChat = e.getValue();
+            loadMessages(); // Recarregar mensagens para aplicar filtro
+        });
+
+        HorizontalLayout header = new HorizontalLayout(groupName, toggleButtons, showTasksInChatCheckbox);
+        header.setWidthFull();
+        header.setAlignItems(FlexComponent.Alignment.CENTER);
+        header.setPadding(true);
+        header.setSpacing(true);
+        header.getStyle().set("background", "var(--lumo-base-color)");
+        header.getStyle().set("border-bottom", "1px solid var(--lumo-contrast-10pct)");
+        header.getStyle().set("min-height", "60px");
+        return header;
+    }
+
+    private void configureTaskArea() {
+        taskArea.setSizeFull();
+        taskArea.setPadding(true);
+        taskArea.setSpacing(true);
+        taskArea.getStyle().set("background", "var(--lumo-contrast-5pct)");
+        taskArea.getStyle().set("border-left", "1px solid var(--lumo-contrast-10pct)");
+
+        Span title = new Span("📋 Tarefas do Grupo");
+        title.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-l)");
+
+        // Filtros
+        ownerFilter = new ComboBox<>("Responsável");
+        ownerFilter.setWidthFull();
+        ownerFilter.setClearButtonVisible(true);
+        ownerFilter.addValueChangeListener(e -> {
+            String val = e.getValue();
+            if (val == null || val.equals("Todas")) filterOwner = "todas";
+            else if (val.equals("Minhas")) filterOwner = "minhas";
+            else filterOwner = val;
+            refreshTaskList();
+        });
+
+        statusFilter = new ComboBox<>("Status");
+        statusFilter.setWidthFull();
+        statusFilter.setClearButtonVisible(true);
+        statusFilter.addValueChangeListener(e -> {
+            String val = e.getValue();
+            filterStatus = (val == null || val.equals("Todos")) ? "todos" : val;
+            refreshTaskList();
+        });
+
+        HorizontalLayout filters = new HorizontalLayout(ownerFilter, statusFilter);
+        filters.setWidthFull();
+
+        taskListArea.setWidthFull();
+        taskListArea.setPadding(false);
+        taskListArea.setSpacing(true);
+
+        Scroller taskScroller = new Scroller(taskListArea);
+        taskScroller.setSizeFull();
+
+        taskArea.add(title, filters, taskScroller);
+    }
+
+    private void refreshTaskList() {
+        if (group == null) return;
+        taskListArea.removeAll();
+
+        List<Task> tasks = taskService.getTasksByGroup(group);
+
+        // Filtrar por responsável
+        tasks = tasks.stream().filter(t -> {
+            if (filterOwner.equals("todas")) return true;
+            if (filterOwner.equals("minhas")) {
+                if (currentUser == null) return true;
+                boolean isCreator = t.getCreator() != null && t.getCreator().getId().equals(currentUser.getId());
+                boolean participated = t.getTaskEvents().stream()
+                        .anyMatch(ev -> ev.getUser() != null && ev.getUser().getId().equals(currentUser.getId()));
+                return isCreator || participated;
+            }
+            return t.getCreator() != null && t.getCreator().getUsername().equals(filterOwner);
+        }).collect(Collectors.toList());
+
+        // Filtrar por status
+        if (!filterStatus.equals("todos")) {
+            tasks = tasks.stream()
+                    .filter(t -> {
+                        if (filterStatus.equals("Pendentes")) return !taskService.isTaskFinalized(t);
+                        if (filterStatus.equals("Finalizadas")) return taskService.isTaskFinalized(t);
+                        return t.getCurrentStep() != null && t.getCurrentStep().getLabel().equals(filterStatus);
+                    })
+                    .collect(Collectors.toList());
+        }
+
+        if (tasks.isEmpty()) {
+            taskListArea.add(new Span("Nenhuma tarefa encontrada."));
+        } else {
+            for (Task task : tasks) {
+                taskListArea.add(createTaskCardLayout(task));
+            }
+        }
+    }
+
+    private void updateFilterOptions() {
+        if (group == null) return;
+
+        // Responsável
+        List<String> ownerOptions = new ArrayList<>();
+        ownerOptions.add("Minhas");
+        if (group.getUsers() != null) {
+            group.getUsers().stream()
+                    .filter(u -> currentUser == null || !u.getId().equals(currentUser.getId()))
+                    .map(User::getUsername)
+                    .sorted()
+                    .forEach(ownerOptions::add);
+        }
+        ownerOptions.add("Todas");
+        ownerFilter.setItems(ownerOptions);
+        ownerFilter.setValue("Todas");
+
+        // Status
+        List<String> stepOptions = new ArrayList<>();
+        stepOptions.add("Todos");
+        stepOptions.add("Pendentes");
+        stepOptions.add("Finalizadas");
+        
+        taskService.getTasksByGroup(group).stream()
+                .filter(t -> t.getCurrentStep() != null)
+                .map(t -> t.getCurrentStep().getLabel())
+                .distinct()
+                .sorted()
+                .forEach(stepOptions::add);
+        statusFilter.setItems(stepOptions);
+        statusFilter.setValue("Todos");
     }
 
     private void configureTemplateBar() {
@@ -645,6 +825,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         this.groupName.setText(group.getName());
         loadMessages();
         loadTemplates();
+        updateFilterOptions();
+        refreshTaskList();
         setupRealTimeUpdate();
     }
 
@@ -661,6 +843,14 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private void addOrUpdateMessageInUI(ChatMessage msg) {
         if (msg.getTask() != null) {
             taskIdToMessageId.put(msg.getTask().getId(), msg.getId());
+            // Se visibilidade de tarefas no chat desativada, não mostrar
+            if (!showTasksInChat) {
+                if (messageWrappers.containsKey(msg.getId())) {
+                    messageContainer.remove(messageWrappers.get(msg.getId()));
+                    messageWrappers.remove(msg.getId());
+                }
+                return;
+            }
         }
         if (messageWrappers.containsKey(msg.getId())) {
             HorizontalLayout oldWrapper = messageWrappers.get(msg.getId());
@@ -670,6 +860,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             } else {
                 newWrapper = createMessageLayout(msg);
             }
+            newWrapper.setId("msg-" + msg.getId());
             messageContainer.replace(oldWrapper, newWrapper);
             messageWrappers.put(msg.getId(), newWrapper);
         } else {
@@ -679,6 +870,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             } else {
                 wrapper = createMessageLayout(msg);
             }
+            wrapper.setId("msg-" + msg.getId());
             messageContainer.add(wrapper);
             messageWrappers.put(msg.getId(), wrapper);
         }
@@ -732,7 +924,14 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             replyAuthor.getStyle().set("font-weight", "bold");
             replyAuthor.getStyle().set("font-size", "var(--lumo-font-size-xxs)");
             
-            Span replyText = new Span(repliedMsg.getContent());
+            String replyContent;
+            if (repliedMsg.getTask() != null) {
+                replyContent = "📋 " + (repliedMsg.getTask().getTaskTemplate() != null ? repliedMsg.getTask().getTaskTemplate().getName() : "Tarefa");
+            } else {
+                replyContent = repliedMsg.getContent();
+            }
+            
+            Span replyText = new Span(replyContent);
             replyText.getStyle().set("font-size", "var(--lumo-font-size-xs)");
             replyText.getStyle().set("opacity", "0.8");
             replyText.getStyle().set("white-space", "nowrap");
@@ -748,6 +947,10 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             quote.getStyle().set("margin-bottom", "var(--lumo-space-xs)");
             quote.getStyle().set("border-radius", "4px");
             quote.setWidthFull();
+            quote.getStyle().set("cursor", "pointer");
+            quote.addClickListener(e -> {
+                getElement().executeJs("const el = document.getElementById('msg-" + repliedMsg.getId() + "'); if(el) el.scrollIntoView({behavior: 'smooth', block: 'center'});");
+            });
         } else {
             quote.setVisible(false);
         }
@@ -968,7 +1171,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         // Emoji + template name (cabeçalho)
         String templateName = task.getTaskTemplate() != null ? task.getTaskTemplate().getName() : "Tarefa";
         String emoji = resolveTemplateEmoji(templateName);
-        Span header = new Span(emoji + " " + (task.getTaskTemplate() != null ? task.getTaskTemplate().getName() : "Tarefa"));
+        Span header = new Span(emoji + " " + templateName);
         header.getStyle()
                 .set("font-weight", "bold")
                 .set("font-size", "var(--lumo-font-size-m)")
@@ -1285,28 +1488,25 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             }
         };
 
-        if (group != null) {
-            chatService.register(group.getId(), listener);
-        }
-
         taskListener = task -> {
             if (getUI().isPresent()) {
                 getUI().get().access(() -> {
+                    // Atualizar o card na linha do chat se existir
                     Long messageId = taskIdToMessageId.get(task.getId());
                     if (messageId != null) {
-                        // Buscar a mensagem novamente para garantir que tenha o estado mais recente
-                        // ou apenas atualizar o card diretamente se possível.
-                        // Como addOrUpdateMessageInUI reconstrói o layout, precisamos da ChatMessage completa.
                         chatService.getMessagesByGroup(group).stream()
                             .filter(m -> m.getId().equals(messageId))
                             .findFirst()
                             .ifPresent(this::addOrUpdateMessageInUI);
                     }
+                    // Atualizar a lista de tarefas lateral sempre
+                    refreshTaskList();
                 });
             }
         };
 
         if (group != null) {
+            chatService.register(group.getId(), listener);
             taskService.register(group.getId(), taskListener);
         }
     }

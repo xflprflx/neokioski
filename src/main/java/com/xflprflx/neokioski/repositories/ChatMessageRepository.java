@@ -28,4 +28,6 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
 
     @Query("SELECT m FROM ChatMessage m WHERE m.group = :group ORDER BY m.timestamp ASC")
     List<ChatMessage> findByGroupOrderByTimestampAsc(@Param("group") Group group);
+
+    java.util.Optional<ChatMessage> findByTask(com.xflprflx.neokioski.models.Task task);
 }

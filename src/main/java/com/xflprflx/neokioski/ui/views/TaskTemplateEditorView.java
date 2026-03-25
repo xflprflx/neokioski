@@ -54,6 +54,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     private MultiSelectComboBox<Group> groupComboBox = new MultiSelectComboBox<>("Grupos");
     private Checkbox showSendButton = new Checkbox();
     private Checkbox requireSignature = new Checkbox();
+    private Checkbox playAlertSoundUI = new Checkbox();
 
     // Tabs
     private Tabs tabs = new Tabs();
@@ -305,7 +306,12 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         Span reqSigText = new Span("Requer autorização?");
         reqSignatureLayout.add(requireSignature, reqSigText);
 
-        secondRow.add(showSendBtnLayout, reqSignatureLayout);
+        HorizontalLayout playAlertSoundLayout = new HorizontalLayout();
+        playAlertSoundLayout.setAlignItems(FlexComponent.Alignment.CENTER);
+        Span playAlertSoundText = new Span("Tocar alerta sonoro?");
+        playAlertSoundLayout.add(playAlertSoundUI, playAlertSoundText);
+
+        secondRow.add(showSendBtnLayout, reqSignatureLayout, playAlertSoundLayout);
 
         VerticalLayout configLayout = new VerticalLayout(firstRow, secondRow);
         configLayout.setPadding(false);
@@ -664,6 +670,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         t.setName(nameField.getValue());
         t.setShowSendButton(showSendButton.getValue());
         t.setRequiresSignature(requireSignature.getValue());
+        t.setPlayAlertSound(playAlertSoundUI.getValue());
         t.getGroups().clear();
         if (groupComboBox.getValue() != null) {
             for (Group g : groupComboBox.getValue()) {
@@ -745,6 +752,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 nameField.setValue(t.getName());
                 showSendButton.setValue(t.isShowSendButton());
                 requireSignature.setValue(t.isRequiresSignature());
+                playAlertSoundUI.setValue(t.isPlayAlertSound());
                 groupComboBox.setValue(t.getGroups());
 
                 fields.clear();

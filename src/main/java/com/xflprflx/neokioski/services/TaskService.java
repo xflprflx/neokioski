@@ -23,6 +23,7 @@ public class TaskService {
     private final ChatMessageRepository chatMessageRepository;
     private final java.util.Map<Long, List<Consumer<Task>>> listeners =
             Collections.synchronizedMap(new java.util.HashMap<>());
+    private final List<Consumer<Task>> globalListeners = new CopyOnWriteArrayList<>();
 
     public TaskService(TaskRepository taskRepository,
                        TemplateStepRelationRepository stepRelationRepository,
@@ -143,6 +144,14 @@ public class TaskService {
         if (groupListeners != null) groupListeners.remove(listener);
     }
 
+    public void registerGlobal(Consumer<Task> listener) {
+        globalListeners.add(listener);
+    }
+
+    public void unregisterGlobal(Consumer<Task> listener) {
+        globalListeners.remove(listener);
+    }
+
     public boolean isTaskFinalized(Task task) {
         if (task.getCurrentStep() == null) return false;
         
@@ -190,5 +199,6 @@ public class TaskService {
     private void broadcast(Long groupId, Task task) {
         List<Consumer<Task>> groupListeners = listeners.get(groupId);
         if (groupListeners != null) groupListeners.forEach(l -> l.accept(task));
+        globalListeners.forEach(l -> l.accept(task));
     }
 }

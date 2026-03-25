@@ -26,8 +26,12 @@ import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.security.SecurityService;
 import com.xflprflx.neokioski.services.GroupService;
 import com.xflprflx.neokioski.services.TaskService;
+import com.xflprflx.neokioski.services.UserService;
 import jakarta.annotation.security.PermitAll;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -45,18 +49,37 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     private final GroupService groupService;
     private final SecurityService securityService;
     private final TaskService taskService;
+    private final UserService userService;
     private final VerticalLayout drawerContainer = new VerticalLayout();
     private Group currentGroup;
     private User currentUser;
+    private String pedidoLojaB64;
+    private Consumer<Task> globalTaskListener;
 
     public MainLayout(AuthenticationContext authContext, GroupService groupService,
-                      SecurityService securityService, TaskService taskService) {
+                      SecurityService securityService, TaskService taskService, UserService userService) {
         this.authContext = authContext;
         this.groupService = groupService;
         this.securityService = securityService;
         this.taskService = taskService;
+        this.userService = userService;
+        
+        // Carregar áudio pedido-loja
+        this.pedidoLojaB64 = loadAudioAsBase64("themes/neokioski/sounds/pedido-loja");
+        
         createHeader();
         createDrawer();
+    }
+
+    private String loadAudioAsBase64(String resourcePath) {
+        String path = resourcePath.startsWith("/") ? resourcePath : "/" + resourcePath;
+        try (java.io.InputStream is = getClass().getResourceAsStream(path)) {
+            if (is == null) return "";
+            byte[] bytes = is.readAllBytes();
+            return java.util.Base64.getEncoder().encodeToString(bytes);
+        } catch (java.io.IOException e) {
+            return "";
+        }
     }
 
     private void createHeader() {
@@ -101,6 +124,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
 
         if (authContext.hasAnyRole("ADMIN")) {
             nav.addItem(new SideNavItem("Grupos", GroupListView.class, VaadinIcon.USERS.create()));
+            nav.addItem(new SideNavItem("Usuários", UserListView.class, VaadinIcon.USER_CARD.create()));
             nav.addItem(new SideNavItem("Templates", TaskTemplateListView.class, VaadinIcon.FILE_TEXT.create()));
         }
 
@@ -154,11 +178,56 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         }
     }
 
+    @Override
+    protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
+        super.onAttach(attachEvent);
+        
+        // Injetar dados de áudio no cliente
+        String js = String.format(
+            "window.audioData = window.audioData || {};" +
+            "window.audioData['pedido-loja'] = 'data:audio/mp3;base64,%s';" +
+            "window.playStoreOrderSound = function() {" +
+            "  console.log('SOUND: Play Store Order Sound triggered');" +
+            "  if(window.audioData['pedido-loja']) {" +
+                "    new Audio(window.audioData['pedido-loja']).play().catch(e => console.error('Audio play failed:', e));" +
+            "  } else { console.warn('SOUND: Audio data missing for pedido-loja'); }" +
+            "};",
+            pedidoLojaB64
+        );
+        attachEvent.getUI().getPage().executeJs(js);
 
+        // Capturar usuário atual e ID para a closure
+        securityService.getAuthenticatedInternalUser().ifPresent(u -> {
+            this.currentUser = u;
+            final Long currentUserId = u.getId();
+
+            // Registrar listener global para som de pedido
+            this.globalTaskListener = task -> {
+                if (task.getTaskTemplate() != null && task.getTaskTemplate().isPlayAlertSound()) {
+                    boolean isNewTask = task.getCurrentStep() == null;
+                    
+                    if (isNewTask && currentUserId != null) {
+                        userService.findById(currentUserId).ifPresent(user -> {
+                            boolean isCreator = task.getCreator() != null && task.getCreator().getId().equals(user.getId());
+                            
+                            if (user.isNotifyStoreOrder() && !isCreator) {
+                                getUI().ifPresent(ui -> ui.access(() -> {
+                                    ui.getPage().executeJs("if(window.playStoreOrderSound) { window.playStoreOrderSound(); }");
+                                }));
+                            }
+                        });
+                    }
+                }
+            };
+            taskService.registerGlobal(globalTaskListener);
+        });
+    }
 
     @Override
     protected void onDetach(com.vaadin.flow.component.DetachEvent detachEvent) {
         super.onDetach(detachEvent);
+        if (globalTaskListener != null) {
+            taskService.unregisterGlobal(globalTaskListener);
+        }
     }
-
 }

@@ -21,6 +21,8 @@ public class TaskTemplate {
     private boolean showSendButton;
     @Column(nullable = false)
     private boolean requiresSignature;
+    @Column(nullable = false)
+    private boolean playAlertSound = false;
     @ManyToMany
     @JoinTable(
             name = "tb_task_templates_groups",
@@ -66,6 +68,14 @@ public class TaskTemplate {
 
     public void setRequiresSignature(boolean requiresSignature) {
         this.requiresSignature = requiresSignature;
+    }
+
+    public boolean isPlayAlertSound() {
+        return playAlertSound;
+    }
+
+    public void setPlayAlertSound(boolean playAlertSound) {
+        this.playAlertSound = playAlertSound;
     }
 
     public List<Group> getGroups() {

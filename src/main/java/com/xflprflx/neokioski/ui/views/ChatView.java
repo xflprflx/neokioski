@@ -142,28 +142,30 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     private String loadAudioAsBase64(String resourcePath) {
-        try (InputStream is = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
+        String path = resourcePath.startsWith("/") ? resourcePath : "/" + resourcePath;
+        try (InputStream is = getClass().getResourceAsStream(path)) {
             if (is == null) {
-                System.err.println("Aviso: Recurso de áudio não encontrado em: " + resourcePath);
+                String error = "ERRO SOUND: Recurso não encontrado em " + path;
+                System.err.println(error);
                 return "";
             }
             byte[] bytes = is.readAllBytes();
+            if (bytes.length == 0) {
+                System.err.println("ERRO SOUND: Arquivo vazio em " + path);
+                return "";
+            }
+            System.out.println("DEBUG SOUND: Carregado " + path + " - " + bytes.length + " bytes");
             return Base64.getEncoder().encodeToString(bytes);
-        } catch (IOException e) {
+        } catch (Exception e) {
+            System.err.println("ERRO SOUND: Falha ao ler " + path);
             e.printStackTrace();
             return "";
         }
     }
 
     private void unlockAudio() {
-        // Inject data and prepare unlock listener
+        // Inject preparation listeners only
         getElement().executeJs(
-            "window.audioData = {" +
-            "  'new-message': 'data:audio/mp3;base64," + newMessageB64 + "'," +
-            "  'reply-to-me': 'data:audio/mp3;base64," + replyToMeB64 + "'," +
-            "  'i-was-mentioned': 'data:audio/mp3;base64," + mentionedB64 + "'," +
-            "  'remove-or-edit': 'data:audio/mp3;base64," + removeOrEditB64 + "'" +
-            "};" +
             "const unlock = () => {" +
             "  const ctx = new (window.AudioContext || window.webkitAudioContext)();" +
             "  ctx.resume().then(() => {" +
@@ -238,14 +240,38 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         HorizontalLayout toggleButtons = new HorizontalLayout(showChatOnly, showSplit, showTasksOnly);
         toggleButtons.setSpacing(false);
 
-        showTasksInChatCheckbox = new com.vaadin.flow.component.checkbox.Checkbox("Ver tarefas no chat", showTasksInChat);
-        showTasksInChatCheckbox.getStyle().set("margin-left", "auto").set("margin-right", "var(--lumo-space-l)");
+        showTasksInChatCheckbox = new com.vaadin.flow.component.checkbox.Checkbox("Tarefas no chat", showTasksInChat);
+        showTasksInChatCheckbox.getStyle().set("margin-left", "auto").set("margin-right", "var(--lumo-space-m)");
         showTasksInChatCheckbox.addValueChangeListener(e -> {
             showTasksInChat = e.getValue();
             loadMessages(); // Recarregar mensagens para aplicar filtro
         });
 
-        HorizontalLayout header = new HorizontalLayout(groupName, toggleButtons, showTasksInChatCheckbox);
+        // Controles de áudio
+        com.vaadin.flow.component.checkbox.Checkbox notifyStoreOrderCheckbox = new com.vaadin.flow.component.checkbox.Checkbox("Alerta Pedidos", currentUser != null && currentUser.isNotifyStoreOrder());
+        notifyStoreOrderCheckbox.addValueChangeListener(e -> {
+            if (currentUser != null) {
+                currentUser.setNotifyStoreOrder(e.getValue());
+                userService.save(currentUser);
+                Notification.show("Alerta de pedidos " + (e.getValue() ? "ativado" : "desativado"), 2000, Notification.Position.BOTTOM_END);
+            }
+        });
+
+        com.vaadin.flow.component.checkbox.Checkbox notifyChatSoundsCheckbox = new com.vaadin.flow.component.checkbox.Checkbox("Sons Chat", currentUser != null && currentUser.isNotifyChatSounds());
+        notifyChatSoundsCheckbox.addValueChangeListener(e -> {
+            if (currentUser != null) {
+                currentUser.setNotifyChatSounds(e.getValue());
+                userService.save(currentUser);
+                Notification.show("Sons do chat " + (e.getValue() ? "ativados" : "desativados"), 2000, Notification.Position.BOTTOM_END);
+            }
+        });
+
+        HorizontalLayout audioControls = new HorizontalLayout(VaadinIcon.VOLUME_UP.create(), notifyStoreOrderCheckbox, notifyChatSoundsCheckbox);
+        audioControls.setSpacing(true);
+        audioControls.setAlignItems(FlexComponent.Alignment.CENTER);
+        audioControls.getStyle().set("margin-right", "var(--lumo-space-m)");
+
+        HorizontalLayout header = new HorizontalLayout(groupName, toggleButtons, showTasksInChatCheckbox, audioControls);
         header.setWidthFull();
         header.setAlignItems(FlexComponent.Alignment.CENTER);
         header.setPadding(true);
@@ -806,7 +832,13 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         }
 
         this.group = groupOpt.get();
-        this.currentUser = securityService.getAuthenticatedInternalUser().orElse(null);
+        
+        Optional<User> authUser = securityService.getAuthenticatedInternalUser();
+        if (authUser.isPresent()) {
+            this.currentUser = userService.findById(authUser.get().getId()).orElse(null);
+        } else {
+            this.currentUser = null;
+        }
 
         // Verificação de associação ao grupo
         if (currentUser == null || !group.getUsers().contains(currentUser)) {
@@ -1501,6 +1533,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     }
                     // Atualizar a lista de tarefas lateral sempre
                     refreshTaskList();
+
+                    // (O som de pedido agora é tratado globalmente no MainLayout)
                 });
             }
         };
@@ -1662,17 +1696,18 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         scroller.getElement().executeJs("this.scrollTo(0, this.scrollHeight)");
     }
 
-    private void playNotificationSound(String type) {
-        getElement().executeJs(
-            "try {" +
-            "  const audioSrc = window.audioData['" + type + "'];" +
-            "  if (!audioSrc) throw new Error('Dados de áudio não encontrados para: ' + '" + type + "');" +
-            "  const audio = new Audio(audioSrc);" +
-            "  audio.play().catch(e => console.error('Falha ao tocar áudio (' + '" + type + "' + '):', e));" +
-            "} catch (err) {" +
-            "  console.error('Erro na função playNotificationSound:', err);" +
-            "}"
-        );
+    private void playNotificationSound(String soundId) {
+        securityService.getAuthenticatedInternalUser().ifPresent(u -> {
+            userService.findById(u.getId()).ifPresent(user -> {
+                if (user.isNotifyChatSounds()) {
+                    getUI().ifPresent(ui -> ui.getPage().executeJs(
+                        "if(window.audioData && window.audioData[$0]) {" +
+                        "  new Audio(window.audioData[$0]).play().catch(e => console.error('Sound error:', e));" +
+                        "}", soundId
+                    ));
+                }
+            });
+        });
     }
 
     @Override
@@ -1682,8 +1717,9 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             "window.audioData = window.audioData || {};" +
             "window.audioData['new-message'] = 'data:audio/mp3;base64,%s';" +
             "window.audioData['reply-to-me'] = 'data:audio/mp3;base64,%s';" +
-            "window.audioData['i-was-mentioned'] = 'data:audio/mp3;base64,%s';",
-            newMessageB64, replyToMeB64, mentionedB64
+            "window.audioData['i-was-mentioned'] = 'data:audio/mp3;base64,%s';" +
+            "window.audioData['remove-or-edit'] = 'data:audio/mp3;base64,%s';",
+            newMessageB64, replyToMeB64, mentionedB64, removeOrEditB64
         );
         attachEvent.getUI().getPage().executeJs(js);
         showPermissionDialog();

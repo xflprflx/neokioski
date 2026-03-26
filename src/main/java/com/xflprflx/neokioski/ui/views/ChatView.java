@@ -106,6 +106,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private ComboBox<String> ownerFilter;
     private ComboBox<String> statusFilter;
     private com.vaadin.flow.component.checkbox.Checkbox showTasksInChatCheckbox;
+    private com.vaadin.flow.component.checkbox.Checkbox notifyStoreOrderCheckbox;
+    private com.vaadin.flow.component.checkbox.Checkbox notifyChatSoundsCheckbox;
     
     private Consumer<ChatMessage> listener;
     private Consumer<Task> taskListener;
@@ -248,20 +250,20 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         });
 
         // Controles de áudio
-        com.vaadin.flow.component.checkbox.Checkbox notifyStoreOrderCheckbox = new com.vaadin.flow.component.checkbox.Checkbox("Alerta Pedidos", currentUser != null && currentUser.isNotifyStoreOrder());
+        notifyStoreOrderCheckbox = new com.vaadin.flow.component.checkbox.Checkbox("Alerta Pedidos");
         notifyStoreOrderCheckbox.addValueChangeListener(e -> {
             if (currentUser != null) {
+                userService.updateNotifyStoreOrder(currentUser.getId(), e.getValue());
                 currentUser.setNotifyStoreOrder(e.getValue());
-                userService.save(currentUser);
                 Notification.show("Alerta de pedidos " + (e.getValue() ? "ativado" : "desativado"), 2000, Notification.Position.BOTTOM_END);
             }
         });
 
-        com.vaadin.flow.component.checkbox.Checkbox notifyChatSoundsCheckbox = new com.vaadin.flow.component.checkbox.Checkbox("Sons Chat", currentUser != null && currentUser.isNotifyChatSounds());
+        notifyChatSoundsCheckbox = new com.vaadin.flow.component.checkbox.Checkbox("Sons Chat");
         notifyChatSoundsCheckbox.addValueChangeListener(e -> {
             if (currentUser != null) {
+                userService.updateNotifyChatSounds(currentUser.getId(), e.getValue());
                 currentUser.setNotifyChatSounds(e.getValue());
-                userService.save(currentUser);
                 Notification.show("Sons do chat " + (e.getValue() ? "ativados" : "desativados"), 2000, Notification.Position.BOTTOM_END);
             }
         });
@@ -838,6 +840,11 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             this.currentUser = userService.findById(authUser.get().getId()).orElse(null);
         } else {
             this.currentUser = null;
+        }
+
+        if (currentUser != null) {
+            notifyStoreOrderCheckbox.setValue(currentUser.isNotifyStoreOrder());
+            notifyChatSoundsCheckbox.setValue(currentUser.isNotifyChatSounds());
         }
 
         // Verificação de associação ao grupo

@@ -45,7 +45,22 @@ public class UserForm extends FormLayout {
         
         // Senha: Bind manual para não carregar a hash do banco, mas salvar o que for digitado
         binder.forField(password)
-            .bind(user -> "", User::setPassword);
+            .withValidator(pass -> {
+                // Se for novo usuário, a senha é obrigatória
+                if (binder.getBean() != null && binder.getBean().getId() == null) {
+                    return pass != null && !pass.isEmpty();
+                }
+                return true;
+            }, "A senha é obrigatória para novos usuários")
+            .bind(user -> "", (user, pass) -> {
+                if (pass != null && !pass.isEmpty()) {
+                    user.setPassword(pass);
+                } else if (user.getId() != null) {
+                    // Para usuários existentes, se estiver em branco, garantimos que seja null
+                    // para o UserService saber que não deve alterar
+                    user.setPassword(null);
+                }
+            });
 
         role.setItems(Role.values());
         role.setItemLabelGenerator(Role::getDescription);
@@ -77,6 +92,11 @@ public class UserForm extends FormLayout {
     }
 
     public void setUser(User user) {
+        if (user != null && user.getId() != null) {
+            // Limpamos a senha para que o service saiba que, se continuar nulo/vazio, 
+            // deve manter a senha original do banco
+            user.setPassword(null);
+        }
         binder.setBean(user);
         if (user != null && user.getId() != null) {
             password.setPlaceholder("Deixe em branco para manter");

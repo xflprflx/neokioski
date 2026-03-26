@@ -9,7 +9,7 @@ INSERT INTO tb_users_groups(group_id, user_id) VALUES (1, 1);
 INSERT INTO tb_users_groups(group_id, user_id) VALUES (1, 2);
 INSERT INTO tb_users_groups(group_id, user_id) VALUES (1, 3);
 
-INSERT INTO tb_task_templates(name, show_send_button, requires_signature, play_alert_sound) VALUES ('Pedido Loja', true, false, false);
+INSERT INTO tb_task_templates(name, show_send_button, requires_signature, play_alert_sound) VALUES ('Pedido Loja', true, false, true);
 
 INSERT INTO tb_task_field_definitions(label, description, input_type) VALUES ('Pedido', 'Número do pedido', 'TEXT');
 

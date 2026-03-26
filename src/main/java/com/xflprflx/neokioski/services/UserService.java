@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
+@org.springframework.transaction.annotation.Transactional
 public class UserService {
 
     private final UserRepository repository;
@@ -45,8 +46,10 @@ public class UserService {
                 user.setPassword(oldUser.getPassword());
             });
         } else if (user.getPassword() != null && !user.getPassword().isEmpty()) {
-            // Se foi fornecida uma nova senha, criptografamos
-            user.setPassword(passwordEncoder.encode(user.getPassword()));
+            // Se foi fornecida uma nova senha, criptografamos (a menos que já pareça um hash BCrypt)
+            if (!user.getPassword().startsWith("$2a$") && !user.getPassword().startsWith("$2b$") && !user.getPassword().startsWith("$2y$")) {
+                user.setPassword(passwordEncoder.encode(user.getPassword()));
+            }
         }
         
         repository.save(user);
@@ -54,5 +57,13 @@ public class UserService {
 
     public void delete(User user) {
         repository.delete(user);
+    }
+
+    public void updateNotifyStoreOrder(Long id, boolean value) {
+        repository.updateNotifyStoreOrder(id, value);
+    }
+
+    public void updateNotifyChatSounds(Long id, boolean value) {
+        repository.updateNotifyChatSounds(id, value);
     }
 }

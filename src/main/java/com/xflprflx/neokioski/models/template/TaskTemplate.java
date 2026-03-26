@@ -18,7 +18,7 @@ public class TaskTemplate {
     @Column(nullable = false, unique = true)
     private String name;
     @Column(nullable = false)
-    private boolean showSendButton;
+    private boolean showSendButton = true;
     @Column(nullable = false)
     private boolean requiresSignature;
     @Column(nullable = false)

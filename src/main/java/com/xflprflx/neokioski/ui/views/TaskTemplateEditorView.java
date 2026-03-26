@@ -52,7 +52,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     // UI Top Components
     private TextField nameField = new TextField("Nome do Template");
     private MultiSelectComboBox<Group> groupComboBox = new MultiSelectComboBox<>("Grupos");
-    private Checkbox showSendButton = new Checkbox();
+    private Checkbox showSendButton = new Checkbox(true);
     private Checkbox requireSignature = new Checkbox();
     private Checkbox playAlertSoundUI = new Checkbox();
 
@@ -86,6 +86,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         public List<String> allowedNextStepLabels = new ArrayList<>();
         public boolean mentionPreviousActor;
         public String mentionPreviousActorMessage;
+        public boolean isGlobal;
         public boolean shouldPulse;
     }
 
@@ -459,6 +460,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         TextField labelField = new TextField("Rótulo da Etapa");
         ComboBox<String> colorCombo = new ComboBox<>("Tema", List.of("blue", "yellow", "green", "red", "purple", "orange", "cyan", "pink", "gray", "black"));
         Checkbox finalizerCheck = new Checkbox("É Finalizador?");
+        Checkbox globalCheck = new Checkbox("É Global?");
         Checkbox shouldPulseCheck = new Checkbox("Deve pulsar?");
         
         Checkbox mentionAuthorCheck = new Checkbox("Mencionar autor");
@@ -472,6 +474,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             labelField.setValue(existingDto.label);
             colorCombo.setValue(existingDto.colorTheme);
             finalizerCheck.setValue(existingDto.isFinalizer);
+            globalCheck.setValue(existingDto.isGlobal);
             shouldPulseCheck.setValue(existingDto.shouldPulse);
             mentionAuthorCheck.setValue(existingDto.mentionAuthor);
             mentionMessageField.setValue(existingDto.mentionMessage != null ? existingDto.mentionMessage : "");
@@ -511,7 +514,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         setupMentionLogic(mentionMessageField.getElement(), "mention-message-input");
         setupMentionLogic(mentionPrevMessageField.getElement(), "mention-prev-message-input");
 
-        VerticalLayout layout = new VerticalLayout(labelField, colorCombo, finalizerCheck, shouldPulseCheck,
+        VerticalLayout layout = new VerticalLayout(labelField, colorCombo, finalizerCheck, globalCheck, shouldPulseCheck,
                 mentionAuthorCheck, mentionMessageField, 
                 mentionPrevCheck, mentionPrevMessageField,
                 nextStepsCombo, suggestionWrapper);
@@ -526,6 +529,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             dto.label = labelField.getValue();
             dto.colorTheme = colorCombo.getValue();
             dto.isFinalizer = finalizerCheck.getValue();
+            dto.isGlobal = globalCheck.getValue();
             dto.shouldPulse = shouldPulseCheck.getValue();
             dto.mentionAuthor = mentionAuthorCheck.getValue();
             dto.mentionMessage = mentionMessageField.getValue();
@@ -721,6 +725,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             rel.setTaskStepDefinition(def);
             rel.setOrder(sOrder++);
             rel.setFinalizer(dto.isFinalizer);
+            rel.setGlobal(dto.isGlobal);
             rel.setShouldPulse(dto.shouldPulse);
             rel.setMentionAuthor(dto.mentionAuthor);
             rel.setMentionMessage(dto.mentionMessage);
@@ -777,6 +782,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     dto.label = sr.getTaskStepDefinition().getLabel();
                     dto.colorTheme = sr.getTaskStepDefinition().getColorTheme();
                     dto.isFinalizer = sr.isFinalizer();
+                    dto.isGlobal = sr.isGlobal();
                     dto.shouldPulse = sr.isShouldPulse();
                     dto.mentionAuthor = sr.isMentionAuthor();
                     dto.mentionMessage = sr.getMentionMessage();

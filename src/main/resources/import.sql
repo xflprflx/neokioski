@@ -18,8 +18,8 @@ INSERT INTO tb_template_field_relations(field_order, is_required, task_template_
 INSERT INTO tb_task_step_definitions(label, color_theme) VALUES ('FAZENDO', 'blue');
 INSERT INTO tb_task_step_definitions(label, color_theme) VALUES ('PRONTO', 'green');
 
-INSERT INTO tb_template_step_relations(step_order, is_finalizer, task_template_id, task_step_definition_id, mention_author, mention_previous_actor, should_pulse) VALUES (1, false, 1, 1, false, false, false);
-INSERT INTO tb_template_step_relations(step_order, is_finalizer, task_template_id, task_step_definition_id, mention_author, mention_previous_actor, should_pulse) VALUES (2, true, 1, 2, false, false, true);
+INSERT INTO tb_template_step_relations(step_order, is_finalizer, task_template_id, task_step_definition_id, mention_author, mention_previous_actor, should_pulse, is_global) VALUES (1, false, 1, 1, false, false, false, false);
+INSERT INTO tb_template_step_relations(step_order, is_finalizer, task_template_id, task_step_definition_id, mention_author, mention_previous_actor, should_pulse, is_global) VALUES (2, true, 1, 2, false, false, true, false);
 
 INSERT INTO tb_task_templates_groups(task_template_id, group_id) VALUES (1, 1);
 INSERT INTO tb_task_templates_groups(task_template_id, group_id ) VALUES (1, 2);

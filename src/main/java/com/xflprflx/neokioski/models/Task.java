@@ -19,7 +19,6 @@ public class Task {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-
     private Instant createdAt;
 
     @ManyToOne(optional = false)

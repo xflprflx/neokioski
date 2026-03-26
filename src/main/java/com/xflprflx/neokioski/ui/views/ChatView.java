@@ -596,7 +596,10 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         submitBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
         dialog.add(formLayout);
-        dialog.getFooter().add(cancelBtn, submitBtn);
+        dialog.getFooter().add(cancelBtn);
+        if (template.isShowSendButton()) {
+            dialog.getFooter().add(submitBtn);
+        }
         dialog.open();
     }
 
@@ -1293,8 +1296,13 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     .map(TaskStepDefinition::getId)
                     .collect(Collectors.toSet());
             
-            // Determinar quais steps mostrar
-            List<TemplateStepRelation> visibleRelations;
+            // 1. Identificar steps globais
+            List<TemplateStepRelation> globalRelations = allRelations.stream()
+                    .filter(TemplateStepRelation::isGlobal)
+                    .toList();
+
+            // 2. Determinar steps por transição
+            List<TemplateStepRelation> transitionRelations;
             if (task.getCurrentStep() != null) {
                 // Buscar a relação da etapa atual
                 Optional<TemplateStepRelation> currentRelOpt = allRelations.stream()
@@ -1305,20 +1313,35 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     List<Long> allowedIds = currentRelOpt.get().getAllowedNextSteps().stream()
                             .map(TaskStepDefinition::getId)
                             .toList();
-                    visibleRelations = allRelations.stream()
+                    transitionRelations = allRelations.stream()
                             .filter(r -> allowedIds.contains(r.getTaskStepDefinition().getId()))
                             .toList();
                 } else {
                     // Fallback: mostrar apenas as que NÃO são restritas (fluxo livre)
-                    visibleRelations = allRelations.stream()
+                    transitionRelations = allRelations.stream()
                             .filter(r -> !restrictedStepIds.contains(r.getTaskStepDefinition().getId()))
                             .toList();
                 }
             } else {
                 // Task Pendente: mostrar apenas as que NÃO são restritas
-                visibleRelations = allRelations.stream()
+                transitionRelations = allRelations.stream()
                         .filter(r -> !restrictedStepIds.contains(r.getTaskStepDefinition().getId()))
                         .toList();
+            }
+
+            // 3. Unir globais e de transição removendo duplicatas
+            Set<Long> visibleStepIds = new HashSet<>();
+            List<TemplateStepRelation> visibleRelations = new ArrayList<>();
+
+            for (TemplateStepRelation r : globalRelations) {
+                if (visibleStepIds.add(r.getTaskStepDefinition().getId())) {
+                    visibleRelations.add(r);
+                }
+            }
+            for (TemplateStepRelation r : transitionRelations) {
+                if (visibleStepIds.add(r.getTaskStepDefinition().getId())) {
+                    visibleRelations.add(r);
+                }
             }
 
             for (TemplateStepRelation sr : visibleRelations) {

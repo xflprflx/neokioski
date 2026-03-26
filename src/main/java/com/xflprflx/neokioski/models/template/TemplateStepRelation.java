@@ -23,6 +23,8 @@ public class TemplateStepRelation {
     private boolean shouldPulse;
     @Column(columnDefinition = "TEXT")
     private String mentionMessage;
+    @Column(nullable = false)
+    private boolean isGlobal = false;
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "task_template_id")
@@ -136,6 +138,14 @@ public class TemplateStepRelation {
         this.shouldPulse = shouldPulse;
     }
 
+    public boolean isGlobal() {
+        return isGlobal;
+    }
+
+    public void setGlobal(boolean global) {
+        isGlobal = global;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
@@ -143,6 +153,7 @@ public class TemplateStepRelation {
         return order == that.order && isFinalizer == that.isFinalizer && 
                mentionAuthor == that.mentionAuthor && 
                shouldPulse == that.shouldPulse &&
+               isGlobal == that.isGlobal &&
                mentionPreviousActor == that.mentionPreviousActor && 
                Objects.equals(id, that.id) && 
                Objects.equals(mentionMessage, that.mentionMessage) && 
@@ -153,7 +164,7 @@ public class TemplateStepRelation {
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, order, isFinalizer, mentionAuthor, shouldPulse, mentionMessage, 
+        return Objects.hash(id, order, isFinalizer, mentionAuthor, shouldPulse, isGlobal, mentionMessage, 
                             mentionPreviousActor, mentionPreviousActorMessage, 
                             taskTemplate, taskStepDefinition);
     }

@@ -1179,20 +1179,37 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
      * Cria o card visual de uma task para exibir no fluxo de mensagens.
      */
     private HorizontalLayout createTaskCardLayout(Task task) {
+        String themeColor = task.getCurrentStep() != null ? task.getCurrentStep().getColorTheme() : "gray";
+        String[] colors = getThemeColors(themeColor);
+        String bgColor = colors[0];
+        String borderColor = colors[1];
+        boolean isDark = Boolean.parseBoolean(colors[2]);
+
         // Container principal do card
         Div card = new Div();
         card.getStyle()
-                .set("border", "1px solid var(--lumo-contrast-20pct)")
-                .set("border-left", "4px solid var(--lumo-primary-color)")
+                .set("border", "1px solid " + borderColor)
+                .set("border-left", "6px solid " + borderColor)
                 .set("border-radius", "12px")
                 .set("padding", "var(--lumo-space-m)")
-                .set("background", "var(--lumo-base-color)")
+                .set("background", bgColor)
                 .set("box-shadow", "var(--lumo-box-shadow-s)")
                 .set("max-width", "480px")
                 .set("min-width", "280px");
 
+        if (isDark) {
+            card.getStyle().set("color", "#ffffff");
+            card.getStyle().set("--lumo-body-text-color", "#ffffff");
+            card.getStyle().set("--lumo-secondary-text-color", "rgba(255, 255, 255, 0.7)");
+            card.getStyle().set("--lumo-contrast-5pct", "rgba(255, 255, 255, 0.1)");
+            card.getStyle().set("--lumo-contrast-10pct", "rgba(255, 255, 255, 0.2)");
+            card.getStyle().set("--lumo-contrast-20pct", "rgba(255, 255, 255, 0.3)");
+        } else {
+            // Para cards claros, garantir que o texto secundário tenha contraste suficiente
+            card.getStyle().set("--lumo-secondary-text-color", "rgba(0, 0, 0, 0.65)");
+        }
+
         if (taskService.shouldTaskPulse(task)) {
-            String themeColor = task.getCurrentStep().getColorTheme();
             String rgb = getThemeColorRGB(themeColor);
             
             card.getStyle().set("border", "2px solid rgb(" + rgb + ")");
@@ -1790,9 +1807,21 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     private void applyThemeStyles(Span span, String theme) {
+        String[] colors = getThemeColors(theme);
+        span.getStyle().set("background-color", colors[1]); // Uso a cor forte (fg) no badge
+        // No tema Black, fg é branco, então o texto deve ser escuro
+        if (theme != null && theme.equalsIgnoreCase("black")) {
+            span.getStyle().set("color", "#212121");
+        } else {
+            span.getStyle().set("color", "#ffffff"); // Texto branco nos outros temas (que têm cores escuras)
+        }
+    }
+
+    private String[] getThemeColors(String theme) {
         if (theme == null) theme = "gray";
         
         String bg, fg;
+        boolean isDark = false;
         switch (theme.toLowerCase()) {
             case "blue": bg = "#e3f2fd"; fg = "#1565c0"; break;
             case "yellow": bg = "#fff9c4"; fg = "#dc6d00"; break;
@@ -1803,14 +1832,12 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             case "cyan": bg = "#e0f7fa"; fg = "#00838f"; break;
             case "pink": bg = "#fce4ec"; fg = "#c2185b"; break;
             case "gray": bg = "#f5f5f5"; fg = "#616161"; break;
-            case "black": bg = "#212121"; fg = "#ffffff"; break;
+            case "black": bg = "#212121"; fg = "#ffffff"; isDark = true; break;
             default:
-                bg = "var(--lumo-contrast-10pct)";
+                bg = "var(--lumo-contrast-5pct)";
                 fg = "var(--lumo-contrast-80pct)";
         }
-        
-        span.getStyle().set("background-color", bg);
-        span.getStyle().set("color", fg);
+        return new String[]{bg, fg, String.valueOf(isDark)};
     }
 
     private String getThemeColorRGB(String theme) {

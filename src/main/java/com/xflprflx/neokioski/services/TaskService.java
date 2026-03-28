@@ -80,23 +80,26 @@ public class TaskService {
 
             Task saved = taskRepository.save(task);
 
-            // Verificar se deve mencionar o autor ou o ator anterior
+            // Verificar se deve mencionar o autor ou o autor anterior
             stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
                     task.getTaskTemplate().getId(), step.getId()
             ).ifPresent(relation -> {
                 // Buscar a mensagem original do card da tarefa para dar "Reply"
                 ChatMessage originalMsg = chatMessageRepository.findByTask(task).orElse(null);
 
-                // Menção ao Autor
+                // Menção ao Autor da Tarefa
                 if (relation.isMentionAuthor() && relation.getMentionMessage() != null && !relation.getMentionMessage().isEmpty()) {
                     String message = relation.getMentionMessage();
                     if (task.getCreator() != null) {
                         message = message.replace("@autor", "@" + task.getCreator().getUsername());
                     }
+                    // Adicionar variável @resposta
+                    message = message.replace("@resposta", response != null ? response : "");
+                    
                     chatService.sendMessage(message, user, task.getGroup(), originalMsg);
                 }
 
-                // Menção ao Ator Anterior
+                // Menção ao Autor Anterior
                 if (relation.isMentionPreviousActor() && relation.getMentionPreviousActorMessage() != null && !relation.getMentionPreviousActorMessage().isEmpty()) {
                     String message = relation.getMentionPreviousActorMessage();
                     List<TaskEvent> events = task.getTaskEvents().stream()
@@ -104,9 +107,12 @@ public class TaskService {
                             .toList();
                             
                     if (events.size() >= 2) {
-                        User previousActor = events.get(events.size() - 2).getUser();
-                        if (previousActor != null) {
-                            message = message.replace("@autor_anterior", "@" + previousActor.getUsername());
+                        User previousAuthor = events.get(events.size() - 2).getUser();
+                        if (previousAuthor != null) {
+                            message = message.replace("@autor_anterior", "@" + previousAuthor.getUsername());
+                            // Adicionar variável @resposta
+                            message = message.replace("@resposta", response != null ? response : "");
+                            
                             chatService.sendMessage(message, user, task.getGroup(), originalMsg);
                         }
                     }

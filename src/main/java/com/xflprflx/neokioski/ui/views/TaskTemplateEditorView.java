@@ -95,6 +95,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         public boolean isResponseRequired;
         public String responseFieldLabel;
         public boolean responseIsCompact;
+        public InputType responseInputType = InputType.TEXT;
+        public List<String> responseOptions = new ArrayList<>();
     }
 
     private List<FieldDTO> fields = new ArrayList<>();
@@ -196,10 +198,10 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             suggestions.add(0, virtualAuthor);
         }
         
-        // Adicionar sugestão virtual para o Ator Anterior
+        // Adicionar sugestão virtual para o Autor Anterior
         if ("autor_anterior".contains(query.toLowerCase()) || "@autor_anterior".contains(query.toLowerCase())) {
             User virtualPrev = new User();
-            virtualPrev.setName("Ator Anterior");
+            virtualPrev.setName("Autor Anterior");
             virtualPrev.setUsername("autor_anterior");
             suggestions.add(1, virtualPrev);
         }
@@ -543,20 +545,49 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         TextField responseLabelField = new TextField("Rótulo do campo de resposta");
         responseLabelField.setPlaceholder("Ex: Motivo da Reprovação");
         responseLabelField.setWidthFull();
+        
+        ComboBox<InputType> responseInputTypeCombo = new ComboBox<>("Tipo de Resposta", InputType.values());
+        responseInputTypeCombo.setWidthFull();
+        responseInputTypeCombo.setValue(InputType.TEXT);
+        
+        com.vaadin.flow.component.textfield.TextArea responseOptionsField = new com.vaadin.flow.component.textfield.TextArea("Opções de Resposta (separadas por vírgula)");
+        responseOptionsField.setWidthFull();
+        responseOptionsField.setHelperText("Ex: Opção 1, Opção 2");
+        responseOptionsField.setVisible(false);
+
+        responseInputTypeCombo.addValueChangeListener(e -> {
+            InputType t = e.getValue();
+            boolean needsOptions = t == InputType.RADIO || t == InputType.CHECKBOX || t == InputType.DROPDOWN || t == InputType.MULTISELECT_DROPDOWN;
+            responseOptionsField.setVisible(needsOptions);
+        });
+
         Checkbox responseIsCompactCheck = new Checkbox("Campo Compacto (TextField)");
         
         responseRequiredCheck.setVisible(false);
         responseLabelField.setVisible(false);
+        responseInputTypeCombo.setVisible(false);
+        responseOptionsField.setVisible(false);
         responseIsCompactCheck.setVisible(false);
 
         hasResponseCheck.addValueChangeListener(ev -> {
             boolean visible = ev.getValue();
             responseRequiredCheck.setVisible(visible);
             responseLabelField.setVisible(visible);
-            responseIsCompactCheck.setVisible(visible);
-            if (!visible) {
+            responseInputTypeCombo.setVisible(visible);
+            responseIsCompactCheck.setVisible(visible && responseInputTypeCombo.getValue() == InputType.TEXT);
+            
+            if (visible) {
+                InputType t = responseInputTypeCombo.getValue();
+                boolean needsOptions = t == InputType.RADIO || t == InputType.CHECKBOX || t == InputType.DROPDOWN || t == InputType.MULTISELECT_DROPDOWN;
+                responseOptionsField.setVisible(needsOptions);
+            } else {
+                responseOptionsField.setVisible(false);
                 responseRequiredCheck.setValue(false);
             }
+        });
+
+        responseInputTypeCombo.addValueChangeListener(ev -> {
+            responseIsCompactCheck.setVisible(hasResponseCheck.getValue() && ev.getValue() == InputType.TEXT);
         });
 
         if (existingDto != null) {
@@ -573,18 +604,27 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             responseRequiredCheck.setValue(existingDto.isResponseRequired);
             responseLabelField.setValue(existingDto.responseFieldLabel != null ? existingDto.responseFieldLabel : "Resposta / Comentário");
             responseIsCompactCheck.setValue(existingDto.responseIsCompact);
+            responseInputTypeCombo.setValue(existingDto.responseInputType != null ? existingDto.responseInputType : InputType.TEXT);
+            if (existingDto.responseOptions != null && !existingDto.responseOptions.isEmpty()) {
+                responseOptionsField.setValue(String.join(", ", existingDto.responseOptions));
+            }
             
             boolean visible = existingDto.hasResponseField;
             responseRequiredCheck.setVisible(visible);
             responseLabelField.setVisible(visible);
-            responseIsCompactCheck.setVisible(visible);
+            responseInputTypeCombo.setVisible(visible);
+            responseIsCompactCheck.setVisible(visible && responseInputTypeCombo.getValue() == InputType.TEXT);
+            
+            InputType t = responseInputTypeCombo.getValue();
+            boolean needsOptions = t == InputType.RADIO || t == InputType.CHECKBOX || t == InputType.DROPDOWN || t == InputType.MULTISELECT_DROPDOWN;
+            responseOptionsField.setVisible(visible && needsOptions);
         }
 
         mentionAuthorCheck.addValueChangeListener(ev -> {
             mentionMessageField.setVisible(ev.getValue());
         });
 
-        Checkbox mentionPrevCheck = new Checkbox("Mencionar ator anterior");
+        Checkbox mentionPrevCheck = new Checkbox("Mencionar autor anterior");
         com.vaadin.flow.component.textfield.TextArea mentionPrevMessageField = new com.vaadin.flow.component.textfield.TextArea("Mensagem da menção anterior");
         mentionPrevMessageField.setWidthFull();
         mentionPrevMessageField.setPlaceholder("Ex: Olá @autor_anterior, favor verificar...");
@@ -616,7 +656,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         VerticalLayout layout = new VerticalLayout(labelField, colorCombo, finalizerCheck, globalCheck, shouldPulseCheck,
                 mentionAuthorCheck, mentionMessageField, 
                 mentionPrevCheck, mentionPrevMessageField,
-                hasResponseCheck, responseRequiredCheck, responseLabelField, responseIsCompactCheck,
+                hasResponseCheck, responseRequiredCheck, responseLabelField, responseInputTypeCombo, responseOptionsField, responseIsCompactCheck,
                 nextStepsCombo, suggestionWrapper);
         dialog.add(layout);
 
@@ -639,6 +679,12 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             dto.isResponseRequired = responseRequiredCheck.getValue();
             dto.responseFieldLabel = responseLabelField.getValue();
             dto.responseIsCompact = responseIsCompactCheck.getValue();
+            dto.responseInputType = responseInputTypeCombo.getValue();
+            if (responseOptionsField.isVisible() && !responseOptionsField.isEmpty()) {
+                dto.responseOptions = List.of(responseOptionsField.getValue().split("\\s*,\\s*"));
+            } else {
+                dto.responseOptions = new ArrayList<>();
+            }
             dto.allowedNextStepLabels = new ArrayList<>(nextStepsCombo.getValue());
             
             if (existingDto == null) {
@@ -839,6 +885,16 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             rel.setResponseRequired(dto.isResponseRequired);
             rel.setResponseFieldLabel(dto.responseFieldLabel);
             rel.setResponseIsCompact(dto.responseIsCompact);
+            rel.setResponseInputType(dto.responseInputType);
+            
+            if (dto.responseOptions != null && !dto.responseOptions.isEmpty()) {
+                for (String optStr : dto.responseOptions) {
+                    TaskFieldOption opt = new TaskFieldOption();
+                    opt.setOptionLabel(optStr.trim());
+                    opt.setOptionValue(optStr.trim());
+                    rel.addResponseOption(opt);
+                }
+            }
 
             if (dto.allowedNextStepLabels != null && !dto.allowedNextStepLabels.isEmpty()) {
                 for (String nextLabel : dto.allowedNextStepLabels) {
@@ -900,6 +956,12 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     dto.isResponseRequired = sr.isResponseRequired();
                     dto.responseFieldLabel = sr.getResponseFieldLabel();
                     dto.responseIsCompact = sr.isResponseIsCompact();
+                    dto.responseInputType = sr.getResponseInputType();
+                    if (sr.getResponseOptions() != null) {
+                        dto.responseOptions = sr.getResponseOptions().stream()
+                                .map(TaskFieldOption::getOptionLabel)
+                                .collect(Collectors.toList());
+                    }
                     dto.allowedNextStepLabels = sr.getAllowedNextSteps().stream()
                             .map(TaskStepDefinition::getLabel)
                             .collect(Collectors.toList());

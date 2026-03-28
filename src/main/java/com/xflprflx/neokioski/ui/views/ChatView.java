@@ -474,93 +474,9 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             String label = rel.getTaskFieldDefinition().getLabel();
             String desc = rel.getTaskFieldDefinition().getDescription();
 
-            List<String> options = new ArrayList<>();
-            if (rel.getTaskFieldDefinition().getTaskFieldOptions() != null) {
-                options = rel.getTaskFieldDefinition().getTaskFieldOptions().stream()
-                        .map(TaskFieldOption::getOptionLabel)
-                        .toList();
-            }
-
-            com.vaadin.flow.component.Component fieldComponent = null;
-
-            switch (type) {
-                case TEXT:
-                    com.vaadin.flow.component.textfield.TextField tf = new com.vaadin.flow.component.textfield.TextField(label);
-                    tf.setHelperText(desc);
-                    tf.setWidthFull();
-                    tf.setRequiredIndicatorVisible(rel.isRequired());
-                    fieldComponent = tf;
-                    break;
-                case DATE:
-                    com.vaadin.flow.component.datepicker.DatePicker dp = new com.vaadin.flow.component.datepicker.DatePicker(label);
-                    dp.setHelperText(desc);
-                    dp.setWidthFull();
-                    dp.setRequiredIndicatorVisible(rel.isRequired());
-                    fieldComponent = dp;
-                    break;
-                case TIME:
-                    com.vaadin.flow.component.timepicker.TimePicker tp = new com.vaadin.flow.component.timepicker.TimePicker(label);
-                    tp.setHelperText(desc);
-                    tp.setWidthFull();
-                    tp.setRequiredIndicatorVisible(rel.isRequired());
-                    fieldComponent = tp;
-                    break;
-                case NUMBER:
-                    com.vaadin.flow.component.textfield.NumberField nf = new com.vaadin.flow.component.textfield.NumberField(label);
-                    nf.setHelperText(desc);
-                    nf.setWidthFull();
-                    nf.setRequiredIndicatorVisible(rel.isRequired());
-                    fieldComponent = nf;
-                    break;
-                case CHECKBOX:
-                    com.vaadin.flow.component.checkbox.CheckboxGroup<String> cbGroup = new com.vaadin.flow.component.checkbox.CheckboxGroup<>();
-                    cbGroup.setLabel(label);
-                    cbGroup.setItems(options);
-                    cbGroup.setRequiredIndicatorVisible(rel.isRequired());
-                    fieldComponent = cbGroup;
-                    break;
-                case RADIO:
-                    com.vaadin.flow.component.radiobutton.RadioButtonGroup<String> radio = new com.vaadin.flow.component.radiobutton.RadioButtonGroup<>();
-                    radio.setLabel(label);
-                    radio.setHelperText(desc);
-                    radio.setItems(options);
-                    radio.setRequiredIndicatorVisible(rel.isRequired());
-                    fieldComponent = radio;
-                    break;
-                case DROPDOWN:
-                    com.vaadin.flow.component.combobox.ComboBox<String> combo = new com.vaadin.flow.component.combobox.ComboBox<>(label);
-                    combo.setHelperText(desc);
-                    combo.setWidthFull();
-                    combo.setRequiredIndicatorVisible(rel.isRequired());
-                    combo.setItems(options);
-                    fieldComponent = combo;
-                    break;
-                case MULTISELECT_DROPDOWN:
-                    com.vaadin.flow.component.combobox.MultiSelectComboBox<String> multiCombo = new com.vaadin.flow.component.combobox.MultiSelectComboBox<>(label);
-                    multiCombo.setHelperText(desc);
-                    multiCombo.setWidthFull();
-                    multiCombo.setRequiredIndicatorVisible(rel.isRequired());
-                    multiCombo.setItems(options);
-                    fieldComponent = multiCombo;
-                    break;
-                case TEXT_LIST:
-                    com.vaadin.flow.component.combobox.MultiSelectComboBox<String> textList = new com.vaadin.flow.component.combobox.MultiSelectComboBox<>(label);
-                    textList.setHelperText(desc);
-                    textList.setWidthFull();
-                    textList.setRequiredIndicatorVisible(rel.isRequired());
-                    textList.setAllowCustomValue(true);
-                    textList.addCustomValueSetListener(e -> {
-                        String customValue = e.getDetail();
-                        Set<String> items = new LinkedHashSet<>(textList.getGenericDataView().getItems().toList());
-                        items.add(customValue);
-                        textList.setItems(items);
-                        Set<String> currentValues = new HashSet<>(textList.getValue());
-                        currentValues.add(customValue);
-                        textList.setValue(currentValues);
-                    });
-                    fieldComponent = textList;
-                    break;
-            }
+            List<TaskFieldOption> options = rel.getTaskFieldDefinition().getTaskFieldOptions();
+            
+            com.vaadin.flow.component.Component fieldComponent = createInputComponent(type, label, desc, rel.isRequired(), options, "", false);
 
             if (fieldComponent != null) {
                 fieldComponents.put(rel.getTaskFieldDefinition(), fieldComponent);
@@ -588,6 +504,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                             hv.setErrorMessage("Este campo é obrigatório");
                         }
                         hasError = true;
+                    } else if (comp instanceof com.vaadin.flow.component.HasValidation hv) {
+                        hv.setInvalid(false);
                     }
                 }
             }
@@ -1174,28 +1092,6 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         return wrapper;
     }
 
-    /**
-     * Extrai o valor de texto de qualquer tipo de campo do formulário.
-     */
-    @SuppressWarnings("unchecked")
-    private String extractFieldValue(com.vaadin.flow.component.Component component) {
-        if (component instanceof com.vaadin.flow.component.textfield.TextField tf) return tf.getValue();
-        if (component instanceof com.vaadin.flow.component.textfield.NumberField nf)
-            return nf.getValue() != null ? String.valueOf(nf.getValue()) : "";
-        if (component instanceof com.vaadin.flow.component.datepicker.DatePicker dp)
-            return dp.getValue() != null ? dp.getValue().toString() : "";
-        if (component instanceof com.vaadin.flow.component.timepicker.TimePicker tp)
-            return tp.getValue() != null ? tp.getValue().toString() : "";
-        if (component instanceof com.vaadin.flow.component.checkbox.CheckboxGroup<?> cb)
-            return String.join(", ", (Set<String>) cb.getValue());
-        if (component instanceof com.vaadin.flow.component.radiobutton.RadioButtonGroup<?> rb)
-            return rb.getValue() != null ? rb.getValue().toString() : "";
-        if (component instanceof com.vaadin.flow.component.combobox.ComboBox<?> combo)
-            return combo.getValue() != null ? combo.getValue().toString() : "";
-        if (component instanceof com.vaadin.flow.component.combobox.MultiSelectComboBox<?> multi)
-            return String.join(", ", (Set<String>) multi.getValue());
-        return "";
-    }
 
     /**
      * Cria o card visual de uma task para exibir no fluxo de mensagens.
@@ -1378,7 +1274,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         }
 
         // Mapeamento de StepId -> Campo de Resposta
-        Map<Long, com.vaadin.flow.component.HasValue<?, String>> responseFieldsByStepId = new HashMap<>();
+        Map<Long, com.vaadin.flow.component.Component> responseFieldsByStepId = new HashMap<>();
         
         // Criar campos de resposta se a tarefa não estiver finalizada
         if (!taskService.isTaskFinalized(task)) {
@@ -1386,26 +1282,12 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                 if (sr.isHasResponseField()) {
                     String stepLabel = sr.getTaskStepDefinition().getLabel();
                     String label = sr.getResponseFieldLabel() != null ? sr.getResponseFieldLabel() : "Resposta / Comentário";
-                    com.vaadin.flow.component.Component responseComponent;
-                    com.vaadin.flow.component.HasValue<?, String> responseField;
-
+                    InputType type = sr.getResponseInputType() != null ? sr.getResponseInputType() : InputType.TEXT;
                     String placeholder = "Preencha se " + stepLabel;
-
-                    if (sr.isResponseIsCompact()) {
-                        com.vaadin.flow.component.textfield.TextField tf = new com.vaadin.flow.component.textfield.TextField(label);
-                        tf.setWidthFull();
-                        tf.setPlaceholder(placeholder);
-                        responseField = tf;
-                        responseComponent = tf;
-                    } else {
-                        com.vaadin.flow.component.textfield.TextArea ta = new com.vaadin.flow.component.textfield.TextArea(label);
-                        ta.setWidthFull();
-                        ta.setPlaceholder(placeholder);
-                        responseField = ta;
-                        responseComponent = ta;
-                    }
                     
-                    responseFieldsByStepId.put(sr.getTaskStepDefinition().getId(), responseField);
+                    com.vaadin.flow.component.Component responseComponent = createInputComponent(type, label, null, sr.isResponseRequired(), sr.getResponseOptions(), placeholder, sr.isResponseIsCompact());
+
+                    responseFieldsByStepId.put(sr.getTaskStepDefinition().getId(), responseComponent);
                     card.add(responseComponent);
                 }
             }
@@ -1423,15 +1305,21 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             }
 
             Button stepBtn = new Button(step.getLabel(), ev -> {
-                com.vaadin.flow.component.HasValue<?, String> field = responseFieldsByStepId.get(step.getId());
-                String response = field != null ? field.getValue() : null;
+                com.vaadin.flow.component.Component comp = responseFieldsByStepId.get(step.getId());
+                String response = extractFieldValue(comp);
                 
                 if (sr.isResponseRequired() && (response == null || response.isBlank())) {
+                    if (comp instanceof com.vaadin.flow.component.HasValidation hv) {
+                        hv.setInvalid(true);
+                        hv.setErrorMessage("A resposta é obrigatória para avançar.");
+                    }
                     Notification n = new Notification("A resposta é obrigatória para avançar para '" + step.getLabel() + "'.");
                     n.setDuration(3000);
                     n.addThemeVariants(NotificationVariant.LUMO_ERROR);
                     n.open();
                     return;
+                } else if (comp instanceof com.vaadin.flow.component.HasValidation hv) {
+                    hv.setInvalid(false);
                 }
 
                 taskService.executeStep(task.getId(), step, currentUser, response);
@@ -1460,6 +1348,126 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         wrapper.getStyle().set("padding-top", "var(--lumo-space-xs)");
         wrapper.getStyle().set("padding-bottom", "var(--lumo-space-xs)");
         return wrapper;
+    }
+
+    private com.vaadin.flow.component.Component createInputComponent(InputType type, String label, String desc, boolean required, List<TaskFieldOption> optionsObj, String placeholder, boolean isCompact) {
+        List<String> options = optionsObj != null ? optionsObj.stream().map(TaskFieldOption::getOptionLabel).toList() : new ArrayList<>();
+        com.vaadin.flow.component.Component fieldComponent = null;
+
+        switch (type) {
+            case TEXT:
+                if (isCompact) {
+                    com.vaadin.flow.component.textfield.TextField tf = new com.vaadin.flow.component.textfield.TextField(label);
+                    if (desc != null) tf.setHelperText(desc);
+                    if (placeholder != null) tf.setPlaceholder(placeholder);
+                    tf.setWidthFull();
+                    tf.setRequiredIndicatorVisible(required);
+                    fieldComponent = tf;
+                } else {
+                    com.vaadin.flow.component.textfield.TextArea ta = new com.vaadin.flow.component.textfield.TextArea(label);
+                    if (desc != null) ta.setHelperText(desc);
+                    if (placeholder != null) ta.setPlaceholder(placeholder);
+                    ta.setWidthFull();
+                    ta.setRequiredIndicatorVisible(required);
+                    fieldComponent = ta;
+                }
+                break;
+            case DATE:
+                com.vaadin.flow.component.datepicker.DatePicker dp = new com.vaadin.flow.component.datepicker.DatePicker(label);
+                if (desc != null) dp.setHelperText(desc);
+                if (placeholder != null) dp.setPlaceholder(placeholder);
+                dp.setWidthFull();
+                dp.setRequiredIndicatorVisible(required);
+                fieldComponent = dp;
+                break;
+            case TIME:
+                com.vaadin.flow.component.timepicker.TimePicker tp = new com.vaadin.flow.component.timepicker.TimePicker(label);
+                if (desc != null) tp.setHelperText(desc);
+                if (placeholder != null) tp.setPlaceholder(placeholder);
+                tp.setWidthFull();
+                tp.setRequiredIndicatorVisible(required);
+                fieldComponent = tp;
+                break;
+            case NUMBER:
+                com.vaadin.flow.component.textfield.NumberField nf = new com.vaadin.flow.component.textfield.NumberField(label);
+                if (desc != null) nf.setHelperText(desc);
+                if (placeholder != null) nf.setPlaceholder(placeholder);
+                nf.setWidthFull();
+                nf.setRequiredIndicatorVisible(required);
+                fieldComponent = nf;
+                break;
+            case CHECKBOX:
+                com.vaadin.flow.component.checkbox.CheckboxGroup<String> cbGroup = new com.vaadin.flow.component.checkbox.CheckboxGroup<>();
+                cbGroup.setLabel(label);
+                cbGroup.setItems(options);
+                cbGroup.setRequiredIndicatorVisible(required);
+                fieldComponent = cbGroup;
+                break;
+            case RADIO:
+                com.vaadin.flow.component.radiobutton.RadioButtonGroup<String> radio = new com.vaadin.flow.component.radiobutton.RadioButtonGroup<>();
+                radio.setLabel(label);
+                if (desc != null) radio.setHelperText(desc);
+                radio.setItems(options);
+                radio.setRequiredIndicatorVisible(required);
+                fieldComponent = radio;
+                break;
+            case DROPDOWN:
+                com.vaadin.flow.component.combobox.ComboBox<String> combo = new com.vaadin.flow.component.combobox.ComboBox<>(label);
+                if (desc != null) combo.setHelperText(desc);
+                if (placeholder != null) combo.setPlaceholder(placeholder);
+                combo.setWidthFull();
+                combo.setRequiredIndicatorVisible(required);
+                combo.setItems(options);
+                fieldComponent = combo;
+                break;
+            case MULTISELECT_DROPDOWN:
+                com.vaadin.flow.component.combobox.MultiSelectComboBox<String> multiCombo = new com.vaadin.flow.component.combobox.MultiSelectComboBox<>(label);
+                if (desc != null) multiCombo.setHelperText(desc);
+                if (placeholder != null) multiCombo.setPlaceholder(placeholder);
+                multiCombo.setWidthFull();
+                multiCombo.setRequiredIndicatorVisible(required);
+                multiCombo.setItems(options);
+                fieldComponent = multiCombo;
+                break;
+            case TEXT_LIST:
+                com.vaadin.flow.component.combobox.MultiSelectComboBox<String> textList = new com.vaadin.flow.component.combobox.MultiSelectComboBox<>(label);
+                if (desc != null) textList.setHelperText(desc);
+                if (placeholder != null) textList.setPlaceholder(placeholder);
+                textList.setWidthFull();
+                textList.setRequiredIndicatorVisible(required);
+                textList.setAllowCustomValue(true);
+                textList.addCustomValueSetListener(e -> {
+                    String customValue = e.getDetail();
+                    Set<String> items = new LinkedHashSet<>(textList.getGenericDataView().getItems().toList());
+                    items.add(customValue);
+                    textList.setItems(items);
+                    Set<String> currentValues = new HashSet<>(textList.getValue());
+                    currentValues.add(customValue);
+                    textList.setValue(currentValues);
+                });
+                fieldComponent = textList;
+                break;
+        }
+        return fieldComponent;
+    }
+
+    private String extractFieldValue(com.vaadin.flow.component.Component comp) {
+        if (comp == null) return "";
+        if (comp instanceof com.vaadin.flow.component.HasValue<?, ?> hv) {
+            Object val = hv.getValue();
+            if (val == null) return "";
+            if (val instanceof java.util.Collection<?> col) {
+                return col.stream().map(Object::toString).collect(Collectors.joining(", "));
+            }
+            if (val instanceof java.time.LocalDate ld) {
+                return ld.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE);
+            }
+            if (val instanceof java.time.LocalTime lt) {
+                return lt.format(java.time.format.DateTimeFormatter.ISO_LOCAL_TIME);
+            }
+            return val.toString();
+        }
+        return "";
     }
 
     private String resolveTemplateEmoji(String templateName) {

@@ -36,6 +36,15 @@ public class TemplateStepRelation {
     @Column(nullable = false)
     private boolean responseIsCompact = false;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "response_input_type")
+    private InputType responseInputType = InputType.TEXT;
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "template_step_relation_id")
+    @OrderBy("id ASC")
+    private List<TaskFieldOption> responseOptions = new ArrayList<>();
+
     @ManyToOne(optional = false)
     @JoinColumn(name = "task_template_id")
     private TaskTemplate taskTemplate;
@@ -188,6 +197,26 @@ public class TemplateStepRelation {
         this.responseIsCompact = responseIsCompact;
     }
 
+    public InputType getResponseInputType() {
+        return responseInputType;
+    }
+
+    public void setResponseInputType(InputType responseInputType) {
+        this.responseInputType = responseInputType;
+    }
+
+    public List<TaskFieldOption> getResponseOptions() {
+        return responseOptions;
+    }
+
+    public void setResponseOptions(List<TaskFieldOption> responseOptions) {
+        this.responseOptions = responseOptions;
+    }
+
+    public void addResponseOption(TaskFieldOption option) {
+        this.responseOptions.add(option);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
@@ -205,6 +234,8 @@ public class TemplateStepRelation {
                Objects.equals(mentionPreviousActorMessage, that.mentionPreviousActorMessage) && 
                Objects.equals(taskTemplate, that.taskTemplate) && 
                Objects.equals(taskStepDefinition, that.taskStepDefinition) &&
+               responseInputType == that.responseInputType &&
+               Objects.equals(responseOptions, that.responseOptions) &&
                Objects.equals(responseFieldLabel, that.responseFieldLabel);
     }
 
@@ -212,6 +243,7 @@ public class TemplateStepRelation {
     public int hashCode() {
         return Objects.hash(id, order, isFinalizer, mentionAuthor, shouldPulse, isGlobal, 
                             hasResponseField, isResponseRequired, responseIsCompact,
+                            responseInputType, responseOptions,
                             mentionMessage, 
                             mentionPreviousActor, mentionPreviousActorMessage, 
                             taskTemplate, taskStepDefinition, responseFieldLabel);

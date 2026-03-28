@@ -1321,137 +1321,129 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             card.add(fieldsDiv);
         }
 
-        // Campo de Resposta (se algum dos próximos passos exigir)
-        com.vaadin.flow.component.HasValue<?, String> tempResponseField = null;
-        com.vaadin.flow.component.Component tempResponseComponent = null;
-
-        List<TemplateStepRelation> allRels = taskTemplateService.getStepRelationsByTemplateId(task.getTaskTemplate().getId());
-        List<TaskStepDefinition> allowedNextSteps = taskService.getAllowedNextSteps(task);
-
-        // Encontrar a primeira relação que exige campo de resposta nos passos permitidos
-        Optional<TemplateStepRelation> firstRespRel = allRels.stream()
-                .filter(r -> allowedNextSteps.contains(r.getTaskStepDefinition()) && r.isHasResponseField())
-                .findFirst();
-
-        if (firstRespRel.isPresent()) {
-            TemplateStepRelation rel = firstRespRel.get();
-            String label = rel.getResponseFieldLabel() != null ? rel.getResponseFieldLabel() : "Resposta / Comentário";
-            
-            if (rel.isResponseIsCompact()) {
-                com.vaadin.flow.component.textfield.TextField tf = new com.vaadin.flow.component.textfield.TextField(label);
-                tf.setWidthFull();
-                tf.setPlaceholder("Escreva aqui...");
-                tempResponseField = tf;
-                tempResponseComponent = tf;
-            } else {
-                com.vaadin.flow.component.textfield.TextArea ta = new com.vaadin.flow.component.textfield.TextArea(label);
-                ta.setWidthFull();
-                ta.setPlaceholder("Escreva sua resposta aqui...");
-                tempResponseField = ta;
-                tempResponseComponent = ta;
-            }
-            card.add(tempResponseComponent);
-        }
+        List<TemplateStepRelation> allRelations = taskTemplateService.getStepRelationsByTemplateId(task.getTaskTemplate().getId());
         
-        final com.vaadin.flow.component.HasValue<?, String> responseField = tempResponseField;
-        final List<TemplateStepRelation> finalAllRels = allRels;
+        // Etapas que são restritas (aparecem em algum allowedNextSteps de qualquer relação do template)
+        Set<Long> restrictedStepIds = allRelations.stream()
+                .flatMap(r -> r.getAllowedNextSteps().stream())
+                .map(TaskStepDefinition::getId)
+                .collect(Collectors.toSet());
+        
+        // 1. Identificar steps globais
+        List<TemplateStepRelation> globalRelations = allRelations.stream()
+                .filter(TemplateStepRelation::isGlobal)
+                .toList();
 
-        // Botões dos steps do template
-        FlexLayout actions = new FlexLayout();
-        actions.getStyle().set("flex-wrap", "wrap");
-        actions.getStyle().set("gap", "var(--lumo-space-s)");
-
-        if (task.getTaskTemplate() != null) {
-            List<TemplateStepRelation> allRelations = taskTemplateService.getStepRelationsByTemplateId(task.getTaskTemplate().getId());
+        // 2. Determinar steps por transição
+        List<TemplateStepRelation> transitionRelations;
+        if (task.getCurrentStep() != null) {
+            // Buscar a relação da etapa atual
+            Optional<TemplateStepRelation> currentRelOpt = allRelations.stream()
+                    .filter(r -> r.getTaskStepDefinition().getId().equals(task.getCurrentStep().getId()))
+                    .findFirst();
             
-            // Etapas que são restritas (aparecem em algum allowedNextSteps de qualquer relação do template)
-            Set<Long> restrictedStepIds = allRelations.stream()
-                    .flatMap(r -> r.getAllowedNextSteps().stream())
-                    .map(TaskStepDefinition::getId)
-                    .collect(Collectors.toSet());
-            
-            // 1. Identificar steps globais
-            List<TemplateStepRelation> globalRelations = allRelations.stream()
-                    .filter(TemplateStepRelation::isGlobal)
-                    .toList();
-
-            // 2. Determinar steps por transição
-            List<TemplateStepRelation> transitionRelations;
-            if (task.getCurrentStep() != null) {
-                // Buscar a relação da etapa atual
-                Optional<TemplateStepRelation> currentRelOpt = allRelations.stream()
-                        .filter(r -> r.getTaskStepDefinition().getId().equals(task.getCurrentStep().getId()))
-                        .findFirst();
-                
-                if (currentRelOpt.isPresent() && !currentRelOpt.get().getAllowedNextSteps().isEmpty()) {
-                    List<Long> allowedIds = currentRelOpt.get().getAllowedNextSteps().stream()
-                            .map(TaskStepDefinition::getId)
-                            .toList();
-                    transitionRelations = allRelations.stream()
-                            .filter(r -> allowedIds.contains(r.getTaskStepDefinition().getId()))
-                            .toList();
-                } else {
-                    // Fallback: mostrar apenas as que NÃO são restritas (fluxo livre)
-                    transitionRelations = allRelations.stream()
-                            .filter(r -> !restrictedStepIds.contains(r.getTaskStepDefinition().getId()))
-                            .toList();
-                }
+            if (currentRelOpt.isPresent() && !currentRelOpt.get().getAllowedNextSteps().isEmpty()) {
+                List<Long> allowedIds = currentRelOpt.get().getAllowedNextSteps().stream()
+                        .map(TaskStepDefinition::getId)
+                        .toList();
+                transitionRelations = allRelations.stream()
+                        .filter(r -> allowedIds.contains(r.getTaskStepDefinition().getId()))
+                        .toList();
             } else {
-                // Task Pendente: mostrar apenas as que NÃO são restritas
+                // Fallback: mostrar apenas as que NÃO são restritas (fluxo livre)
                 transitionRelations = allRelations.stream()
                         .filter(r -> !restrictedStepIds.contains(r.getTaskStepDefinition().getId()))
                         .toList();
             }
+        } else {
+            // Task Pendente: mostrar apenas as que NÃO são restritas
+            transitionRelations = allRelations.stream()
+                    .filter(r -> !restrictedStepIds.contains(r.getTaskStepDefinition().getId()))
+                    .toList();
+        }
 
-            // 3. Unir globais e de transição removendo duplicatas
-            Set<Long> visibleStepIds = new HashSet<>();
-            List<TemplateStepRelation> visibleRelations = new ArrayList<>();
+        // 3. Unir globais e de transição removendo duplicatas
+        Set<Long> visibleStepIds = new HashSet<>();
+        List<TemplateStepRelation> visibleRelations = new ArrayList<>();
 
-            for (TemplateStepRelation r : globalRelations) {
-                if (visibleStepIds.add(r.getTaskStepDefinition().getId())) {
-                    visibleRelations.add(r);
-                }
+        for (TemplateStepRelation r : globalRelations) {
+            if (visibleStepIds.add(r.getTaskStepDefinition().getId())) {
+                visibleRelations.add(r);
             }
-            for (TemplateStepRelation r : transitionRelations) {
-                if (visibleStepIds.add(r.getTaskStepDefinition().getId())) {
-                    visibleRelations.add(r);
-                }
+        }
+        for (TemplateStepRelation r : transitionRelations) {
+            if (visibleStepIds.add(r.getTaskStepDefinition().getId())) {
+                visibleRelations.add(r);
             }
+        }
 
+        // Mapeamento de StepId -> Campo de Resposta
+        Map<Long, com.vaadin.flow.component.HasValue<?, String>> responseFieldsByStepId = new HashMap<>();
+        
+        // Criar campos de resposta se a tarefa não estiver finalizada
+        if (!taskService.isTaskFinalized(task)) {
             for (TemplateStepRelation sr : visibleRelations) {
-                TaskStepDefinition step = sr.getTaskStepDefinition();
-                // Não mostrar botão para a etapa em que já estamos
-                if (task.getCurrentStep() != null && step.getId().equals(task.getCurrentStep().getId())) {
-                    continue;
-                }
+                if (sr.isHasResponseField()) {
+                    String stepLabel = sr.getTaskStepDefinition().getLabel();
+                    String label = sr.getResponseFieldLabel() != null ? sr.getResponseFieldLabel() : "Resposta / Comentário";
+                    com.vaadin.flow.component.Component responseComponent;
+                    com.vaadin.flow.component.HasValue<?, String> responseField;
 
-                Button stepBtn = new Button(step.getLabel(), ev -> {
-                    String response = responseField != null ? responseField.getValue() : null;
-                    
-                    // Validação de resposta baseada na relação do passo de DESTINO
-                    Optional<TemplateStepRelation> targetRelOpt = finalAllRels.stream()
-                            .filter(r -> r.getTaskStepDefinition().getId().equals(step.getId()))
-                            .findFirst();
+                    String placeholder = "Preencha se " + stepLabel;
 
-                    if (targetRelOpt.isPresent() && targetRelOpt.get().isResponseRequired() && (response == null || response.isBlank())) {
-                        Notification n = new Notification("A resposta é obrigatória para avançar para '" + step.getLabel() + "'.");
-                        n.setDuration(3000);
-                        n.addThemeVariants(NotificationVariant.LUMO_ERROR);
-                        n.open();
-                        return;
+                    if (sr.isResponseIsCompact()) {
+                        com.vaadin.flow.component.textfield.TextField tf = new com.vaadin.flow.component.textfield.TextField(label);
+                        tf.setWidthFull();
+                        tf.setPlaceholder(placeholder);
+                        responseField = tf;
+                        responseComponent = tf;
+                    } else {
+                        com.vaadin.flow.component.textfield.TextArea ta = new com.vaadin.flow.component.textfield.TextArea(label);
+                        ta.setWidthFull();
+                        ta.setPlaceholder(placeholder);
+                        responseField = ta;
+                        responseComponent = ta;
                     }
-
-                    taskService.executeStep(task.getId(), step, currentUser, response);
-                });
-                stepBtn.setEnabled(!taskService.isTaskFinalized(task));
-                stepBtn.addThemeVariants(ButtonVariant.LUMO_SMALL);
-                if (sr.isFinalizer()) {
-                    stepBtn.addThemeVariants(ButtonVariant.LUMO_SUCCESS);
-                } else {
-                    stepBtn.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
+                    
+                    responseFieldsByStepId.put(sr.getTaskStepDefinition().getId(), responseField);
+                    card.add(responseComponent);
                 }
-                actions.add(stepBtn);
             }
+        }
+
+        // Botões dos steps
+        FlexLayout actions = new FlexLayout();
+        actions.getStyle().set("flex-wrap", "wrap");
+        actions.getStyle().set("gap", "var(--lumo-space-s)");
+
+        for (TemplateStepRelation sr : visibleRelations) {
+            TaskStepDefinition step = sr.getTaskStepDefinition();
+            if (task.getCurrentStep() != null && step.getId().equals(task.getCurrentStep().getId())) {
+                continue;
+            }
+
+            Button stepBtn = new Button(step.getLabel(), ev -> {
+                com.vaadin.flow.component.HasValue<?, String> field = responseFieldsByStepId.get(step.getId());
+                String response = field != null ? field.getValue() : null;
+                
+                if (sr.isResponseRequired() && (response == null || response.isBlank())) {
+                    Notification n = new Notification("A resposta é obrigatória para avançar para '" + step.getLabel() + "'.");
+                    n.setDuration(3000);
+                    n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                    n.open();
+                    return;
+                }
+
+                taskService.executeStep(task.getId(), step, currentUser, response);
+            });
+            stepBtn.setEnabled(!taskService.isTaskFinalized(task));
+            stepBtn.addThemeVariants(ButtonVariant.LUMO_SMALL);
+            if (sr.isFinalizer()) {
+                stepBtn.addThemeVariants(ButtonVariant.LUMO_SUCCESS);
+            } else {
+                stepBtn.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
+            }
+            actions.add(stepBtn);
         }
 
         // Botão Ver Detalhes

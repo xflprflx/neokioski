@@ -368,13 +368,17 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             }).setHeader("Obrigatório");
             fieldsGrid.addColumn(dto -> dto.description).setHeader("Descrição");
             fieldsGrid.addComponentColumn(item -> {
+                Button editBtn = new Button(VaadinIcon.EDIT.create());
+                editBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+                editBtn.addClickListener(e -> openFieldDialog(item));
+
                 Button deleteBtn = new Button(VaadinIcon.TRASH.create());
                 deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
                 deleteBtn.addClickListener(e -> {
                     fields.remove(item);
                     fieldsGrid.getDataProvider().refreshAll();
                 });
-                return deleteBtn;
+                return new HorizontalLayout(editBtn, deleteBtn);
             }).setHeader("Ações");
             fieldsGrid.setItems(fields);
 
@@ -407,8 +411,12 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     private void openFieldDialog() {
+        openFieldDialog(null);
+    }
+
+    private void openFieldDialog(FieldDTO existingDto) {
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Novo Campo");
+        dialog.setHeaderTitle(existingDto == null ? "Novo Campo" : "Editar Campo");
 
         TextField labelField = new TextField("Rótulo do Campo");
         ComboBox<InputType> typeCombo = new ComboBox<>("Tipo de Entrada", InputType.values());
@@ -426,6 +434,16 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             optionsField.setVisible(needsOptions);
         });
 
+        if (existingDto != null) {
+            labelField.setValue(existingDto.label != null ? existingDto.label : "");
+            typeCombo.setValue(existingDto.inputType);
+            requiredCheck.setValue(existingDto.isRequired);
+            descField.setValue(existingDto.description != null ? existingDto.description : "");
+            if (existingDto.options != null && !existingDto.options.isEmpty()) {
+                optionsField.setValue(String.join(", ", existingDto.options));
+            }
+        }
+
         VerticalLayout layout = new VerticalLayout(labelField, typeCombo, optionsField, requiredCheck, descField);
         dialog.add(layout);
 
@@ -434,15 +452,21 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 Notification.show("Rótulo e Tipo são obrigatórios");
                 return;
             }
-            FieldDTO dto = new FieldDTO();
+            FieldDTO dto = (existingDto != null) ? existingDto : new FieldDTO();
             dto.label = labelField.getValue();
             dto.inputType = typeCombo.getValue();
             dto.isRequired = requiredCheck.getValue();
             dto.description = descField.getValue();
             if (optionsField.isVisible() && !optionsField.isEmpty()) {
                 dto.options = List.of(optionsField.getValue().split("\\s*,\\s*"));
+            } else {
+                dto.options = new ArrayList<>();
             }
-            fields.add(dto);
+            
+            if (existingDto == null) {
+                fields.add(dto);
+            }
+            
             fieldsGrid.getDataProvider().refreshAll();
             dialog.close();
         });

@@ -2,7 +2,6 @@ package com.xflprflx.neokioski.models;
 
 import com.xflprflx.neokioski.models.template.TaskFieldDefinition;
 import jakarta.persistence.*;
-
 import java.util.Objects;
 
 @Entity
@@ -49,13 +48,16 @@ public class TaskFieldValue {
 
     @Override
     public boolean equals(Object o) {
+        if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         TaskFieldValue that = (TaskFieldValue) o;
-        return Objects.equals(id, that.id);
+        return Objects.equals(id, that.id) && 
+               Objects.equals(value, that.value) && 
+               Objects.equals(taskFieldDefinition, that.taskFieldDefinition);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(id);
+        return Objects.hash(id, value, taskFieldDefinition);
     }
 }

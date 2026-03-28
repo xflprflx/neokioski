@@ -15,9 +15,6 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     @Query("""
            SELECT DISTINCT m FROM ChatMessage m
            LEFT JOIN FETCH m.task t
-           LEFT JOIN FETCH t.taskFieldValues
-           LEFT JOIN FETCH t.taskEvents te
-           LEFT JOIN FETCH te.taskStepDefinition
            LEFT JOIN FETCH t.taskTemplate
            LEFT JOIN FETCH t.currentStep
            WHERE m.group = :group

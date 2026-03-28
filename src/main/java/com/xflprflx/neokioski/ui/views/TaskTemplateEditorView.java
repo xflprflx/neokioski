@@ -8,6 +8,9 @@ import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.combobox.MultiSelectComboBox;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.grid.dnd.GridDropLocation;
+import com.vaadin.flow.component.grid.dnd.GridDropMode;
+
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
@@ -99,6 +102,10 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
 
     private Grid<FieldDTO> fieldsGrid = new Grid<>(FieldDTO.class, false);
     private Grid<StepDTO> stepsGrid = new Grid<>(StepDTO.class, false);
+
+    private FieldDTO draggedField;
+    private StepDTO draggedStep;
+
 
     private final TaskTemplateService templateService;
     private final GroupService groupService;
@@ -344,7 +351,11 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         addFieldBtn.addClickListener(e -> openFieldDialog());
 
         if (fieldsGrid.getColumns().isEmpty()) {
-            fieldsGrid.addComponentColumn(item -> new Span(VaadinIcon.MENU.create())).setHeader("Reordenar").setFlexGrow(0).setWidth("100px");
+            fieldsGrid.addComponentColumn(item -> {
+                Span icon = new Span(VaadinIcon.MENU.create());
+                icon.getStyle().set("cursor", "move");
+                return icon;
+            }).setHeader("Reordenar").setFlexGrow(0).setWidth("100px");
             fieldsGrid.addColumn(dto -> dto.label).setHeader("Rótulo do Campo");
             fieldsGrid.addColumn(dto -> dto.inputType != null ? dto.inputType.name() : "").setHeader("Tipo de Entrada");
             fieldsGrid.addComponentColumn(dto -> {
@@ -364,7 +375,31 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 return deleteBtn;
             }).setHeader("Ações");
             fieldsGrid.setItems(fields);
+
+            // Configurar Drag and Drop para reordenação
+            fieldsGrid.setRowsDraggable(true);
+            fieldsGrid.setDropMode(GridDropMode.BETWEEN);
+
+            fieldsGrid.addDragStartListener(e -> draggedField = e.getDraggedItems().get(0));
+
+            fieldsGrid.addDropListener(e -> {
+                FieldDTO targetField = e.getDropTargetItem().orElse(null);
+                GridDropLocation dropLocation = e.getDropLocation();
+
+                if (draggedField != null && targetField != null && !draggedField.equals(targetField)) {
+                    fields.remove(draggedField);
+                    int targetIndex = fields.indexOf(targetField);
+                    if (dropLocation == GridDropLocation.BELOW) {
+                        targetIndex++;
+                    }
+                    fields.add(targetIndex, draggedField);
+                    fieldsGrid.getDataProvider().refreshAll();
+                }
+            });
+
+            fieldsGrid.addDragEndListener(e -> draggedField = null);
         }
+
 
         tabContent.add(addFieldBtn, fieldsGrid);
     }
@@ -424,7 +459,11 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         addStepBtn.addClickListener(e -> openStepDialog());
 
         if (stepsGrid.getColumns().isEmpty()) {
-            stepsGrid.addComponentColumn(item -> new Span(VaadinIcon.MENU.create())).setHeader("Reordenar").setFlexGrow(0).setWidth("100px");
+            stepsGrid.addComponentColumn(item -> {
+                Span icon = new Span(VaadinIcon.MENU.create());
+                icon.getStyle().set("cursor", "move");
+                return icon;
+            }).setHeader("Reordenar").setFlexGrow(0).setWidth("100px");
             stepsGrid.addColumn(dto -> dto.label).setHeader("Rótulo da Etapa");
             stepsGrid.addColumn(dto -> dto.colorTheme).setHeader("Cor/Tema");
             stepsGrid.addComponentColumn(dto -> {
@@ -448,7 +487,32 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 return new HorizontalLayout(editBtn, deleteBtn);
             }).setHeader("Ações");
             stepsGrid.setItems(steps);
+
+            // Configurar Drag and Drop para reordenação
+            stepsGrid.setRowsDraggable(true);
+            stepsGrid.setDropMode(GridDropMode.BETWEEN);
+
+            stepsGrid.addDragStartListener(e -> draggedStep = e.getDraggedItems().get(0));
+
+            stepsGrid.addDropListener(e -> {
+                StepDTO targetStep = e.getDropTargetItem().orElse(null);
+                GridDropLocation dropLocation = e.getDropLocation();
+
+                if (draggedStep != null && targetStep != null && !draggedStep.equals(targetStep)) {
+                    steps.remove(draggedStep);
+                    int targetIndex = steps.indexOf(targetStep);
+                    if (dropLocation == GridDropLocation.BELOW) {
+                        targetIndex++;
+                    }
+                    steps.add(targetIndex, draggedStep);
+                    stepsGrid.getDataProvider().refreshAll();
+                    updateWorkflowPreview();
+                }
+            });
+
+            stepsGrid.addDragEndListener(e -> draggedStep = null);
         }
+
 
         tabContent.add(addStepBtn, stepsGrid);
     }

@@ -3,13 +3,8 @@ package com.xflprflx.neokioski.models;
 import com.xflprflx.neokioski.models.template.TaskStepDefinition;
 import com.xflprflx.neokioski.models.template.TaskTemplate;
 import jakarta.persistence.*;
-
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 
 @Entity
 @Table(name = "tb_tasks")
@@ -37,9 +32,10 @@ public class Task {
     @JoinColumn(name = "current_step_id")
     private TaskStepDefinition currentStep;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @JoinColumn(name = "task_id")
-    private Set<TaskEvent> taskEvents = new HashSet<>();
+    @OrderBy("id ASC")
+    private Set<TaskEvent> taskEvents = new LinkedHashSet<>();
 
     @ManyToMany
     @JoinTable(
@@ -49,8 +45,9 @@ public class Task {
     )
     private List<TaskStepDefinition> taskStepDefinitions = new ArrayList<>();
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<TaskFieldValue> taskFieldValues = new HashSet<>();
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OrderBy("id ASC")
+    private Set<TaskFieldValue> taskFieldValues = new LinkedHashSet<>();
 
     public Task() {
         this.createdAt = Instant.now();
@@ -131,6 +128,7 @@ public class Task {
 
     @Override
     public boolean equals(Object o) {
+        if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Task task = (Task) o;
         return Objects.equals(id, task.id);

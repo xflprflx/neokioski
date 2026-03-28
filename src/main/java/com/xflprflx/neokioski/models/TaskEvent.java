@@ -2,16 +2,18 @@ package com.xflprflx.neokioski.models;
 
 import com.xflprflx.neokioski.models.template.TaskStepDefinition;
 import jakarta.persistence.*;
-
 import java.time.Instant;
 import java.util.Objects;
 
 @Entity
 @Table(name = "tb_task_events")
 public class TaskEvent {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    private String response;
 
     private Instant timestamp;
 
@@ -23,9 +25,6 @@ public class TaskEvent {
     @JoinColumn(name = "task_step_definition_id")
     private TaskStepDefinition taskStepDefinition;
 
-    @Column(columnDefinition = "TEXT")
-    private String response;
-
     public TaskEvent() {
     }
 
@@ -35,6 +34,14 @@ public class TaskEvent {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public String getResponse() {
+        return response;
+    }
+
+    public void setResponse(String response) {
+        this.response = response;
     }
 
     public Instant getTimestamp() {
@@ -61,23 +68,19 @@ public class TaskEvent {
         this.taskStepDefinition = taskStepDefinition;
     }
 
-    public String getResponse() {
-        return response;
-    }
-
-    public void setResponse(String response) {
-        this.response = response;
-    }
-
     @Override
     public boolean equals(Object o) {
+        if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         TaskEvent taskEvent = (TaskEvent) o;
-        return Objects.equals(id, taskEvent.id);
+        return Objects.equals(id, taskEvent.id) && 
+               Objects.equals(timestamp, taskEvent.timestamp) && 
+               Objects.equals(user, taskEvent.user) && 
+               Objects.equals(taskStepDefinition, taskEvent.taskStepDefinition);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(id);
+        return Objects.hash(id, timestamp, user, taskStepDefinition);
     }
 }

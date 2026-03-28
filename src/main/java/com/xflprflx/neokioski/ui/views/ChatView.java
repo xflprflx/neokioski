@@ -576,6 +576,28 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
 
         Button submitBtn = new Button("Enviar", e -> {
+            // Validar campos obrigatórios
+            boolean hasError = false;
+            for (TemplateFieldRelation rel : fields) {
+                com.vaadin.flow.component.Component comp = fieldComponents.get(rel.getTaskFieldDefinition());
+                if (rel.isRequired()) {
+                    String value = extractFieldValue(comp);
+                    if (value == null || value.trim().isEmpty()) {
+                        if (comp instanceof com.vaadin.flow.component.HasValidation hv) {
+                            hv.setInvalid(true);
+                            hv.setErrorMessage("Este campo é obrigatório");
+                        }
+                        hasError = true;
+                    }
+                }
+            }
+
+            if (hasError) {
+                Notification.show("Por favor, preencha todos os campos obrigatórios.", 3000, Notification.Position.MIDDLE)
+                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                return;
+            }
+
             // Coletar valores dos campos
             java.util.Map<TaskFieldDefinition, String> fieldValues = new java.util.LinkedHashMap<>();
             for (java.util.Map.Entry<TaskFieldDefinition, com.vaadin.flow.component.Component> entry : fieldComponents.entrySet()) {
@@ -1300,22 +1322,39 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         }
 
         // Campo de Resposta (se algum dos próximos passos exigir)
-        com.vaadin.flow.component.textfield.TextArea responseArea = new com.vaadin.flow.component.textfield.TextArea("Resposta / Comentário");
-        responseArea.setWidthFull();
-        responseArea.setVisible(false);
-        responseArea.setPlaceholder("Escreva sua resposta aqui...");
+        com.vaadin.flow.component.HasValue<?, String> tempResponseField = null;
+        com.vaadin.flow.component.Component tempResponseComponent = null;
 
         List<TemplateStepRelation> allRels = taskTemplateService.getStepRelationsByTemplateId(task.getTaskTemplate().getId());
         List<TaskStepDefinition> allowedNextSteps = taskService.getAllowedNextSteps(task);
 
-        boolean anyStepNeedsResponse = allRels.stream()
-                .filter(r -> allowedNextSteps.contains(r.getTaskStepDefinition()))
-                .anyMatch(TemplateStepRelation::isHasResponseField);
+        // Encontrar a primeira relação que exige campo de resposta nos passos permitidos
+        Optional<TemplateStepRelation> firstRespRel = allRels.stream()
+                .filter(r -> allowedNextSteps.contains(r.getTaskStepDefinition()) && r.isHasResponseField())
+                .findFirst();
 
-        if (anyStepNeedsResponse) {
-            responseArea.setVisible(true);
-            card.add(responseArea);
+        if (firstRespRel.isPresent()) {
+            TemplateStepRelation rel = firstRespRel.get();
+            String label = rel.getResponseFieldLabel() != null ? rel.getResponseFieldLabel() : "Resposta / Comentário";
+            
+            if (rel.isResponseIsCompact()) {
+                com.vaadin.flow.component.textfield.TextField tf = new com.vaadin.flow.component.textfield.TextField(label);
+                tf.setWidthFull();
+                tf.setPlaceholder("Escreva aqui...");
+                tempResponseField = tf;
+                tempResponseComponent = tf;
+            } else {
+                com.vaadin.flow.component.textfield.TextArea ta = new com.vaadin.flow.component.textfield.TextArea(label);
+                ta.setWidthFull();
+                ta.setPlaceholder("Escreva sua resposta aqui...");
+                tempResponseField = ta;
+                tempResponseComponent = ta;
+            }
+            card.add(tempResponseComponent);
         }
+        
+        final com.vaadin.flow.component.HasValue<?, String> responseField = tempResponseField;
+        final List<TemplateStepRelation> finalAllRels = allRels;
 
         // Botões dos steps do template
         FlexLayout actions = new FlexLayout();
@@ -1387,10 +1426,10 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                 }
 
                 Button stepBtn = new Button(step.getLabel(), ev -> {
-                    String response = responseArea.getValue();
+                    String response = responseField != null ? responseField.getValue() : null;
                     
                     // Validação de resposta baseada na relação do passo de DESTINO
-                    Optional<TemplateStepRelation> targetRelOpt = allRels.stream()
+                    Optional<TemplateStepRelation> targetRelOpt = finalAllRels.stream()
                             .filter(r -> r.getTaskStepDefinition().getId().equals(step.getId()))
                             .findFirst();
 

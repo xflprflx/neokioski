@@ -30,6 +30,12 @@ public class TemplateStepRelation {
     @Column(nullable = false)
     private boolean isResponseRequired = false;
 
+    @Column(nullable = true)
+    private String responseFieldLabel = "Resposta / Comentário";
+
+    @Column(nullable = false)
+    private boolean responseIsCompact = false;
+
     @ManyToOne(optional = false)
     @JoinColumn(name = "task_template_id")
     private TaskTemplate taskTemplate;
@@ -166,6 +172,22 @@ public class TemplateStepRelation {
         isResponseRequired = responseRequired;
     }
 
+    public String getResponseFieldLabel() {
+        return responseFieldLabel;
+    }
+
+    public void setResponseFieldLabel(String responseFieldLabel) {
+        this.responseFieldLabel = responseFieldLabel;
+    }
+
+    public boolean isResponseIsCompact() {
+        return responseIsCompact;
+    }
+
+    public void setResponseIsCompact(boolean responseIsCompact) {
+        this.responseIsCompact = responseIsCompact;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
@@ -176,20 +198,22 @@ public class TemplateStepRelation {
                isGlobal == that.isGlobal &&
                hasResponseField == that.hasResponseField &&
                isResponseRequired == that.isResponseRequired &&
+               responseIsCompact == that.responseIsCompact &&
                mentionPreviousActor == that.mentionPreviousActor && 
                Objects.equals(id, that.id) && 
                Objects.equals(mentionMessage, that.mentionMessage) && 
                Objects.equals(mentionPreviousActorMessage, that.mentionPreviousActorMessage) && 
                Objects.equals(taskTemplate, that.taskTemplate) && 
-               Objects.equals(taskStepDefinition, that.taskStepDefinition);
+               Objects.equals(taskStepDefinition, that.taskStepDefinition) &&
+               Objects.equals(responseFieldLabel, that.responseFieldLabel);
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(id, order, isFinalizer, mentionAuthor, shouldPulse, isGlobal, 
-                            hasResponseField, isResponseRequired,
+                            hasResponseField, isResponseRequired, responseIsCompact,
                             mentionMessage, 
                             mentionPreviousActor, mentionPreviousActorMessage, 
-                            taskTemplate, taskStepDefinition);
+                            taskTemplate, taskStepDefinition, responseFieldLabel);
     }
 }

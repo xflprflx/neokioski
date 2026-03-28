@@ -90,6 +90,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         public boolean shouldPulse;
         public boolean hasResponseField;
         public boolean isResponseRequired;
+        public String responseFieldLabel;
+        public boolean responseIsCompact;
     }
 
     private List<FieldDTO> fields = new ArrayList<>();
@@ -474,11 +476,23 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
 
         Checkbox hasResponseCheck = new Checkbox("Habilitar campo de resposta");
         Checkbox responseRequiredCheck = new Checkbox("Resposta obrigatória");
+        TextField responseLabelField = new TextField("Rótulo do campo de resposta");
+        responseLabelField.setPlaceholder("Ex: Motivo da Reprovação");
+        responseLabelField.setWidthFull();
+        Checkbox responseIsCompactCheck = new Checkbox("Campo Compacto (TextField)");
+        
         responseRequiredCheck.setVisible(false);
+        responseLabelField.setVisible(false);
+        responseIsCompactCheck.setVisible(false);
 
         hasResponseCheck.addValueChangeListener(ev -> {
-            responseRequiredCheck.setVisible(ev.getValue());
-            if (!ev.getValue()) responseRequiredCheck.setValue(false);
+            boolean visible = ev.getValue();
+            responseRequiredCheck.setVisible(visible);
+            responseLabelField.setVisible(visible);
+            responseIsCompactCheck.setVisible(visible);
+            if (!visible) {
+                responseRequiredCheck.setValue(false);
+            }
         });
 
         if (existingDto != null) {
@@ -490,9 +504,16 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             mentionAuthorCheck.setValue(existingDto.mentionAuthor);
             mentionMessageField.setValue(existingDto.mentionMessage != null ? existingDto.mentionMessage : "");
             mentionMessageField.setVisible(existingDto.mentionAuthor);
+            
             hasResponseCheck.setValue(existingDto.hasResponseField);
             responseRequiredCheck.setValue(existingDto.isResponseRequired);
-            responseRequiredCheck.setVisible(existingDto.hasResponseField);
+            responseLabelField.setValue(existingDto.responseFieldLabel != null ? existingDto.responseFieldLabel : "Resposta / Comentário");
+            responseIsCompactCheck.setValue(existingDto.responseIsCompact);
+            
+            boolean visible = existingDto.hasResponseField;
+            responseRequiredCheck.setVisible(visible);
+            responseLabelField.setVisible(visible);
+            responseIsCompactCheck.setVisible(visible);
         }
 
         mentionAuthorCheck.addValueChangeListener(ev -> {
@@ -531,7 +552,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         VerticalLayout layout = new VerticalLayout(labelField, colorCombo, finalizerCheck, globalCheck, shouldPulseCheck,
                 mentionAuthorCheck, mentionMessageField, 
                 mentionPrevCheck, mentionPrevMessageField,
-                hasResponseCheck, responseRequiredCheck,
+                hasResponseCheck, responseRequiredCheck, responseLabelField, responseIsCompactCheck,
                 nextStepsCombo, suggestionWrapper);
         dialog.add(layout);
 
@@ -552,6 +573,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             dto.mentionPreviousActorMessage = mentionPrevMessageField.getValue();
             dto.hasResponseField = hasResponseCheck.getValue();
             dto.isResponseRequired = responseRequiredCheck.getValue();
+            dto.responseFieldLabel = responseLabelField.getValue();
+            dto.responseIsCompact = responseIsCompactCheck.getValue();
             dto.allowedNextStepLabels = new ArrayList<>(nextStepsCombo.getValue());
             
             if (existingDto == null) {
@@ -750,6 +773,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             rel.setMentionPreviousActorMessage(dto.mentionPreviousActorMessage);
             rel.setHasResponseField(dto.hasResponseField);
             rel.setResponseRequired(dto.isResponseRequired);
+            rel.setResponseFieldLabel(dto.responseFieldLabel);
+            rel.setResponseIsCompact(dto.responseIsCompact);
 
             if (dto.allowedNextStepLabels != null && !dto.allowedNextStepLabels.isEmpty()) {
                 for (String nextLabel : dto.allowedNextStepLabels) {
@@ -809,6 +834,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     dto.mentionPreviousActorMessage = sr.getMentionPreviousActorMessage();
                     dto.hasResponseField = sr.isHasResponseField();
                     dto.isResponseRequired = sr.isResponseRequired();
+                    dto.responseFieldLabel = sr.getResponseFieldLabel();
+                    dto.responseIsCompact = sr.isResponseIsCompact();
                     dto.allowedNextStepLabels = sr.getAllowedNextSteps().stream()
                             .map(TaskStepDefinition::getLabel)
                             .collect(Collectors.toList());

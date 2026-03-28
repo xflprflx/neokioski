@@ -88,6 +88,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         public String mentionPreviousActorMessage;
         public boolean isGlobal;
         public boolean shouldPulse;
+        public boolean hasResponseField;
+        public boolean isResponseRequired;
     }
 
     private List<FieldDTO> fields = new ArrayList<>();
@@ -470,6 +472,15 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         mentionMessageField.setVisible(false);
         mentionMessageField.getElement().setAttribute("mention-id", "mention-message-input");
 
+        Checkbox hasResponseCheck = new Checkbox("Habilitar campo de resposta");
+        Checkbox responseRequiredCheck = new Checkbox("Resposta obrigatória");
+        responseRequiredCheck.setVisible(false);
+
+        hasResponseCheck.addValueChangeListener(ev -> {
+            responseRequiredCheck.setVisible(ev.getValue());
+            if (!ev.getValue()) responseRequiredCheck.setValue(false);
+        });
+
         if (existingDto != null) {
             labelField.setValue(existingDto.label);
             colorCombo.setValue(existingDto.colorTheme);
@@ -479,6 +490,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             mentionAuthorCheck.setValue(existingDto.mentionAuthor);
             mentionMessageField.setValue(existingDto.mentionMessage != null ? existingDto.mentionMessage : "");
             mentionMessageField.setVisible(existingDto.mentionAuthor);
+            hasResponseCheck.setValue(existingDto.hasResponseField);
+            responseRequiredCheck.setValue(existingDto.isResponseRequired);
+            responseRequiredCheck.setVisible(existingDto.hasResponseField);
         }
 
         mentionAuthorCheck.addValueChangeListener(ev -> {
@@ -517,6 +531,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         VerticalLayout layout = new VerticalLayout(labelField, colorCombo, finalizerCheck, globalCheck, shouldPulseCheck,
                 mentionAuthorCheck, mentionMessageField, 
                 mentionPrevCheck, mentionPrevMessageField,
+                hasResponseCheck, responseRequiredCheck,
                 nextStepsCombo, suggestionWrapper);
         dialog.add(layout);
 
@@ -535,6 +550,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             dto.mentionMessage = mentionMessageField.getValue();
             dto.mentionPreviousActor = mentionPrevCheck.getValue();
             dto.mentionPreviousActorMessage = mentionPrevMessageField.getValue();
+            dto.hasResponseField = hasResponseCheck.getValue();
+            dto.isResponseRequired = responseRequiredCheck.getValue();
             dto.allowedNextStepLabels = new ArrayList<>(nextStepsCombo.getValue());
             
             if (existingDto == null) {
@@ -731,6 +748,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             rel.setMentionMessage(dto.mentionMessage);
             rel.setMentionPreviousActor(dto.mentionPreviousActor);
             rel.setMentionPreviousActorMessage(dto.mentionPreviousActorMessage);
+            rel.setHasResponseField(dto.hasResponseField);
+            rel.setResponseRequired(dto.isResponseRequired);
 
             if (dto.allowedNextStepLabels != null && !dto.allowedNextStepLabels.isEmpty()) {
                 for (String nextLabel : dto.allowedNextStepLabels) {
@@ -788,6 +807,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     dto.mentionMessage = sr.getMentionMessage();
                     dto.mentionPreviousActor = sr.isMentionPreviousActor();
                     dto.mentionPreviousActorMessage = sr.getMentionPreviousActorMessage();
+                    dto.hasResponseField = sr.isHasResponseField();
+                    dto.isResponseRequired = sr.isResponseRequired();
                     dto.allowedNextStepLabels = sr.getAllowedNextSteps().stream()
                             .map(TaskStepDefinition::getLabel)
                             .collect(Collectors.toList());

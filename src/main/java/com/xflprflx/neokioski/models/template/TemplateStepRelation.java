@@ -25,6 +25,10 @@ public class TemplateStepRelation {
     private String mentionMessage;
     @Column(nullable = false)
     private boolean isGlobal = false;
+    @Column(nullable = false)
+    private boolean hasResponseField = false;
+    @Column(nullable = false)
+    private boolean isResponseRequired = false;
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "task_template_id")
@@ -146,6 +150,22 @@ public class TemplateStepRelation {
         isGlobal = global;
     }
 
+    public boolean isHasResponseField() {
+        return hasResponseField;
+    }
+
+    public void setHasResponseField(boolean hasResponseField) {
+        this.hasResponseField = hasResponseField;
+    }
+
+    public boolean isResponseRequired() {
+        return isResponseRequired;
+    }
+
+    public void setResponseRequired(boolean responseRequired) {
+        isResponseRequired = responseRequired;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
@@ -154,6 +174,8 @@ public class TemplateStepRelation {
                mentionAuthor == that.mentionAuthor && 
                shouldPulse == that.shouldPulse &&
                isGlobal == that.isGlobal &&
+               hasResponseField == that.hasResponseField &&
+               isResponseRequired == that.isResponseRequired &&
                mentionPreviousActor == that.mentionPreviousActor && 
                Objects.equals(id, that.id) && 
                Objects.equals(mentionMessage, that.mentionMessage) && 
@@ -164,7 +186,9 @@ public class TemplateStepRelation {
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, order, isFinalizer, mentionAuthor, shouldPulse, isGlobal, mentionMessage, 
+        return Objects.hash(id, order, isFinalizer, mentionAuthor, shouldPulse, isGlobal, 
+                            hasResponseField, isResponseRequired,
+                            mentionMessage, 
                             mentionPreviousActor, mentionPreviousActorMessage, 
                             taskTemplate, taskStepDefinition);
     }

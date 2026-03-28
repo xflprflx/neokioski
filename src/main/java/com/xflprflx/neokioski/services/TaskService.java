@@ -7,12 +7,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 @Service
 public class TaskService {
@@ -69,7 +67,7 @@ public class TaskService {
     }
 
     @Transactional
-    public Task executeStep(Long taskId, TaskStepDefinition step, User user) {
+    public Task executeStep(Long taskId, TaskStepDefinition step, User user, String response) {
         return taskRepository.findById(taskId).map(task -> {
             task.setCurrentStep(step);
 
@@ -77,6 +75,7 @@ public class TaskService {
             event.setTaskStepDefinition(step);
             event.setUser(user);
             event.setTimestamp(Instant.now());
+            event.setResponse(response);
             task.getTaskEvents().add(event);
 
             Task saved = taskRepository.save(task);
@@ -133,6 +132,65 @@ public class TaskService {
 
     public List<Task> getPendingTasks(Group group) {
         return taskRepository.findPendingByGroup(group);
+    }
+
+    public List<TaskStepDefinition> getAllowedNextSteps(Task task) {
+        if (isTaskFinalized(task)) return Collections.emptyList();
+
+        List<TemplateStepRelation> allRels = stepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(task.getTaskTemplate().getId());
+        
+        List<TaskStepDefinition> globalSteps = allRels.stream()
+                .filter(TemplateStepRelation::isGlobal)
+                .map(TemplateStepRelation::getTaskStepDefinition)
+                .collect(Collectors.toList());
+
+        // Identificar passos que são destinos de alguma transição (restritos)
+        Set<Long> restrictedStepIds = allRels.stream()
+                .flatMap(r -> r.getAllowedNextSteps().stream())
+                .map(TaskStepDefinition::getId)
+                .collect(Collectors.toSet());
+
+        if (task.getCurrentStep() == null) {
+            // Se pendente, mostrar todos os passos que não são destino de ninguém (entry points) + globais
+            List<TaskStepDefinition> entrySteps = allRels.stream()
+                    .filter(r -> !r.isGlobal() && !restrictedStepIds.contains(r.getTaskStepDefinition().getId()))
+                    .map(TemplateStepRelation::getTaskStepDefinition)
+                    .collect(Collectors.toList());
+            
+            List<TaskStepDefinition> result = new ArrayList<>(entrySteps);
+            for (TaskStepDefinition gs : globalSteps) {
+                if (!result.contains(gs)) result.add(gs);
+            }
+            return result;
+        }
+
+        Optional<TemplateStepRelation> currentRelOpt = allRels.stream()
+                .filter(r -> r.getTaskStepDefinition().getId().equals(task.getCurrentStep().getId()))
+                .findFirst();
+
+        if (currentRelOpt.isPresent()) {
+            TemplateStepRelation rel = currentRelOpt.get();
+            List<TaskStepDefinition> nextSteps = rel.getAllowedNextSteps();
+            
+            List<TaskStepDefinition> result;
+            if (nextSteps.isEmpty()) {
+                result = allRels.stream()
+                        .map(TemplateStepRelation::getTaskStepDefinition)
+                        .filter(s -> !s.getId().equals(task.getCurrentStep().getId()))
+                        .collect(Collectors.toList());
+            } else {
+                result = new ArrayList<>(nextSteps);
+            }
+
+            for (TaskStepDefinition gs : globalSteps) {
+                if (!result.contains(gs) && !gs.getId().equals(task.getCurrentStep().getId())) {
+                    result.add(gs);
+                }
+            }
+            return result;
+        }
+
+        return globalSteps;
     }
 
     public void register(Long groupId, Consumer<Task> listener) {

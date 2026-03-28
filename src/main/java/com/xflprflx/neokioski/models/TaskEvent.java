@@ -23,6 +23,9 @@ public class TaskEvent {
     @JoinColumn(name = "task_step_definition_id")
     private TaskStepDefinition taskStepDefinition;
 
+    @Column(columnDefinition = "TEXT")
+    private String response;
+
     public TaskEvent() {
     }
 
@@ -56,6 +59,14 @@ public class TaskEvent {
 
     public void setTaskStepDefinition(TaskStepDefinition taskStepDefinition) {
         this.taskStepDefinition = taskStepDefinition;
+    }
+
+    public String getResponse() {
+        return response;
+    }
+
+    public void setResponse(String response) {
+        this.response = response;
     }
 
     @Override

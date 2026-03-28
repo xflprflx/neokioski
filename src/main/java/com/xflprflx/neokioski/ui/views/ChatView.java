@@ -1299,6 +1299,24 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             card.add(fieldsDiv);
         }
 
+        // Campo de Resposta (se algum dos próximos passos exigir)
+        com.vaadin.flow.component.textfield.TextArea responseArea = new com.vaadin.flow.component.textfield.TextArea("Resposta / Comentário");
+        responseArea.setWidthFull();
+        responseArea.setVisible(false);
+        responseArea.setPlaceholder("Escreva sua resposta aqui...");
+
+        List<TemplateStepRelation> allRels = taskTemplateService.getStepRelationsByTemplateId(task.getTaskTemplate().getId());
+        List<TaskStepDefinition> allowedNextSteps = taskService.getAllowedNextSteps(task);
+
+        boolean anyStepNeedsResponse = allRels.stream()
+                .filter(r -> allowedNextSteps.contains(r.getTaskStepDefinition()))
+                .anyMatch(TemplateStepRelation::isHasResponseField);
+
+        if (anyStepNeedsResponse) {
+            responseArea.setVisible(true);
+            card.add(responseArea);
+        }
+
         // Botões dos steps do template
         FlexLayout actions = new FlexLayout();
         actions.getStyle().set("flex-wrap", "wrap");
@@ -1369,7 +1387,22 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                 }
 
                 Button stepBtn = new Button(step.getLabel(), ev -> {
-                    taskService.executeStep(task.getId(), step, currentUser);
+                    String response = responseArea.getValue();
+                    
+                    // Validação de resposta baseada na relação do passo de DESTINO
+                    Optional<TemplateStepRelation> targetRelOpt = allRels.stream()
+                            .filter(r -> r.getTaskStepDefinition().getId().equals(step.getId()))
+                            .findFirst();
+
+                    if (targetRelOpt.isPresent() && targetRelOpt.get().isResponseRequired() && (response == null || response.isBlank())) {
+                        Notification n = new Notification("A resposta é obrigatória para avançar para '" + step.getLabel() + "'.");
+                        n.setDuration(3000);
+                        n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                        n.open();
+                        return;
+                    }
+
+                    taskService.executeStep(task.getId(), step, currentUser, response);
                 });
                 stepBtn.setEnabled(!taskService.isTaskFinalized(task));
                 stepBtn.addThemeVariants(ButtonVariant.LUMO_SMALL);
@@ -1462,7 +1495,13 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                 String who = ev.getUser() != null ? "@" + ev.getUser().getUsername() : "sistema";
                 String when = ev.getTimestamp() != null ? dateTimeFormatter.format(ev.getTimestamp()) : "";
                 String step = ev.getTaskStepDefinition() != null ? ev.getTaskStepDefinition().getLabel() : "";
-                content.add(new Span("• " + who + " → " + step + " (" + when + ")"));
+                String line = "• " + who + " → " + step + " (" + when + ")";
+                content.add(new Span(line));
+                if (ev.getResponse() != null && !ev.getResponse().isBlank()) {
+                    Span resp = new Span("  Resp: " + ev.getResponse());
+                    resp.getStyle().set("font-style", "italic").set("color", "var(--lumo-secondary-text-color)").set("margin-left", "20px");
+                    content.add(resp);
+                }
             }
         }
 

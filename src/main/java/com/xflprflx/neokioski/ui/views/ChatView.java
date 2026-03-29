@@ -97,6 +97,9 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private final VerticalLayout chatArea = new VerticalLayout();
     private final VerticalLayout taskArea = new VerticalLayout();
     private final VerticalLayout taskListArea = new VerticalLayout();
+    private final SplitLayout chatVerticalSplit = new SplitLayout();
+    private final VerticalLayout bottomControls = new VerticalLayout();
+    private final Scroller templateScroller = new Scroller(templateBar);
     private final SplitLayout mainSplit = new SplitLayout(chatArea, taskArea);
     
     // Filtros de tarefas
@@ -200,6 +203,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
         scroller.setSizeFull();
         messageInput.setWidthFull();
+        messageInput.getStyle().set("flex-shrink", "0");
 
         messageInput.addSubmitListener(event -> {
             if (group != null && currentUser != null) {
@@ -211,7 +215,18 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         configureReplyBar();
         configureTemplateBar();
         
-        chatArea.add(scroller, replyBar, templateBar, messageInput);
+        bottomControls.setWidthFull();
+        bottomControls.setPadding(false);
+        bottomControls.setSpacing(false);
+        bottomControls.add(replyBar, templateScroller, messageInput);
+        
+        chatVerticalSplit.setSizeFull();
+        chatVerticalSplit.setOrientation(SplitLayout.Orientation.VERTICAL);
+        chatVerticalSplit.addToPrimary(scroller);
+        chatVerticalSplit.addToSecondary(bottomControls);
+        chatVerticalSplit.setSplitterPosition(75); // Iniciar com 75% para o chat
+        
+        chatArea.add(chatVerticalSplit);
 
         // Área de Tarefas
         configureTaskArea();
@@ -221,6 +236,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         mainSplit.setSplitterPosition(50);
         
         add(controls, mainSplit);
+        setFlexGrow(1, mainSplit);
         configureSuggestions();
     }
 
@@ -405,25 +421,27 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         templateBar.setPadding(true);
         templateBar.setSpacing(true);
         templateBar.setAlignItems(FlexComponent.Alignment.START);
-        templateBar.getStyle().set("overflow-x", "auto");
-        templateBar.getStyle().set("border-top", "1px solid var(--lumo-contrast-10pct)");
         templateBar.getStyle().set("background-color", "var(--lumo-base-color)");
         templateBar.getStyle().set("min-height", "100px"); // Altura mínima para não colapsar
-        templateBar.setVisible(false);
+        
+        templateScroller.setWidthFull();
+        templateScroller.setMaxHeight("40vh");
+        templateScroller.getStyle().set("border-top", "1px solid var(--lumo-contrast-10pct)");
+        templateScroller.setVisible(false);
     }
 
     private void loadTemplates() {
         templateBar.removeAll();
         List<TaskTemplate> templates = taskTemplateService.getTemplatesByGroupId(group.getId());
         if (templates.isEmpty()) {
-            templateBar.setVisible(false);
+            templateScroller.setVisible(false);
             return;
         }
 
         for (TaskTemplate t : templates) {
             templateBar.add(createTemplateFormCard(t));
         }
-        templateBar.setVisible(true);
+        templateScroller.setVisible(true);
     }
 
     private com.vaadin.flow.component.Component createTemplateFormCard(TaskTemplate template) {

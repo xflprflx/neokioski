@@ -1,6 +1,7 @@
 package com.xflprflx.neokioski.models.template;
 
 import com.xflprflx.neokioski.models.Group;
+import com.xflprflx.neokioski.models.User;
 import jakarta.persistence.*;
 
 import java.util.ArrayList;
@@ -23,7 +24,7 @@ public class TaskTemplate {
     private boolean requiresSignature;
     @Column(nullable = false)
     private boolean playAlertSound = false;
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "tb_task_templates_groups",
             joinColumns = @JoinColumn(name = "task_template_id"),
@@ -34,6 +35,13 @@ public class TaskTemplate {
     private List<TemplateStepRelation> templateStepRelation = new ArrayList<>();
     @OneToMany(mappedBy = "taskTemplate")
     private List<TemplateFieldRelation> templateFieldRelation = new ArrayList<>();
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "tb_task_templates_authorizer_users",
+            joinColumns = @JoinColumn(name = "task_template_id"),
+            inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+    private List<User> authorizingUsers = new ArrayList<>();
 
     public TaskTemplate() {
     }
@@ -92,6 +100,14 @@ public class TaskTemplate {
 
     public List<TemplateFieldRelation> getTemplateFieldRelation() {
         return templateFieldRelation;
+    }
+
+    public List<User> getAuthorizingUsers() {
+        return authorizingUsers;
+    }
+
+    public void setAuthorizingUsers(List<User> authorizingUsers) {
+        this.authorizingUsers = authorizingUsers;
     }
 
     @Override

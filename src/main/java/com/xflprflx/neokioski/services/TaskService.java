@@ -68,8 +68,14 @@ public class TaskService {
 
     @Transactional
     public Task executeStep(Long taskId, TaskStepDefinition step, User user, String response) {
-        return taskRepository.findById(taskId).map(task -> {
-            task.setCurrentStep(step);
+        Task task = taskRepository.findById(taskId).orElseThrow(() -> new RuntimeException("Task não encontrada: " + taskId));
+
+        if (!canUserExecuteStep(task, user)) {
+            throw new RuntimeException("Usuário não autorizado a executar esta ação nesta tarefa.");
+        }
+
+        task.setCurrentStep(step);
+        task.getTaskStepDefinitions().add(step);
 
             TaskEvent event = new TaskEvent();
             event.setTaskStepDefinition(step);
@@ -119,9 +125,8 @@ public class TaskService {
                 }
             });
 
-            broadcast(task.getGroup().getId(), saved);
-            return saved;
-        }).orElseThrow(() -> new RuntimeException("Task não encontrada: " + taskId));
+        broadcast(task.getGroup().getId(), saved);
+        return saved;
     }
 
     public Optional<Task> findById(Long id) {
@@ -149,6 +154,31 @@ public class TaskService {
                 .filter(TemplateStepRelation::isGlobal)
                 .map(TemplateStepRelation::getTaskStepDefinition)
                 .collect(Collectors.toList());
+
+        // Regra de Autorização
+        if (task.getTaskTemplate().isRequiresSignature()) {
+            if (task.getCurrentStep() == null) {
+                // Se ainda não autorizado, apenas AUTORIZADO e REJEITADO são permitidos
+                return allRels.stream()
+                        .map(TemplateStepRelation::getTaskStepDefinition)
+                        .filter(s -> s.getLabel().equalsIgnoreCase("AUTORIZADO") || s.getLabel().equalsIgnoreCase("REJEITADO"))
+                        .collect(Collectors.toList());
+            } else if (task.getTaskStepDefinitions().size() == 1 && task.getCurrentStep().getLabel().equalsIgnoreCase("AUTORIZADO")) {
+                // Se acabou de autorizar (é o primeiro e único step executado), libera os passos reais iniciais
+                Set<Long> restrictedStepIds = allRels.stream()
+                        .flatMap(r -> r.getAllowedNextSteps().stream())
+                        .map(TaskStepDefinition::getId)
+                        .collect(Collectors.toSet());
+
+                return allRels.stream()
+                        .filter(r -> !r.isGlobal() 
+                                     && !restrictedStepIds.contains(r.getTaskStepDefinition().getId())
+                                     && !r.getTaskStepDefinition().getLabel().equalsIgnoreCase("AUTORIZADO")
+                                     && !r.getTaskStepDefinition().getLabel().equalsIgnoreCase("REJEITADO"))
+                        .map(TemplateStepRelation::getTaskStepDefinition)
+                        .collect(Collectors.toList());
+            }
+        }
 
         // Identificar passos que são destinos de alguma transição (restritos)
         Set<Long> restrictedStepIds = allRels.stream()
@@ -186,6 +216,14 @@ public class TaskService {
                         .collect(Collectors.toList());
             } else {
                 result = new ArrayList<>(nextSteps);
+            }
+
+            // Se o template requer autorização e já passou do primeiro passo, 
+            // removemos AUTORIZADO e REJEITADO de qualquer fluxo subsequente
+            if (task.getTaskTemplate().isRequiresSignature()) {
+                result = result.stream()
+                        .filter(s -> !s.getLabel().equalsIgnoreCase("AUTORIZADO") && !s.getLabel().equalsIgnoreCase("REJEITADO"))
+                        .collect(Collectors.toList());
             }
 
             for (TaskStepDefinition gs : globalSteps) {
@@ -258,6 +296,30 @@ public class TaskService {
     public boolean isTaskPending(Task task) {
         // Uma tarefa é pendente se não tem step OU se o step atual não é finalizador
         return task.getCurrentStep() == null || !isTaskFinalized(task);
+    }
+
+    public boolean canUserViewTask(Task task, User user) {
+        if (user == null) return false;
+        if (user.getRole() == com.xflprflx.neokioski.models.enums.Role.ADMIN) return true;
+
+        TaskTemplate template = task.getTaskTemplate();
+        if (template.isRequiresSignature() && task.getCurrentStep() == null) {
+            return template.getAuthorizingUsers().contains(user);
+        }
+        return true;
+    }
+
+    public boolean canUserExecuteStep(Task task, User user) {
+        if (user == null) return false;
+
+        TaskTemplate template = task.getTaskTemplate();
+        if (template.isRequiresSignature() && task.getCurrentStep() == null) {
+            // Na fase de autorização, apenas quem está na lista pode agir
+            return template.getAuthorizingUsers().contains(user);
+        }
+
+        // Caso padrão (já autorizado ou sem requerimento): No NeoKioski quem vê o grupo pode agir.
+        return true;
     }
 
     private void broadcast(Long groupId, Task task) {

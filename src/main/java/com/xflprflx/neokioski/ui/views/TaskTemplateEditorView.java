@@ -18,6 +18,7 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.listbox.ListBox;
 import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -57,6 +58,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     private MultiSelectComboBox<Group> groupComboBox = new MultiSelectComboBox<>("Grupos");
     private Checkbox showSendButton = new Checkbox(true);
     private Checkbox requireSignature = new Checkbox();
+    private MultiSelectComboBox<User> authorizingUsersCombo = new MultiSelectComboBox<>("Usuários Autorizadores");
     private Checkbox playAlertSoundUI = new Checkbox();
 
     // Tabs
@@ -318,6 +320,13 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         HorizontalLayout reqSignatureLayout = new HorizontalLayout();
         reqSignatureLayout.setAlignItems(FlexComponent.Alignment.CENTER);
         Span reqSigText = new Span("Requer autorização?");
+        authorizingUsersCombo.setItems(userService.findAll());
+        authorizingUsersCombo.setItemLabelGenerator(User::getName);
+        authorizingUsersCombo.setWidthFull();
+        authorizingUsersCombo.setVisible(false);
+        
+        requireSignature.addValueChangeListener(e -> authorizingUsersCombo.setVisible(e.getValue()));
+        
         reqSignatureLayout.add(requireSignature, reqSigText);
 
         HorizontalLayout playAlertSoundLayout = new HorizontalLayout();
@@ -325,7 +334,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         Span playAlertSoundText = new Span("Tocar alerta sonoro?");
         playAlertSoundLayout.add(playAlertSoundUI, playAlertSoundText);
 
-        secondRow.add(showSendBtnLayout, reqSignatureLayout, playAlertSoundLayout);
+        secondRow.add(showSendBtnLayout, reqSignatureLayout, authorizingUsersCombo, playAlertSoundLayout);
 
         VerticalLayout configLayout = new VerticalLayout(firstRow, secondRow);
         configLayout.setPadding(false);
@@ -848,6 +857,25 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         t.setName(nameField.getValue());
         t.setShowSendButton(showSendButton.getValue());
         t.setRequiresSignature(requireSignature.getValue());
+        
+        if (t.isRequiresSignature()) {
+            if (authorizingUsersCombo.getValue().isEmpty()) {
+                Notification.show("Selecione pelo menos um autorizador", 3000, Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_ERROR);
+                return;
+            }
+            
+            boolean hasAuthorize = steps.stream().anyMatch(s -> s.label.equalsIgnoreCase("AUTORIZADO"));
+            boolean hasReject = steps.stream().anyMatch(s -> s.label.equalsIgnoreCase("REJEITADO"));
+            
+            if (!hasAuthorize || !hasReject) {
+                Notification.show("Templates com autorização exigem os passos 'AUTORIZADO' e 'REJEITADO'", 5000, Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_ERROR);
+                return;
+            }
+        }
+        
+        t.getAuthorizingUsers().clear();
+        t.getAuthorizingUsers().addAll(authorizingUsersCombo.getValue());
+        
         t.setPlayAlertSound(playAlertSoundUI.getValue());
         t.getGroups().clear();
         if (groupComboBox.getValue() != null) {
@@ -945,6 +973,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 nameField.setValue(t.getName());
                 showSendButton.setValue(t.isShowSendButton());
                 requireSignature.setValue(t.isRequiresSignature());
+                authorizingUsersCombo.setValue(new HashSet<>(t.getAuthorizingUsers()));
+                authorizingUsersCombo.setVisible(t.isRequiresSignature());
                 playAlertSoundUI.setValue(t.isPlayAlertSound());
                 groupComboBox.setValue(t.getGroups());
 

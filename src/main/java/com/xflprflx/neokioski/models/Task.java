@@ -37,7 +37,7 @@ public class Task {
     @OrderBy("id ASC")
     private Set<TaskEvent> taskEvents = new LinkedHashSet<>();
 
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "tb_task_task_step_definitions",
             joinColumns = @JoinColumn(name = "task_id"),

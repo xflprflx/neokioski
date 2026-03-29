@@ -356,6 +356,11 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         taskListArea.removeAll();
 
         List<Task> tasks = taskService.getTasksByGroup(group);
+        
+        // Filtro de Autorização
+        tasks = tasks.stream()
+                .filter(t -> taskService.canUserViewTask(t, currentUser))
+                .collect(Collectors.toList());
 
         // Filtrar por responsável
         tasks = tasks.stream().filter(t -> {
@@ -823,6 +828,16 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private void addOrUpdateMessageInUI(ChatMessage msg) {
         if (msg.getTask() != null) {
             taskIdToMessageId.put(msg.getTask().getId(), msg.getId());
+
+            // Filtro de Autorização
+            if (!taskService.canUserViewTask(msg.getTask(), currentUser)) {
+                if (messageWrappers.containsKey(msg.getId())) {
+                    messageContainer.remove(messageWrappers.get(msg.getId()));
+                    messageWrappers.remove(msg.getId());
+                }
+                return;
+            }
+
             // Se visibilidade de tarefas no chat desativada, não mostrar
             if (!showTasksInChat) {
                 if (messageWrappers.containsKey(msg.getId())) {
@@ -1177,7 +1192,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             applyThemeStyles(stepBadge, colorTheme);
             statusRow.add(statusLabel, stepBadge);
         } else {
-            Span pendenteBadge = new Span("⏳ Pendente");
+            boolean reqAuth = task.getTaskTemplate() != null && task.getTaskTemplate().isRequiresSignature();
+            Span pendenteBadge = new Span("⏳ " + (reqAuth ? "Pendente de Autorização" : "Pendente"));
             pendenteBadge.getStyle()
                     .set("background-color", "var(--lumo-contrast-20pct)")
                     .set("color", "var(--lumo-secondary-text-color)")
@@ -1216,60 +1232,12 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         }
 
         List<TemplateStepRelation> allRelations = taskTemplateService.getStepRelationsByTemplateId(task.getTaskTemplate().getId());
+        List<TaskStepDefinition> allowedSteps = taskService.getAllowedNextSteps(task);
         
-        // Etapas que são restritas (aparecem em algum allowedNextSteps de qualquer relação do template)
-        Set<Long> restrictedStepIds = allRelations.stream()
-                .flatMap(r -> r.getAllowedNextSteps().stream())
-                .map(TaskStepDefinition::getId)
-                .collect(Collectors.toSet());
-        
-        // 1. Identificar steps globais
-        List<TemplateStepRelation> globalRelations = allRelations.stream()
-                .filter(TemplateStepRelation::isGlobal)
-                .toList();
-
-        // 2. Determinar steps por transição
-        List<TemplateStepRelation> transitionRelations;
-        if (task.getCurrentStep() != null) {
-            // Buscar a relação da etapa atual
-            Optional<TemplateStepRelation> currentRelOpt = allRelations.stream()
-                    .filter(r -> r.getTaskStepDefinition().getId().equals(task.getCurrentStep().getId()))
-                    .findFirst();
-            
-            if (currentRelOpt.isPresent() && !currentRelOpt.get().getAllowedNextSteps().isEmpty()) {
-                List<Long> allowedIds = currentRelOpt.get().getAllowedNextSteps().stream()
-                        .map(TaskStepDefinition::getId)
-                        .toList();
-                transitionRelations = allRelations.stream()
-                        .filter(r -> allowedIds.contains(r.getTaskStepDefinition().getId()))
-                        .toList();
-            } else {
-                // Fallback: mostrar apenas as que NÃO são restritas (fluxo livre)
-                transitionRelations = allRelations.stream()
-                        .filter(r -> !restrictedStepIds.contains(r.getTaskStepDefinition().getId()))
-                        .toList();
-            }
-        } else {
-            // Task Pendente: mostrar apenas as que NÃO são restritas
-            transitionRelations = allRelations.stream()
-                    .filter(r -> !restrictedStepIds.contains(r.getTaskStepDefinition().getId()))
-                    .toList();
-        }
-
-        // 3. Unir globais e de transição removendo duplicatas
-        Set<Long> visibleStepIds = new HashSet<>();
-        List<TemplateStepRelation> visibleRelations = new ArrayList<>();
-
-        for (TemplateStepRelation r : globalRelations) {
-            if (visibleStepIds.add(r.getTaskStepDefinition().getId())) {
-                visibleRelations.add(r);
-            }
-        }
-        for (TemplateStepRelation r : transitionRelations) {
-            if (visibleStepIds.add(r.getTaskStepDefinition().getId())) {
-                visibleRelations.add(r);
-            }
-        }
+        // Mapear os steps permitidos de volta para suas relações para ter acesso aos metadados (cores, campos de resposta, etc)
+        List<TemplateStepRelation> visibleRelations = allRelations.stream()
+                .filter(r -> allowedSteps.contains(r.getTaskStepDefinition()))
+                .collect(Collectors.toList());
 
         // Mapeamento de StepId -> Campo de Resposta
         Map<Long, com.vaadin.flow.component.Component> responseFieldsByStepId = new HashMap<>();
@@ -1298,6 +1266,12 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
         for (TemplateStepRelation sr : visibleRelations) {
             TaskStepDefinition step = sr.getTaskStepDefinition();
+            
+            // Verificação de permissão de execução (regra administrativa/autorização)
+            if (!taskService.canUserExecuteStep(task, currentUser)) {
+                continue;
+            }
+
             if (task.getCurrentStep() != null && step.getId().equals(task.getCurrentStep().getId())) {
                 continue;
             }

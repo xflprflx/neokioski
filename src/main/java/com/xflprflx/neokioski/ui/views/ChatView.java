@@ -188,6 +188,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         setSizeFull();
         setPadding(false);
         setSpacing(false);
+        getStyle().set("overflow", "hidden");
 
         // Header de Controle (Toggle e Configurações)
         HorizontalLayout controls = createTopHeader();
@@ -215,10 +216,16 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         configureReplyBar();
         configureTemplateBar();
         
-        bottomControls.setWidthFull();
+        bottomControls.setSizeFull();
         bottomControls.setPadding(false);
         bottomControls.setSpacing(false);
+        bottomControls.getStyle().set("flex-shrink", "0");
+        bottomControls.getStyle().set("background", "var(--lumo-base-color)");
+        bottomControls.getStyle().set("z-index", "10");
         bottomControls.add(replyBar, templateScroller, messageInput);
+        bottomControls.setFlexGrow(1, templateScroller);
+        bottomControls.setFlexGrow(0, replyBar);
+        bottomControls.setFlexGrow(0, messageInput);
         
         chatVerticalSplit.setSizeFull();
         chatVerticalSplit.setOrientation(SplitLayout.Orientation.VERTICAL);
@@ -425,8 +432,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         templateBar.getStyle().set("min-height", "100px"); // Altura mínima para não colapsar
         
         templateScroller.setWidthFull();
-        templateScroller.setMaxHeight("40vh");
         templateScroller.getStyle().set("border-top", "1px solid var(--lumo-contrast-10pct)");
+        templateScroller.getStyle().set("flex-shrink", "0"); 
         templateScroller.setVisible(false);
     }
 

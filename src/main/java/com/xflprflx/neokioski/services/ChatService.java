@@ -44,6 +44,31 @@ public class ChatService {
     }
 
     @Transactional
+    public ChatMessage sendSystemAlertForTask(String content, Task task) {
+        // 1. Envia mensagem de alerta vinculada como 'resposta' à tarefa original
+        ChatMessage alertMsg = new ChatMessage(content, null, task.getGroup(), null);
+        
+        // Em vez de vincular ao `.setTask` (que geraria um clone do card na UI),
+        // vinculamos ao `.setReplyTo` para que a UI renderize uma citação arrastável!
+        List<ChatMessage> msgs = repository.findByTaskOrderByIdAsc(task);
+        if (!msgs.isEmpty()) {
+            alertMsg.setReplyTo(msgs.get(0));
+        }
+
+        alertMsg = repository.save(alertMsg);
+        broadcast(task.getGroup().getId(), alertMsg);
+
+        // 2. Re-broadcast do(s) card(s) original(is) da tarefa para atualizar o visual
+        for (ChatMessage msg : msgs) {
+            if (!msg.getId().equals(alertMsg.getId())) {
+                broadcast(msg.getGroup().getId(), msg);
+            }
+        }
+
+        return alertMsg;
+    }
+
+    @Transactional
     public ChatMessage linkTaskToMessage(Long messageId, Task task) {
         return repository.findById(messageId).map(msg -> {
             msg.setTask(task);

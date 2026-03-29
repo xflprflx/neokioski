@@ -39,7 +39,8 @@ public class ChatMessage {
     @JoinColumn(name = "reply_to_id")
     private ChatMessage replyTo;
 
-    @OneToOne
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "task_id")
     private Task task;
 
     public ChatMessage() {

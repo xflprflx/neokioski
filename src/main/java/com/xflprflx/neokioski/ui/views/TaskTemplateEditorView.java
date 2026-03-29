@@ -42,7 +42,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.HashSet;
 import java.util.stream.Collectors;
 
@@ -65,6 +64,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     private Tabs tabs = new Tabs();
     private Tab formFieldsTab = new Tab("Campos do Formulário");
     private Tab workflowTab = new Tab("Fluxo de Trabalho");
+    private Tab alertsTab = new Tab("Alertas");
     private VerticalLayout tabContent = new VerticalLayout();
     private VerticalLayout workflowPreview = new VerticalLayout();
 
@@ -101,11 +101,20 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         public List<String> responseOptions = new ArrayList<>();
     }
 
+    public static class AlertDTO {
+        public Long id;
+        public String targetStepLabel;
+        public int timeoutMinutes;
+        public String alertMessage;
+    }
+
     private List<FieldDTO> fields = new ArrayList<>();
     private List<StepDTO> steps = new ArrayList<>();
+    private List<AlertDTO> alerts = new ArrayList<>();
 
     private Grid<FieldDTO> fieldsGrid = new Grid<>(FieldDTO.class, false);
     private Grid<StepDTO> stepsGrid = new Grid<>(StepDTO.class, false);
+    private Grid<AlertDTO> alertsGrid = new Grid<>(AlertDTO.class, false);
 
     private FieldDTO draggedField;
     private StepDTO draggedStep;
@@ -342,16 +351,108 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     private Component createTabs() {
-        tabs.add(formFieldsTab, workflowTab);
+        tabs.add(formFieldsTab, workflowTab, alertsTab);
         tabs.setWidthFull();
         tabs.addSelectedChangeListener(event -> {
             if (event.getSelectedTab().equals(formFieldsTab)) {
                 showFormFieldsTab();
-            } else {
+            } else if (event.getSelectedTab().equals(workflowTab)) {
                 showWorkflowTab();
+            } else {
+                showAlertsTab();
             }
         });
         return tabs;
+    }
+
+    private void showAlertsTab() {
+        tabContent.removeAll();
+        
+        Button addAlertBtn = new Button("Adicionar Novo Alerta Temporal");
+        addAlertBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        addAlertBtn.addClickListener(e -> openAlertDialog());
+
+        if (alertsGrid.getColumns().isEmpty()) {
+            alertsGrid.addColumn(dto -> dto.targetStepLabel).setHeader("Step Alvo");
+            alertsGrid.addColumn(dto -> dto.timeoutMinutes).setHeader("Tempo (m)");
+            alertsGrid.addColumn(dto -> dto.alertMessage).setHeader("Mensagem");
+            alertsGrid.addComponentColumn(item -> {
+                Button editBtn = new Button(VaadinIcon.EDIT.create());
+                editBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+                editBtn.addClickListener(e -> openAlertDialog(item));
+
+                Button deleteBtn = new Button(VaadinIcon.TRASH.create());
+                deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
+                deleteBtn.addClickListener(e -> {
+                    alerts.remove(item);
+                    alertsGrid.getDataProvider().refreshAll();
+                });
+                return new HorizontalLayout(editBtn, deleteBtn);
+            }).setHeader("Ações");
+            alertsGrid.setItems(alerts);
+        }
+
+        tabContent.add(addAlertBtn, alertsGrid);
+    }
+
+    private void openAlertDialog() {
+        openAlertDialog(null);
+    }
+
+    private void openAlertDialog(AlertDTO existingDto) {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle(existingDto == null ? "Novo Alerta Temporal" : "Editar Alerta");
+
+        ComboBox<String> stepCombo = new ComboBox<>("Step Alvo (Interrompe o Alerta)");
+        stepCombo.setItems(steps.stream().map(s -> s.label).collect(Collectors.toList()));
+        stepCombo.setWidthFull();
+
+        TextField timeoutField = new TextField("Tempo Limite (minutos após criação)");
+        timeoutField.setWidthFull();
+
+        com.vaadin.flow.component.textfield.TextArea messageField = new com.vaadin.flow.component.textfield.TextArea("Mensagem de Alerta");
+        messageField.setWidthFull();
+        messageField.setPlaceholder("Use @autor para mencionar o dono da tarefa.");
+        messageField.getElement().setAttribute("mention-id", "alert-message-input");
+
+        if (existingDto != null) {
+            stepCombo.setValue(existingDto.targetStepLabel);
+            timeoutField.setValue(String.valueOf(existingDto.timeoutMinutes));
+            messageField.setValue(existingDto.alertMessage != null ? existingDto.alertMessage : "");
+        }
+
+        setupMentionLogic(messageField.getElement(), "alert-message-input");
+
+        VerticalLayout layout = new VerticalLayout(stepCombo, timeoutField, messageField, suggestionWrapper);
+        dialog.add(layout);
+
+        Button saveBtn = new Button("Salvar", e -> {
+            if (stepCombo.isEmpty() || timeoutField.isEmpty()) {
+                Notification.show("Step e Tempo são obrigatórios");
+                return;
+            }
+            try {
+                int timeout = Integer.parseInt(timeoutField.getValue());
+                AlertDTO dto = (existingDto != null) ? existingDto : new AlertDTO();
+                dto.targetStepLabel = stepCombo.getValue();
+                dto.timeoutMinutes = timeout;
+                dto.alertMessage = messageField.getValue();
+                
+                if (existingDto == null) {
+                    alerts.add(dto);
+                }
+                
+                alertsGrid.getDataProvider().refreshAll();
+                dialog.close();
+            } catch (NumberFormatException ex) {
+                Notification.show("Tempo deve ser um número");
+            }
+        });
+        saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        Button cancelBtn = new Button("Cancelar", e -> dialog.close());
+
+        dialog.getFooter().add(cancelBtn, saveBtn);
+        dialog.open();
     }
 
     private void showFormFieldsTab() {
@@ -959,7 +1060,20 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             stepRelations.add(rel);
         }
 
-        templateService.saveTemplate(t, fieldRelations, stepRelations);
+        List<TaskAlert> taskAlerts = new ArrayList<>();
+        for (AlertDTO dto : alerts) {
+            TaskAlert alert = new TaskAlert();
+            TaskStepDefinition target = defMap.get(dto.targetStepLabel);
+            if (target != null) {
+                alert.setId(dto.id);
+                alert.setTargetStep(target);
+                alert.setTimeoutMinutes(dto.timeoutMinutes);
+                alert.setAlertMessage(dto.alertMessage);
+                taskAlerts.add(alert);
+            }
+        }
+
+        templateService.saveTemplate(t, fieldRelations, stepRelations, taskAlerts);
         Notification.show("Template Salvo com Sucesso!");
         getUI().ifPresent(ui -> ui.navigate(TaskTemplateListView.class));
     }
@@ -1022,6 +1136,18 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     steps.add(dto);
                 }
                 stepsGrid.getDataProvider().refreshAll();
+                
+                alerts.clear();
+                for (TaskAlert alert : t.getAlerts()) {
+                    AlertDTO dto = new AlertDTO();
+                    dto.id = alert.getId();
+                    dto.targetStepLabel = alert.getTargetStep().getLabel();
+                    dto.timeoutMinutes = alert.getTimeoutMinutes();
+                    dto.alertMessage = alert.getAlertMessage();
+                    alerts.add(dto);
+                }
+                alertsGrid.getDataProvider().refreshAll();
+
                 updateWorkflowPreview();
             }
         }

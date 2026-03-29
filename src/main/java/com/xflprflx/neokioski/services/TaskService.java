@@ -91,7 +91,8 @@ public class TaskService {
                     task.getTaskTemplate().getId(), step.getId()
             ).ifPresent(relation -> {
                 // Buscar a mensagem original do card da tarefa para dar "Reply"
-                ChatMessage originalMsg = chatMessageRepository.findByTask(task).orElse(null);
+                List<ChatMessage> msgs = chatMessageRepository.findByTaskOrderByIdAsc(task);
+            ChatMessage originalMsg = msgs.isEmpty() ? null : msgs.get(0);
 
                 // Menção ao Autor da Tarefa
                 if (relation.isMentionAuthor() && relation.getMentionMessage() != null && !relation.getMentionMessage().isEmpty()) {

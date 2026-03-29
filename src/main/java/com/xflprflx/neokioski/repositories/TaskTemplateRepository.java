@@ -12,7 +12,7 @@ import java.util.List;
 @Repository
 public interface TaskTemplateRepository extends JpaRepository<TaskTemplate, Long> {
     
-    @Query("SELECT t FROM TaskTemplate t LEFT JOIN FETCH t.groups WHERE t.id = :id")
+    @Query("SELECT t FROM TaskTemplate t LEFT JOIN FETCH t.alerts WHERE t.id = :id")
     Optional<TaskTemplate> findByIdWithGroups(@Param("id") Long id);
 
     @Query("SELECT t FROM TaskTemplate t JOIN t.groups g WHERE g.id = :groupId")

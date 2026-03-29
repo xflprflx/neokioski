@@ -22,6 +22,15 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
            LEFT JOIN TemplateStepRelation sr
              ON sr.taskTemplate = t.taskTemplate
             AND sr.taskStepDefinition = t.currentStep
+           WHERE (t.currentStep IS NULL OR sr IS NULL OR sr.isFinalizer = false)
+           """)
+    List<Task> findAllPending();
+
+    @Query("""
+           SELECT t FROM Task t
+           LEFT JOIN TemplateStepRelation sr
+             ON sr.taskTemplate = t.taskTemplate
+            AND sr.taskStepDefinition = t.currentStep
            WHERE t.group = :group
              AND (t.currentStep IS NULL OR sr IS NULL OR sr.isFinalizer = false)
            ORDER BY t.createdAt DESC

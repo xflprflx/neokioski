@@ -390,7 +390,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             taskListArea.add(new Span("Nenhuma tarefa encontrada."));
         } else {
             for (Task task : tasks) {
-                taskListArea.add(createTaskCardLayout(task));
+                taskListArea.add(createTaskCardLayout(task, null));
             }
         }
     }
@@ -851,7 +851,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             HorizontalLayout oldWrapper = messageWrappers.get(msg.getId());
             HorizontalLayout newWrapper;
             if (msg.getTask() != null) {
-                newWrapper = createTaskCardLayout(msg.getTask());
+                newWrapper = createTaskCardLayout(msg.getTask(), msg);
             } else {
                 newWrapper = createMessageLayout(msg);
             }
@@ -861,7 +861,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         } else {
             HorizontalLayout wrapper;
             if (msg.getTask() != null) {
-                wrapper = createTaskCardLayout(msg.getTask());
+                wrapper = createTaskCardLayout(msg.getTask(), msg);
             } else {
                 wrapper = createMessageLayout(msg);
             }
@@ -872,8 +872,74 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     private HorizontalLayout createMessageLayout(ChatMessage msg) {
-        boolean isMine = currentUser != null && msg.getUser().getId().equals(currentUser.getId());
+        boolean isSystemMessage = msg.getUser() == null;
+        boolean isMine = !isSystemMessage && currentUser != null && msg.getUser().getId().equals(currentUser.getId());
         boolean isAdmin = currentUser != null && currentUser.getRole() == Role.ADMIN;
+
+        if (isSystemMessage) {
+            VerticalLayout sysLayout = new VerticalLayout();
+            sysLayout.setPadding(false);
+            sysLayout.setSpacing(false);
+            sysLayout.setAlignItems(FlexComponent.Alignment.CENTER);
+
+            // Replicamos a lógica de reply para mensagens de alerta linkarem para a tarefa
+            if (msg.getReplyTo() != null) {
+                ChatMessage repliedMsg = msg.getReplyTo();
+                Span replyAuthor = new Span(repliedMsg.getUser() != null ? repliedMsg.getUser().getName() : "Sistema");
+                replyAuthor.getStyle().set("font-weight", "bold");
+                replyAuthor.getStyle().set("font-size", "var(--lumo-font-size-xxs)");
+                
+                String replyContent;
+                if (repliedMsg.getTask() != null) {
+                    replyContent = "📋 " + (repliedMsg.getTask().getTaskTemplate() != null ? repliedMsg.getTask().getTaskTemplate().getName() : "Tarefa");
+                } else {
+                    replyContent = repliedMsg.getContent();
+                }
+                
+                Span replyText = new Span(replyContent);
+                replyText.getStyle().set("font-size", "var(--lumo-font-size-xs)");
+                replyText.getStyle().set("opacity", "0.8");
+                replyText.getStyle().set("white-space", "nowrap");
+                replyText.getStyle().set("overflow", "hidden");
+                replyText.getStyle().set("text-overflow", "ellipsis");
+                
+                VerticalLayout sysQuote = new VerticalLayout(replyAuthor, replyText);
+                sysQuote.setSpacing(false);
+                sysQuote.setPadding(false);
+                sysQuote.getStyle().set("background-color", "rgba(0, 0, 0, 0.08)");
+                sysQuote.getStyle().set("border-left", "3px solid var(--lumo-primary-color)");
+                sysQuote.getStyle().set("padding", "var(--lumo-space-xs) var(--lumo-space-s)");
+                sysQuote.getStyle().set("margin-bottom", "var(--lumo-space-xs)");
+                sysQuote.getStyle().set("border-radius", "4px");
+                sysQuote.setWidth("fit-content");
+                sysQuote.setMaxWidth("300px");
+                sysQuote.getStyle().set("cursor", "pointer");
+                sysQuote.addClickListener(e -> {
+                    getElement().executeJs("const el = document.getElementById('msg-" + repliedMsg.getId() + "'); if(el) el.scrollIntoView({behavior: 'smooth', block: 'center'});");
+                    // Adicionar uma animação rápida de destaque no alvo
+                    getElement().executeJs("const el = document.getElementById('msg-" + repliedMsg.getId() + "'); if(el) { el.style.transition = 'box-shadow 0.3s'; el.style.boxShadow = '0 0 0 4px var(--lumo-primary-color-50pct)'; setTimeout(() => { el.style.boxShadow = 'none'; }, 1500); }");
+                });
+                sysLayout.add(sysQuote);
+            }
+
+            Span sysText = new Span("⚙️ " + msg.getContent());
+            sysText.getStyle()
+                .set("font-style", "italic")
+                .set("font-size", "var(--lumo-font-size-s)")
+                .set("color", "var(--lumo-secondary-text-color)");
+            
+            sysLayout.add(sysText);
+
+            Div sysBubble = new Div(sysLayout);
+            sysBubble.getStyle()
+                .set("padding", "var(--lumo-space-xs) var(--lumo-space-m)")
+                .set("background-color", "var(--lumo-contrast-5pct)")
+                .set("border-radius", "12px");
+            HorizontalLayout sysWrapper = new HorizontalLayout(sysBubble);
+            sysWrapper.setWidthFull();
+            sysWrapper.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
+            return sysWrapper;
+        }
 
         // Se a mensagem foi excluída e o usuário não é ADMIN, mostrar apenas o indicador
         if (msg.isDeleted() && !isAdmin) {
@@ -893,8 +959,14 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             return wrapper;
         }
 
+        // Verificação de segurança extra (não deveria ocorrer após o check acima)
+        if (msg.getUser() == null) {
+            HorizontalLayout fallback = new HorizontalLayout();
+            return fallback;
+        }
+
         // Avatar
-        Avatar avatar = new Avatar(msg.getUser().getName());
+        Avatar avatar = new Avatar(msg.getUser() != null ? msg.getUser().getName() : "?");
         if (isMine) {
             avatar.getStyle().set("margin-left", "var(--lumo-space-m)");
         } else {
@@ -1109,7 +1181,10 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     /**
      * Cria o card visual de uma task para exibir no fluxo de mensagens.
      */
-    private HorizontalLayout createTaskCardLayout(Task task) {
+    private HorizontalLayout createTaskCardLayout(Task task, ChatMessage sourceMsgForAlert) {
+        boolean isSystemAlert = sourceMsgForAlert != null && sourceMsgForAlert.getUser() == null
+                && sourceMsgForAlert.getContent() != null && !sourceMsgForAlert.getContent().isBlank();
+
         String themeColor = task.getCurrentStep() != null ? task.getCurrentStep().getColorTheme() : "gray";
         String[] colors = getThemeColors(themeColor);
         String bgColor = colors[0];
@@ -1156,6 +1231,37 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                 "}" +
                 "this.style.animation = '" + pulseName + " 2s infinite';"
             );
+        }
+
+        if (task.isAlerted()) {
+            card.getStyle().set("border", "3px solid #ff1744");
+            card.getStyle().set("border-left", "8px solid #ff1744");
+            
+            card.getElement().executeJs(
+                "if (!document.getElementById('alert-pulse')) {" +
+                "  const s = document.createElement('style');" +
+                "  s.id = 'alert-pulse';" +
+                "  s.textContent = '@keyframes alert-pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 23, 68, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(255, 23, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 23, 68, 0); } }';" +
+                "  document.head.appendChild(s);" +
+                "}" +
+                "this.style.animation = 'alert-pulse 1.5s infinite';"
+            );
+        }
+
+        // Banner de alerta (mensagem de sistema)
+        if (isSystemAlert) {
+            Div alertBanner = new Div();
+            alertBanner.getStyle()
+                .set("background-color", "rgba(255, 23, 68, 0.12)")
+                .set("border", "1px solid rgba(255, 23, 68, 0.4)")
+                .set("border-radius", "8px")
+                .set("padding", "var(--lumo-space-xs) var(--lumo-space-s)")
+                .set("margin-bottom", "var(--lumo-space-s)")
+                .set("font-size", "var(--lumo-font-size-s)")
+                .set("color", "#ff1744")
+                .set("font-weight", "bold");
+            alertBanner.add(new Span("⏰ " + sourceMsgForAlert.getContent()));
+            card.add(alertBanner);
         }
 
         // Emoji + template name (cabeçalho)

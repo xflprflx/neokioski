@@ -35,6 +35,9 @@ public class TaskTemplate {
     private List<TemplateStepRelation> templateStepRelation = new ArrayList<>();
     @OneToMany(mappedBy = "taskTemplate")
     private List<TemplateFieldRelation> templateFieldRelation = new ArrayList<>();
+    @OneToMany(mappedBy = "taskTemplate", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<TaskAlert> alerts = new ArrayList<>();
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "tb_task_templates_authorizer_users",
@@ -108,6 +111,19 @@ public class TaskTemplate {
 
     public void setAuthorizingUsers(List<User> authorizingUsers) {
         this.authorizingUsers = authorizingUsers;
+    }
+
+    public List<TaskAlert> getAlerts() {
+        return alerts;
+    }
+
+    public void setAlerts(List<TaskAlert> alerts) {
+        this.alerts = alerts;
+    }
+
+    public void addAlert(TaskAlert alert) {
+        this.alerts.add(alert);
+        alert.setTaskTemplate(this);
     }
 
     @Override

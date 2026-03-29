@@ -49,6 +49,13 @@ public class Task {
     @OrderBy("id ASC")
     private Set<TaskFieldValue> taskFieldValues = new LinkedHashSet<>();
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "tb_task_triggered_alerts", joinColumns = @JoinColumn(name = "task_id"))
+    @Column(name = "alert_id")
+    private Set<Long> triggeredAlertIds = new HashSet<>();
+
+    private boolean isAlerted = false;
+
     public Task() {
         this.createdAt = Instant.now();
     }
@@ -124,6 +131,22 @@ public class Task {
 
     public void setTaskFieldValues(Set<TaskFieldValue> taskFieldValues) {
         this.taskFieldValues = taskFieldValues;
+    }
+
+    public Set<Long> getTriggeredAlertIds() {
+        return triggeredAlertIds;
+    }
+
+    public void setTriggeredAlertIds(Set<Long> triggeredAlertIds) {
+        this.triggeredAlertIds = triggeredAlertIds;
+    }
+
+    public boolean isAlerted() {
+        return isAlerted;
+    }
+
+    public void setAlerted(boolean isAlerted) {
+        this.isAlerted = isAlerted;
     }
 
     @Override

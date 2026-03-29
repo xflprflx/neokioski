@@ -404,10 +404,11 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         templateBar.setWidthFull();
         templateBar.setPadding(true);
         templateBar.setSpacing(true);
-        templateBar.setAlignItems(FlexComponent.Alignment.CENTER);
+        templateBar.setAlignItems(FlexComponent.Alignment.START);
         templateBar.getStyle().set("overflow-x", "auto");
         templateBar.getStyle().set("border-top", "1px solid var(--lumo-contrast-10pct)");
         templateBar.getStyle().set("background-color", "var(--lumo-base-color)");
+        templateBar.getStyle().set("min-height", "100px"); // Altura mínima para não colapsar
         templateBar.setVisible(false);
     }
 
@@ -419,80 +420,46 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             return;
         }
 
-        Span templateLabel = new Span("Criar tarefa com modelo:");
-        templateLabel.getStyle().set("font-weight", "bold");
-        templateLabel.getStyle().set("margin-right", "8px");
-        templateLabel.getStyle().set("white-space", "nowrap");
-        
-        templateBar.add(templateLabel);
-
         for (TaskTemplate t : templates) {
-            Button btn = new Button(t.getName(), e -> openTemplateDialog(t));
-            btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-            btn.getStyle().set("border", "1px solid var(--lumo-contrast-20pct)");
-            btn.getStyle().set("border-radius", "8px");
-            btn.getStyle().set("white-space", "nowrap");
-            btn.getStyle().set("color", "var(--lumo-body-text-color)");
-            btn.getStyle().set("background-color", "var(--lumo-contrast-5pct)");
-            
-            // Icon visual hint
-            if (t.getName().toLowerCase().contains("bug")) {
-                btn.setIcon(new Span("\uD83D\uDC1B")); // Bug emoji
-            } else if (t.getName().toLowerCase().contains("feature") || t.getName().toLowerCase().contains("review")) {
-                btn.setIcon(new Span("⭐"));
-            } else if (t.getName().toLowerCase().contains("meeting")) {
-                btn.setIcon(new Span("\uD83D\uDCC4")); // Paper
-            } else if (t.getName().toLowerCase().contains("design")) {
-                btn.setIcon(new Span("\uD83C\uDFA8")); // Palette
-            } else {
-                btn.setIcon(new Span("\uD83D\uDCDD")); // Memo
-            }
-            
-            templateBar.add(btn);
+            templateBar.add(createTemplateFormCard(t));
         }
         templateBar.setVisible(true);
     }
 
-    private void openTemplateDialog(TaskTemplate template) {
-        Dialog dialog = new Dialog();
-        dialog.setWidth("600px");
-        dialog.setMaxWidth("90%");
-        dialog.setHeaderTitle("Nova Tarefa: " + template.getName());
+    private com.vaadin.flow.component.Component createTemplateFormCard(TaskTemplate template) {
+        VerticalLayout card = new VerticalLayout();
+        card.setWidth("280px"); // Card mais estreito para caber melhor lateralmente
+        card.getStyle().set("flex-shrink", "0");
+        card.setPadding(true);
+        card.setSpacing(true);
+        card.getStyle().set("background-color", "var(--lumo-contrast-5pct)");
+        card.getStyle().set("border", "1px solid var(--lumo-contrast-10pct)");
+        card.getStyle().set("border-radius", "12px");
+        card.getStyle().set("margin-bottom", "4px");
 
-        VerticalLayout formLayout = new VerticalLayout();
-        formLayout.setPadding(false);
-        formLayout.setSpacing(true);
+        String emoji = resolveTemplateEmoji(template.getName());
+        Span title = new Span(emoji + " " + template.getName());
+        title.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-s)");
+        card.add(title);
 
         List<TemplateFieldRelation> fields = taskTemplateService.getFieldRelationsByTemplateId(template.getId());
-
-        // Mapa de campo → componente para coletar valor depois
-        java.util.LinkedHashMap<TaskFieldDefinition, com.vaadin.flow.component.Component> fieldComponents = new java.util.LinkedHashMap<>();
-
+        java.util.LinkedHashMap<com.xflprflx.neokioski.models.template.TaskFieldDefinition, com.vaadin.flow.component.Component> fieldComponents = new java.util.LinkedHashMap<>();
 
         for (TemplateFieldRelation rel : fields) {
             InputType type = rel.getTaskFieldDefinition().getInputType();
             String label = rel.getTaskFieldDefinition().getLabel();
             String desc = rel.getTaskFieldDefinition().getDescription();
-
             List<TaskFieldOption> options = rel.getTaskFieldDefinition().getTaskFieldOptions();
             
-            com.vaadin.flow.component.Component fieldComponent = createInputComponent(type, label, desc, rel.isRequired(), options, "", false);
+            com.vaadin.flow.component.Component fieldComponent = createInputComponent(type, label, desc, rel.isRequired(), options, "", true);
 
             if (fieldComponent != null) {
                 fieldComponents.put(rel.getTaskFieldDefinition(), fieldComponent);
-                formLayout.add(fieldComponent);
+                card.add(fieldComponent);
             }
         }
 
-        if (fields.isEmpty()) {
-            formLayout.add(new Span("Este template não possui campos configurados."));
-        }
-
-        Button cancelBtn = new Button("Cancelar", e -> dialog.close());
-        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-
         Button submitBtn = new Button("Enviar", e -> {
-            // Validar campos obrigatórios
             boolean hasError = false;
             for (TemplateFieldRelation rel : fields) {
                 com.vaadin.flow.component.Component comp = fieldComponents.get(rel.getTaskFieldDefinition());
@@ -501,7 +468,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     if (value == null || value.trim().isEmpty()) {
                         if (comp instanceof com.vaadin.flow.component.HasValidation hv) {
                             hv.setInvalid(true);
-                            hv.setErrorMessage("Este campo é obrigatório");
+                            hv.setErrorMessage("Obrigatório");
                         }
                         hasError = true;
                     } else if (comp instanceof com.vaadin.flow.component.HasValidation hv) {
@@ -511,36 +478,42 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             }
 
             if (hasError) {
-                Notification.show("Por favor, preencha todos os campos obrigatórios.", 3000, Notification.Position.MIDDLE)
+                Notification.show("Preencha os campos obrigatórios em " + template.getName(), 3000, Notification.Position.BOTTOM_END)
                         .addThemeVariants(NotificationVariant.LUMO_ERROR);
                 return;
             }
 
-            // Coletar valores dos campos
-            java.util.Map<TaskFieldDefinition, String> fieldValues = new java.util.LinkedHashMap<>();
-            for (java.util.Map.Entry<TaskFieldDefinition, com.vaadin.flow.component.Component> entry : fieldComponents.entrySet()) {
+            java.util.Map<com.xflprflx.neokioski.models.template.TaskFieldDefinition, String> fieldValues = new java.util.LinkedHashMap<>();
+            for (java.util.Map.Entry<com.xflprflx.neokioski.models.template.TaskFieldDefinition, com.vaadin.flow.component.Component> entry : fieldComponents.entrySet()) {
                 String value = extractFieldValue(entry.getValue());
                 fieldValues.put(entry.getKey(), value);
+                
+                // Limpar campo após envio
+                if (entry.getValue() instanceof com.vaadin.flow.component.HasValue<?, ?> hv) {
+                    hv.clear();
+                }
             }
 
-            dialog.close();
-
-            // Criar task
             Task task = taskService.createTask(template, fieldValues, currentUser, group);
-
-            // Enviar mensagem vinculada à task
             ChatMessage msg = chatService.sendMessage("📋 Tarefa: " + template.getName(), currentUser, group);
-            // Vincular task à mensagem
             chatService.linkTaskToMessage(msg.getId(), task);
+            
+            Notification.show("Tarefa '" + template.getName() + "' criada!", 2000, Notification.Position.BOTTOM_END)
+                    .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
         });
-        submitBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        
+        submitBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
+        submitBtn.setWidthFull();
 
-        dialog.add(formLayout);
-        dialog.getFooter().add(cancelBtn);
         if (template.isShowSendButton()) {
-            dialog.getFooter().add(submitBtn);
+            card.add(submitBtn);
         }
-        dialog.open();
+
+        return card;
+    }
+
+    private void showInlineTemplateForm(TaskTemplate template) {
+        // Obsoleto, mantido por compatibilidade se houver chamadas residuais, mas não terá efeito visual se removermos inlineFormContainer
     }
 
     private void configureSuggestions() {

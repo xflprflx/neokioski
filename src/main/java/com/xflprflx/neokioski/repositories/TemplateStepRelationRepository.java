@@ -9,5 +9,6 @@ import java.util.List;
 @Repository
 public interface TemplateStepRelationRepository extends JpaRepository<TemplateStepRelation, Long> {
     List<TemplateStepRelation> findByTaskTemplateIdOrderByOrderAsc(Long taskTemplateId);
+    java.util.Optional<TemplateStepRelation> findByTaskTemplateIdAndTaskStepDefinitionId(Long taskTemplateId, Long taskStepDefinitionId);
     void deleteByTaskTemplateId(Long taskTemplateId);
 }

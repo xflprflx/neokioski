@@ -3,3 +3,21 @@
 html {
     --lumo-font-family: 'Inter', sans-serif;
 }
+
+@keyframes finalized-pulse-ring {
+    0% {
+        box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(46, 125, 50, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(46, 125, 50, 0);
+    }
+}
+
+.finalized-task-pulse {
+    animation: finalized-pulse-ring 2s infinite !important;
+    border: 2px solid #2e7d32 !important;
+    border-left: 6px solid #2e7d32 !important;
+}

@@ -4,6 +4,7 @@ import com.xflprflx.neokioski.models.ChatMessage;
 import com.xflprflx.neokioski.models.Group;
 import com.xflprflx.neokioski.models.MessageReaction;
 import com.xflprflx.neokioski.models.MessageEdit;
+import com.xflprflx.neokioski.models.Task;
 import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.repositories.ChatMessageRepository;
 import com.xflprflx.neokioski.repositories.MessageReactionRepository;
@@ -42,8 +43,27 @@ public class ChatService {
         return message;
     }
 
+    @Transactional
+    public ChatMessage linkTaskToMessage(Long messageId, Task task) {
+        return repository.findById(messageId).map(msg -> {
+            msg.setTask(task);
+            ChatMessage saved = repository.save(msg);
+            broadcast(saved.getGroup().getId(), saved);
+            return saved;
+        }).orElse(null);
+    }
+
     public List<ChatMessage> getMessagesByGroup(Group group) {
-        return repository.findByGroupOrderByTimestampAsc(group);
+        // Busca todas as mensagens (sem fetch)
+        List<ChatMessage> all = repository.findByGroupOrderByTimestampAsc(group);
+        // Busca mensagens com task e suas coleções carregadas eagerly
+        List<ChatMessage> withTask = repository.findByGroupWithTaskOrderByTimestampAsc(group);
+        // Substitui os objetos com task pelo equivalente com coleções inicializadas
+        Map<Long, ChatMessage> taskMap = new HashMap<>();
+        for (ChatMessage m : withTask) taskMap.put(m.getId(), m);
+        return all.stream()
+                .map(m -> taskMap.getOrDefault(m.getId(), m))
+                .toList();
     }
 
     @Transactional

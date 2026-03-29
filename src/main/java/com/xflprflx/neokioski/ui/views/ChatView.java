@@ -15,6 +15,7 @@ import com.vaadin.flow.component.messages.MessageInput;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
+import com.vaadin.flow.component.orderedlayout.FlexLayout;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -27,15 +28,25 @@ import com.xflprflx.neokioski.models.ChatMessage;
 import com.xflprflx.neokioski.models.Group;
 import com.xflprflx.neokioski.models.MessageReaction;
 import com.xflprflx.neokioski.models.MessageEdit;
+import com.xflprflx.neokioski.models.Task;
+import com.xflprflx.neokioski.models.TaskEvent;
 import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.models.enums.Role;
+import com.xflprflx.neokioski.models.template.TaskFieldDefinition;
+import com.xflprflx.neokioski.models.TaskFieldValue;
+import com.vaadin.flow.component.splitlayout.SplitLayout;
+import com.vaadin.flow.component.combobox.ComboBox;
+
+import com.xflprflx.neokioski.models.template.TaskStepDefinition;
 import com.xflprflx.neokioski.security.SecurityService;
 import com.xflprflx.neokioski.services.ChatService;
 import com.xflprflx.neokioski.services.GroupService;
+import com.xflprflx.neokioski.services.TaskService;
 import com.xflprflx.neokioski.services.UserService;
 import com.xflprflx.neokioski.services.TaskTemplateService;
 import com.xflprflx.neokioski.models.template.TaskTemplate;
 import com.xflprflx.neokioski.models.template.TemplateFieldRelation;
+import com.xflprflx.neokioski.models.template.TemplateStepRelation;
 import com.xflprflx.neokioski.models.template.TaskFieldOption;
 import com.xflprflx.neokioski.models.template.InputType;
 import jakarta.annotation.security.PermitAll;
@@ -58,6 +69,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private final SecurityService securityService;
     private final UserService userService;
     private final TaskTemplateService taskTemplateService;
+    private final TaskService taskService;
 
     private Group group;
     private User currentUser;
@@ -79,8 +91,29 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private final Map<String, ListBox<User>> suggestionLists = new HashMap<>();
     private String activeMentionId = "main-input";
     private final Map<Long, HorizontalLayout> messageWrappers = new HashMap<>();
+    private final Map<Long, Long> taskIdToMessageId = new HashMap<>();
+    
+    // Novas áreas de layout
+    private final VerticalLayout chatArea = new VerticalLayout();
+    private final VerticalLayout taskArea = new VerticalLayout();
+    private final VerticalLayout taskListArea = new VerticalLayout();
+    private final SplitLayout chatVerticalSplit = new SplitLayout();
+    private final VerticalLayout bottomControls = new VerticalLayout();
+    private final Scroller templateScroller = new Scroller(templateBar);
+    private final SplitLayout mainSplit = new SplitLayout(chatArea, taskArea);
+    
+    // Filtros de tarefas
+    private boolean showTasksInChat = true;
+    private String filterOwner = "todas";
+    private String filterStatus = "todos";
+    private ComboBox<String> ownerFilter;
+    private ComboBox<String> statusFilter;
+    private com.vaadin.flow.component.checkbox.Checkbox showTasksInChatCheckbox;
+    private com.vaadin.flow.component.checkbox.Checkbox notifyStoreOrderCheckbox;
+    private com.vaadin.flow.component.checkbox.Checkbox notifyChatSoundsCheckbox;
     
     private Consumer<ChatMessage> listener;
+    private Consumer<Task> taskListener;
     
     private final String newMessageB64;
     private final String replyToMeB64;
@@ -91,12 +124,13 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
             .withZone(ZoneId.systemDefault());
 
-    public ChatView(ChatService chatService, GroupService groupService, SecurityService securityService, UserService userService, TaskTemplateService taskTemplateService) {
+    public ChatView(ChatService chatService, GroupService groupService, SecurityService securityService, UserService userService, TaskTemplateService taskTemplateService, TaskService taskService) {
         this.chatService = chatService;
         this.groupService = groupService;
         this.securityService = securityService;
         this.userService = userService;
         this.taskTemplateService = taskTemplateService;
+        this.taskService = taskService;
 
         setSizeFull();
         setPadding(false);
@@ -113,28 +147,30 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     private String loadAudioAsBase64(String resourcePath) {
-        try (InputStream is = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
+        String path = resourcePath.startsWith("/") ? resourcePath : "/" + resourcePath;
+        try (InputStream is = getClass().getResourceAsStream(path)) {
             if (is == null) {
-                System.err.println("Aviso: Recurso de áudio não encontrado em: " + resourcePath);
+                String error = "ERRO SOUND: Recurso não encontrado em " + path;
+                System.err.println(error);
                 return "";
             }
             byte[] bytes = is.readAllBytes();
+            if (bytes.length == 0) {
+                System.err.println("ERRO SOUND: Arquivo vazio em " + path);
+                return "";
+            }
+            System.out.println("DEBUG SOUND: Carregado " + path + " - " + bytes.length + " bytes");
             return Base64.getEncoder().encodeToString(bytes);
-        } catch (IOException e) {
+        } catch (Exception e) {
+            System.err.println("ERRO SOUND: Falha ao ler " + path);
             e.printStackTrace();
             return "";
         }
     }
 
     private void unlockAudio() {
-        // Inject data and prepare unlock listener
+        // Inject preparation listeners only
         getElement().executeJs(
-            "window.audioData = {" +
-            "  'new-message': 'data:audio/mp3;base64," + newMessageB64 + "'," +
-            "  'reply-to-me': 'data:audio/mp3;base64," + replyToMeB64 + "'," +
-            "  'i-was-mentioned': 'data:audio/mp3;base64," + mentionedB64 + "'," +
-            "  'remove-or-edit': 'data:audio/mp3;base64," + removeOrEditB64 + "'" +
-            "};" +
             "const unlock = () => {" +
             "  const ctx = new (window.AudioContext || window.webkitAudioContext)();" +
             "  ctx.resume().then(() => {" +
@@ -149,12 +185,26 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     private void configureUI() {
+        setSizeFull();
+        setPadding(false);
+        setSpacing(false);
+        getStyle().set("overflow", "hidden");
+
+        // Header de Controle (Toggle e Configurações)
+        HorizontalLayout controls = createTopHeader();
+        
+        // Área de Chat
+        chatArea.setSizeFull();
+        chatArea.setPadding(false);
+        chatArea.setSpacing(false);
+        
         messageContainer.setWidthFull();
         messageContainer.setPadding(true);
         messageContainer.setSpacing(true);
 
         scroller.setSizeFull();
         messageInput.setWidthFull();
+        messageInput.getStyle().set("flex-shrink", "0");
 
         messageInput.addSubmitListener(event -> {
             if (group != null && currentUser != null) {
@@ -164,200 +214,336 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         });
 
         configureReplyBar();
-
-        groupName.getStyle()
-                .set("padding-top", "var(--lumo-space-m)")
-                .set("padding-bottom", "var(--lumo-space-m)")
-                .set("padding-left", "var(--lumo-space-l)")
-                .set("padding-right", "var(--lumo-space-l)")
-                .set("font-size", "var(--lumo-font-size-xl)");
-        
-        getStyle().set("position", "relative"); // Para o suggestionWrapper absoluto funcionar
-        
         configureTemplateBar();
-        add(groupName, scroller, replyBar, templateBar, messageInput);
+        
+        bottomControls.setSizeFull();
+        bottomControls.setPadding(false);
+        bottomControls.setSpacing(false);
+        bottomControls.getStyle().set("flex-shrink", "0");
+        bottomControls.getStyle().set("background", "var(--lumo-base-color)");
+        bottomControls.getStyle().set("z-index", "10");
+        bottomControls.add(replyBar, templateScroller, messageInput);
+        bottomControls.setFlexGrow(1, templateScroller);
+        bottomControls.setFlexGrow(0, replyBar);
+        bottomControls.setFlexGrow(0, messageInput);
+        
+        chatVerticalSplit.setSizeFull();
+        chatVerticalSplit.setOrientation(SplitLayout.Orientation.VERTICAL);
+        chatVerticalSplit.addToPrimary(scroller);
+        chatVerticalSplit.addToSecondary(bottomControls);
+        chatVerticalSplit.setSplitterPosition(75); // Iniciar com 75% para o chat
+        
+        chatArea.add(chatVerticalSplit);
+
+        // Área de Tarefas
+        configureTaskArea();
+
+        // Split Layout
+        mainSplit.setSizeFull();
+        mainSplit.setSplitterPosition(50);
+        
+        add(controls, mainSplit);
+        setFlexGrow(1, mainSplit);
         configureSuggestions();
+    }
+
+    private HorizontalLayout createTopHeader() {
+        groupName.getStyle().set("margin", "0").set("font-size", "var(--lumo-font-size-l)");
+        
+        Button showChatOnly = new Button(VaadinIcon.CHAT.create(), e -> mainSplit.setSplitterPosition(100));
+        showChatOnly.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        showChatOnly.setTooltipText("Apenas Chat");
+
+        Button showSplit = new Button(VaadinIcon.TABLE.create(), e -> mainSplit.setSplitterPosition(50));
+        showSplit.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        showSplit.setTooltipText("Dividido");
+
+        Button showTasksOnly = new Button(VaadinIcon.TASKS.create(), e -> mainSplit.setSplitterPosition(0));
+        showTasksOnly.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        showTasksOnly.setTooltipText("Apenas Tarefas");
+
+        HorizontalLayout toggleButtons = new HorizontalLayout(showChatOnly, showSplit, showTasksOnly);
+        toggleButtons.setSpacing(false);
+
+        showTasksInChatCheckbox = new com.vaadin.flow.component.checkbox.Checkbox("Tarefas no chat", showTasksInChat);
+        showTasksInChatCheckbox.getStyle().set("margin-left", "auto").set("margin-right", "var(--lumo-space-m)");
+        showTasksInChatCheckbox.addValueChangeListener(e -> {
+            showTasksInChat = e.getValue();
+            loadMessages(); // Recarregar mensagens para aplicar filtro
+        });
+
+        // Controles de áudio
+        notifyStoreOrderCheckbox = new com.vaadin.flow.component.checkbox.Checkbox("Alerta Pedidos");
+        notifyStoreOrderCheckbox.addValueChangeListener(e -> {
+            if (currentUser != null) {
+                userService.updateNotifyStoreOrder(currentUser.getId(), e.getValue());
+                currentUser.setNotifyStoreOrder(e.getValue());
+                Notification.show("Alerta de pedidos " + (e.getValue() ? "ativado" : "desativado"), 2000, Notification.Position.BOTTOM_END);
+            }
+        });
+
+        notifyChatSoundsCheckbox = new com.vaadin.flow.component.checkbox.Checkbox("Sons Chat");
+        notifyChatSoundsCheckbox.addValueChangeListener(e -> {
+            if (currentUser != null) {
+                userService.updateNotifyChatSounds(currentUser.getId(), e.getValue());
+                currentUser.setNotifyChatSounds(e.getValue());
+                Notification.show("Sons do chat " + (e.getValue() ? "ativados" : "desativados"), 2000, Notification.Position.BOTTOM_END);
+            }
+        });
+
+        HorizontalLayout audioControls = new HorizontalLayout(VaadinIcon.VOLUME_UP.create(), notifyStoreOrderCheckbox, notifyChatSoundsCheckbox);
+        audioControls.setSpacing(true);
+        audioControls.setAlignItems(FlexComponent.Alignment.CENTER);
+        audioControls.getStyle().set("margin-right", "var(--lumo-space-m)");
+
+        HorizontalLayout header = new HorizontalLayout(groupName, toggleButtons, showTasksInChatCheckbox, audioControls);
+        header.setWidthFull();
+        header.setAlignItems(FlexComponent.Alignment.CENTER);
+        header.setPadding(true);
+        header.setSpacing(true);
+        header.getStyle().set("background", "var(--lumo-base-color)");
+        header.getStyle().set("border-bottom", "1px solid var(--lumo-contrast-10pct)");
+        header.getStyle().set("min-height", "60px");
+        return header;
+    }
+
+    private void configureTaskArea() {
+        taskArea.setSizeFull();
+        taskArea.setPadding(true);
+        taskArea.setSpacing(true);
+        taskArea.getStyle().set("background", "var(--lumo-contrast-5pct)");
+        taskArea.getStyle().set("border-left", "1px solid var(--lumo-contrast-10pct)");
+
+        Span title = new Span("📋 Tarefas do Grupo");
+        title.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-l)");
+
+        // Filtros
+        ownerFilter = new ComboBox<>("Responsável");
+        ownerFilter.setWidthFull();
+        ownerFilter.setClearButtonVisible(true);
+        ownerFilter.addValueChangeListener(e -> {
+            String val = e.getValue();
+            if (val == null || val.equals("Todas")) filterOwner = "todas";
+            else if (val.equals("Minhas")) filterOwner = "minhas";
+            else filterOwner = val;
+            refreshTaskList();
+        });
+
+        statusFilter = new ComboBox<>("Status");
+        statusFilter.setWidthFull();
+        statusFilter.setClearButtonVisible(true);
+        statusFilter.addValueChangeListener(e -> {
+            String val = e.getValue();
+            filterStatus = (val == null || val.equals("Todos")) ? "todos" : val;
+            refreshTaskList();
+        });
+
+        HorizontalLayout filters = new HorizontalLayout(ownerFilter, statusFilter);
+        filters.setWidthFull();
+
+        taskListArea.setWidthFull();
+        taskListArea.setPadding(false);
+        taskListArea.setSpacing(true);
+
+        Scroller taskScroller = new Scroller(taskListArea);
+        taskScroller.setSizeFull();
+
+        taskArea.add(title, filters, taskScroller);
+    }
+
+    private void refreshTaskList() {
+        if (group == null) return;
+        taskListArea.removeAll();
+
+        List<Task> tasks = taskService.getTasksByGroup(group);
+        
+        // Filtro de Autorização
+        tasks = tasks.stream()
+                .filter(t -> taskService.canUserViewTask(t, currentUser))
+                .collect(Collectors.toList());
+
+        // Filtrar por responsável
+        tasks = tasks.stream().filter(t -> {
+            if (filterOwner.equals("todas")) return true;
+            if (filterOwner.equals("minhas")) {
+                if (currentUser == null) return true;
+                boolean isCreator = t.getCreator() != null && t.getCreator().getId().equals(currentUser.getId());
+                boolean participated = t.getTaskEvents().stream()
+                        .anyMatch(ev -> ev.getUser() != null && ev.getUser().getId().equals(currentUser.getId()));
+                return isCreator || participated;
+            }
+            return t.getCreator() != null && t.getCreator().getUsername().equals(filterOwner);
+        }).collect(Collectors.toList());
+
+        // Filtrar por status
+        if (!filterStatus.equals("todos")) {
+            tasks = tasks.stream()
+                    .filter(t -> {
+                        if (filterStatus.equals("Pendentes")) return !taskService.isTaskFinalized(t);
+                        if (filterStatus.equals("Finalizadas")) return taskService.isTaskFinalized(t);
+                        return t.getCurrentStep() != null && t.getCurrentStep().getLabel().equals(filterStatus);
+                    })
+                    .collect(Collectors.toList());
+        }
+
+        if (tasks.isEmpty()) {
+            taskListArea.add(new Span("Nenhuma tarefa encontrada."));
+        } else {
+            for (Task task : tasks) {
+                taskListArea.add(createTaskCardLayout(task));
+            }
+        }
+    }
+
+    private void updateFilterOptions() {
+        if (group == null) return;
+
+        // Responsável
+        List<String> ownerOptions = new ArrayList<>();
+        ownerOptions.add("Minhas");
+        if (group.getUsers() != null) {
+            group.getUsers().stream()
+                    .filter(u -> currentUser == null || !u.getId().equals(currentUser.getId()))
+                    .map(User::getUsername)
+                    .sorted()
+                    .forEach(ownerOptions::add);
+        }
+        ownerOptions.add("Todas");
+        ownerFilter.setItems(ownerOptions);
+        ownerFilter.setValue("Todas");
+
+        // Status
+        List<String> stepOptions = new ArrayList<>();
+        stepOptions.add("Todos");
+        stepOptions.add("Pendentes");
+        stepOptions.add("Finalizadas");
+        
+        taskService.getTasksByGroup(group).stream()
+                .filter(t -> t.getCurrentStep() != null)
+                .map(t -> t.getCurrentStep().getLabel())
+                .distinct()
+                .sorted()
+                .forEach(stepOptions::add);
+        statusFilter.setItems(stepOptions);
+        statusFilter.setValue("Todos");
     }
 
     private void configureTemplateBar() {
         templateBar.setWidthFull();
         templateBar.setPadding(true);
         templateBar.setSpacing(true);
-        templateBar.setAlignItems(FlexComponent.Alignment.CENTER);
-        templateBar.getStyle().set("overflow-x", "auto");
-        templateBar.getStyle().set("border-top", "1px solid var(--lumo-contrast-10pct)");
+        templateBar.setAlignItems(FlexComponent.Alignment.START);
         templateBar.getStyle().set("background-color", "var(--lumo-base-color)");
-        templateBar.setVisible(false);
+        templateBar.getStyle().set("min-height", "100px"); // Altura mínima para não colapsar
+        
+        templateScroller.setWidthFull();
+        templateScroller.getStyle().set("border-top", "1px solid var(--lumo-contrast-10pct)");
+        templateScroller.getStyle().set("flex-shrink", "0"); 
+        templateScroller.setVisible(false);
     }
 
     private void loadTemplates() {
         templateBar.removeAll();
         List<TaskTemplate> templates = taskTemplateService.getTemplatesByGroupId(group.getId());
         if (templates.isEmpty()) {
-            templateBar.setVisible(false);
+            templateScroller.setVisible(false);
             return;
         }
 
-        Span templateLabel = new Span("Criar tarefa com modelo:");
-        templateLabel.getStyle().set("font-weight", "bold");
-        templateLabel.getStyle().set("margin-right", "8px");
-        templateLabel.getStyle().set("white-space", "nowrap");
-        
-        templateBar.add(templateLabel);
-
         for (TaskTemplate t : templates) {
-            Button btn = new Button(t.getName(), e -> openTemplateDialog(t));
-            btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-            btn.getStyle().set("border", "1px solid var(--lumo-contrast-20pct)");
-            btn.getStyle().set("border-radius", "8px");
-            btn.getStyle().set("white-space", "nowrap");
-            btn.getStyle().set("color", "var(--lumo-body-text-color)");
-            btn.getStyle().set("background-color", "var(--lumo-contrast-5pct)");
-            
-            // Icon visual hint
-            if (t.getName().toLowerCase().contains("bug")) {
-                btn.setIcon(new Span("\uD83D\uDC1B")); // Bug emoji
-            } else if (t.getName().toLowerCase().contains("feature") || t.getName().toLowerCase().contains("review")) {
-                btn.setIcon(new Span("⭐"));
-            } else if (t.getName().toLowerCase().contains("meeting")) {
-                btn.setIcon(new Span("\uD83D\uDCC4")); // Paper
-            } else if (t.getName().toLowerCase().contains("design")) {
-                btn.setIcon(new Span("\uD83C\uDFA8")); // Palette
-            } else {
-                btn.setIcon(new Span("\uD83D\uDCDD")); // Memo
-            }
-            
-            templateBar.add(btn);
+            templateBar.add(createTemplateFormCard(t));
         }
-        templateBar.setVisible(true);
+        templateScroller.setVisible(true);
     }
 
-    private void openTemplateDialog(TaskTemplate template) {
-        Dialog dialog = new Dialog();
-        dialog.setWidth("600px");
-        dialog.setMaxWidth("90%");
-        dialog.setHeaderTitle("Novo: " + template.getName());
+    private com.vaadin.flow.component.Component createTemplateFormCard(TaskTemplate template) {
+        VerticalLayout card = new VerticalLayout();
+        card.setWidth("280px"); // Card mais estreito para caber melhor lateralmente
+        card.getStyle().set("flex-shrink", "0");
+        card.setPadding(true);
+        card.setSpacing(true);
+        card.getStyle().set("background-color", "var(--lumo-contrast-5pct)");
+        card.getStyle().set("border", "1px solid var(--lumo-contrast-10pct)");
+        card.getStyle().set("border-radius", "12px");
+        card.getStyle().set("margin-bottom", "4px");
 
-        VerticalLayout formLayout = new VerticalLayout();
-        formLayout.setPadding(false);
-        formLayout.setSpacing(true);
+        String emoji = resolveTemplateEmoji(template.getName());
+        Span title = new Span(emoji + " " + template.getName());
+        title.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-s)");
+        card.add(title);
 
         List<TemplateFieldRelation> fields = taskTemplateService.getFieldRelationsByTemplateId(template.getId());
-        
+        java.util.LinkedHashMap<com.xflprflx.neokioski.models.template.TaskFieldDefinition, com.vaadin.flow.component.Component> fieldComponents = new java.util.LinkedHashMap<>();
+
         for (TemplateFieldRelation rel : fields) {
             InputType type = rel.getTaskFieldDefinition().getInputType();
             String label = rel.getTaskFieldDefinition().getLabel();
             String desc = rel.getTaskFieldDefinition().getDescription();
-
-            List<String> options = new ArrayList<>();
-            if (rel.getTaskFieldDefinition().getTaskFieldOptions() != null) {
-                options = rel.getTaskFieldDefinition().getTaskFieldOptions().stream()
-                        .map(TaskFieldOption::getOptionLabel)
-                        .toList();
-            }
-
-            com.vaadin.flow.component.Component fieldComponent = null;
-
-            switch (type) {
-                case TEXT:
-                    com.vaadin.flow.component.textfield.TextField tf = new com.vaadin.flow.component.textfield.TextField(label);
-                    tf.setHelperText(desc);
-                    tf.setWidthFull();
-                    tf.setRequiredIndicatorVisible(rel.isRequired());
-                    fieldComponent = tf;
-                    break;
-                case DATE:
-                    com.vaadin.flow.component.datepicker.DatePicker dp = new com.vaadin.flow.component.datepicker.DatePicker(label);
-                    dp.setHelperText(desc);
-                    dp.setWidthFull();
-                    dp.setRequiredIndicatorVisible(rel.isRequired());
-                    fieldComponent = dp;
-                    break;
-                case TIME:
-                    com.vaadin.flow.component.timepicker.TimePicker tp = new com.vaadin.flow.component.timepicker.TimePicker(label);
-                    tp.setHelperText(desc);
-                    tp.setWidthFull();
-                    tp.setRequiredIndicatorVisible(rel.isRequired());
-                    fieldComponent = tp;
-                    break;
-                case NUMBER:
-                    com.vaadin.flow.component.textfield.NumberField nf = new com.vaadin.flow.component.textfield.NumberField(label);
-                    nf.setHelperText(desc);
-                    nf.setWidthFull();
-                    nf.setRequiredIndicatorVisible(rel.isRequired());
-                    fieldComponent = nf;
-                    break;
-                case CHECKBOX:
-                    com.vaadin.flow.component.checkbox.CheckboxGroup<String> cbGroup = new com.vaadin.flow.component.checkbox.CheckboxGroup<>();
-                    cbGroup.setLabel(label);
-                    cbGroup.setItems(options);
-                    cbGroup.setRequiredIndicatorVisible(rel.isRequired());
-                    fieldComponent = cbGroup;
-                    break;
-                case RADIO:
-                    com.vaadin.flow.component.radiobutton.RadioButtonGroup<String> radio = new com.vaadin.flow.component.radiobutton.RadioButtonGroup<>();
-                    radio.setLabel(label);
-                    radio.setHelperText(desc);
-                    radio.setItems(options);
-                    radio.setRequiredIndicatorVisible(rel.isRequired());
-                    fieldComponent = radio;
-                    break;
-                case DROPDOWN:
-                    com.vaadin.flow.component.combobox.ComboBox<String> combo = new com.vaadin.flow.component.combobox.ComboBox<>(label);
-                    combo.setHelperText(desc);
-                    combo.setWidthFull();
-                    combo.setRequiredIndicatorVisible(rel.isRequired());
-                    combo.setItems(options); 
-                    fieldComponent = combo;
-                    break;
-                case MULTISELECT_DROPDOWN:
-                    com.vaadin.flow.component.combobox.MultiSelectComboBox<String> multiCombo = new com.vaadin.flow.component.combobox.MultiSelectComboBox<>(label);
-                    multiCombo.setHelperText(desc);
-                    multiCombo.setWidthFull();
-                    multiCombo.setRequiredIndicatorVisible(rel.isRequired());
-                    multiCombo.setItems(options);
-                    fieldComponent = multiCombo;
-                    break;
-                case TEXT_LIST:
-                    com.vaadin.flow.component.combobox.MultiSelectComboBox<String> textList = new com.vaadin.flow.component.combobox.MultiSelectComboBox<>(label);
-                    textList.setHelperText(desc);
-                    textList.setWidthFull();
-                    textList.setRequiredIndicatorVisible(rel.isRequired());
-                    textList.setAllowCustomValue(true);
-                    textList.addCustomValueSetListener(e -> {
-                        String customValue = e.getDetail();
-                        Set<String> items = new LinkedHashSet<>(textList.getGenericDataView().getItems().toList());
-                        items.add(customValue);
-                        textList.setItems(items);
-                        Set<String> currentValues = new HashSet<>(textList.getValue());
-                        currentValues.add(customValue);
-                        textList.setValue(currentValues);
-                    });
-                    fieldComponent = textList;
-                    break;
-            }
+            List<TaskFieldOption> options = rel.getTaskFieldDefinition().getTaskFieldOptions();
+            
+            com.vaadin.flow.component.Component fieldComponent = createInputComponent(type, label, desc, rel.isRequired(), options, "", true);
 
             if (fieldComponent != null) {
-                formLayout.add(fieldComponent);
+                fieldComponents.put(rel.getTaskFieldDefinition(), fieldComponent);
+                card.add(fieldComponent);
             }
         }
 
-        if (fields.isEmpty()) {
-            formLayout.add(new Span("Este template não possui campos configurados."));
+        Button submitBtn = new Button("Enviar", e -> {
+            boolean hasError = false;
+            for (TemplateFieldRelation rel : fields) {
+                com.vaadin.flow.component.Component comp = fieldComponents.get(rel.getTaskFieldDefinition());
+                if (rel.isRequired()) {
+                    String value = extractFieldValue(comp);
+                    if (value == null || value.trim().isEmpty()) {
+                        if (comp instanceof com.vaadin.flow.component.HasValidation hv) {
+                            hv.setInvalid(true);
+                            hv.setErrorMessage("Obrigatório");
+                        }
+                        hasError = true;
+                    } else if (comp instanceof com.vaadin.flow.component.HasValidation hv) {
+                        hv.setInvalid(false);
+                    }
+                }
+            }
+
+            if (hasError) {
+                Notification.show("Preencha os campos obrigatórios em " + template.getName(), 3000, Notification.Position.BOTTOM_END)
+                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                return;
+            }
+
+            java.util.Map<com.xflprflx.neokioski.models.template.TaskFieldDefinition, String> fieldValues = new java.util.LinkedHashMap<>();
+            for (java.util.Map.Entry<com.xflprflx.neokioski.models.template.TaskFieldDefinition, com.vaadin.flow.component.Component> entry : fieldComponents.entrySet()) {
+                String value = extractFieldValue(entry.getValue());
+                fieldValues.put(entry.getKey(), value);
+                
+                // Limpar campo após envio
+                if (entry.getValue() instanceof com.vaadin.flow.component.HasValue<?, ?> hv) {
+                    hv.clear();
+                }
+            }
+
+            Task task = taskService.createTask(template, fieldValues, currentUser, group);
+            ChatMessage msg = chatService.sendMessage("📋 Tarefa: " + template.getName(), currentUser, group);
+            chatService.linkTaskToMessage(msg.getId(), task);
+            
+            Notification.show("Tarefa '" + template.getName() + "' criada!", 2000, Notification.Position.BOTTOM_END)
+                    .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+        });
+        
+        submitBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
+        submitBtn.setWidthFull();
+
+        if (template.isShowSendButton()) {
+            card.add(submitBtn);
         }
 
-        Button cancelBtn = new Button("Cancelar", e -> dialog.close());
-        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        return card;
+    }
 
-        Button submitBtn = new Button("Enviar", e -> {
-            dialog.close();
-            Notification.show("Template '" + template.getName() + "' preenchido! (Implementação pendente)", 3000, Notification.Position.BOTTOM_CENTER);
-        });
-        submitBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-
-        dialog.add(formLayout);
-        dialog.getFooter().add(cancelBtn, submitBtn);
-        dialog.open();
+    private void showInlineTemplateForm(TaskTemplate template) {
+        // Obsoleto, mantido por compatibilidade se houver chamadas residuais, mas não terá efeito visual se removermos inlineFormContainer
     }
 
     private void configureSuggestions() {
@@ -594,7 +780,18 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         }
 
         this.group = groupOpt.get();
-        this.currentUser = securityService.getAuthenticatedInternalUser().orElse(null);
+        
+        Optional<User> authUser = securityService.getAuthenticatedInternalUser();
+        if (authUser.isPresent()) {
+            this.currentUser = userService.findById(authUser.get().getId()).orElse(null);
+        } else {
+            this.currentUser = null;
+        }
+
+        if (currentUser != null) {
+            notifyStoreOrderCheckbox.setValue(currentUser.isNotifyStoreOrder());
+            notifyChatSoundsCheckbox.setValue(currentUser.isNotifyChatSounds());
+        }
 
         // Verificação de associação ao grupo
         if (currentUser == null || !group.getUsers().contains(currentUser)) {
@@ -613,6 +810,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         this.groupName.setText(group.getName());
         loadMessages();
         loadTemplates();
+        updateFilterOptions();
+        refreshTaskList();
         setupRealTimeUpdate();
     }
 
@@ -627,13 +826,46 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     private void addOrUpdateMessageInUI(ChatMessage msg) {
+        if (msg.getTask() != null) {
+            taskIdToMessageId.put(msg.getTask().getId(), msg.getId());
+
+            // Filtro de Autorização
+            if (!taskService.canUserViewTask(msg.getTask(), currentUser)) {
+                if (messageWrappers.containsKey(msg.getId())) {
+                    messageContainer.remove(messageWrappers.get(msg.getId()));
+                    messageWrappers.remove(msg.getId());
+                }
+                return;
+            }
+
+            // Se visibilidade de tarefas no chat desativada, não mostrar
+            if (!showTasksInChat) {
+                if (messageWrappers.containsKey(msg.getId())) {
+                    messageContainer.remove(messageWrappers.get(msg.getId()));
+                    messageWrappers.remove(msg.getId());
+                }
+                return;
+            }
+        }
         if (messageWrappers.containsKey(msg.getId())) {
             HorizontalLayout oldWrapper = messageWrappers.get(msg.getId());
-            HorizontalLayout newWrapper = createMessageLayout(msg);
+            HorizontalLayout newWrapper;
+            if (msg.getTask() != null) {
+                newWrapper = createTaskCardLayout(msg.getTask());
+            } else {
+                newWrapper = createMessageLayout(msg);
+            }
+            newWrapper.setId("msg-" + msg.getId());
             messageContainer.replace(oldWrapper, newWrapper);
             messageWrappers.put(msg.getId(), newWrapper);
         } else {
-            HorizontalLayout wrapper = createMessageLayout(msg);
+            HorizontalLayout wrapper;
+            if (msg.getTask() != null) {
+                wrapper = createTaskCardLayout(msg.getTask());
+            } else {
+                wrapper = createMessageLayout(msg);
+            }
+            wrapper.setId("msg-" + msg.getId());
             messageContainer.add(wrapper);
             messageWrappers.put(msg.getId(), wrapper);
         }
@@ -687,7 +919,14 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             replyAuthor.getStyle().set("font-weight", "bold");
             replyAuthor.getStyle().set("font-size", "var(--lumo-font-size-xxs)");
             
-            Span replyText = new Span(repliedMsg.getContent());
+            String replyContent;
+            if (repliedMsg.getTask() != null) {
+                replyContent = "📋 " + (repliedMsg.getTask().getTaskTemplate() != null ? repliedMsg.getTask().getTaskTemplate().getName() : "Tarefa");
+            } else {
+                replyContent = repliedMsg.getContent();
+            }
+            
+            Span replyText = new Span(replyContent);
             replyText.getStyle().set("font-size", "var(--lumo-font-size-xs)");
             replyText.getStyle().set("opacity", "0.8");
             replyText.getStyle().set("white-space", "nowrap");
@@ -703,6 +942,10 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             quote.getStyle().set("margin-bottom", "var(--lumo-space-xs)");
             quote.getStyle().set("border-radius", "4px");
             quote.setWidthFull();
+            quote.getStyle().set("cursor", "pointer");
+            quote.addClickListener(e -> {
+                getElement().executeJs("const el = document.getElementById('msg-" + repliedMsg.getId() + "'); if(el) el.scrollIntoView({behavior: 'smooth', block: 'center'});");
+            });
         } else {
             quote.setVisible(false);
         }
@@ -862,6 +1105,424 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         return wrapper;
     }
 
+
+    /**
+     * Cria o card visual de uma task para exibir no fluxo de mensagens.
+     */
+    private HorizontalLayout createTaskCardLayout(Task task) {
+        String themeColor = task.getCurrentStep() != null ? task.getCurrentStep().getColorTheme() : "gray";
+        String[] colors = getThemeColors(themeColor);
+        String bgColor = colors[0];
+        String borderColor = colors[1];
+        boolean isDark = Boolean.parseBoolean(colors[2]);
+
+        // Container principal do card
+        Div card = new Div();
+        card.getStyle()
+                .set("border", "1px solid " + borderColor)
+                .set("border-left", "6px solid " + borderColor)
+                .set("border-radius", "12px")
+                .set("padding", "var(--lumo-space-m)")
+                .set("background", bgColor)
+                .set("box-shadow", "var(--lumo-box-shadow-s)")
+                .set("max-width", "480px")
+                .set("min-width", "280px");
+
+        if (isDark) {
+            card.getStyle().set("color", "#ffffff");
+            card.getStyle().set("--lumo-body-text-color", "#ffffff");
+            card.getStyle().set("--lumo-secondary-text-color", "rgba(255, 255, 255, 0.7)");
+            card.getStyle().set("--lumo-contrast-5pct", "rgba(255, 255, 255, 0.1)");
+            card.getStyle().set("--lumo-contrast-10pct", "rgba(255, 255, 255, 0.2)");
+            card.getStyle().set("--lumo-contrast-20pct", "rgba(255, 255, 255, 0.3)");
+        } else {
+            // Para cards claros, garantir que o texto secundário tenha contraste suficiente
+            card.getStyle().set("--lumo-secondary-text-color", "rgba(0, 0, 0, 0.65)");
+        }
+
+        if (taskService.shouldTaskPulse(task)) {
+            String rgb = getThemeColorRGB(themeColor);
+            
+            card.getStyle().set("border", "2px solid rgb(" + rgb + ")");
+            card.getStyle().set("border-left", "6px solid rgb(" + rgb + ")");
+            
+            String pulseName = "pulse-" + (themeColor != null ? themeColor : "gray");
+            card.getElement().executeJs(
+                "if (!document.getElementById('" + pulseName + "')) {" +
+                "  const s = document.createElement('style');" +
+                "  s.id = '" + pulseName + "';" +
+                "  s.textContent = '@keyframes " + pulseName + " { 0% { box-shadow: 0 0 0 0 rgba(" + rgb + ", 0.7); } 70% { box-shadow: 0 0 0 15px rgba(" + rgb + ", 0); } 100% { box-shadow: 0 0 0 0 rgba(" + rgb + ", 0); } }';" +
+                "  document.head.appendChild(s);" +
+                "}" +
+                "this.style.animation = '" + pulseName + " 2s infinite';"
+            );
+        }
+
+        // Emoji + template name (cabeçalho)
+        String templateName = task.getTaskTemplate() != null ? task.getTaskTemplate().getName() : "Tarefa";
+        String emoji = resolveTemplateEmoji(templateName);
+        Span header = new Span(emoji + " " + templateName);
+        header.getStyle()
+                .set("font-weight", "bold")
+                .set("font-size", "var(--lumo-font-size-m)")
+                .set("display", "block")
+                .set("margin-bottom", "var(--lumo-space-xs)");
+        card.add(header);
+
+        // Status badge
+        HorizontalLayout statusRow = new HorizontalLayout();
+        statusRow.setSpacing(true);
+        statusRow.setPadding(false);
+        statusRow.setAlignItems(FlexComponent.Alignment.CENTER);
+        statusRow.getStyle().set("margin-bottom", "var(--lumo-space-xs)");
+
+        Span statusLabel = new Span("Status: ");
+        statusLabel.getStyle().set("font-size", "var(--lumo-font-size-s)");
+        statusLabel.getStyle().set("color", "var(--lumo-secondary-text-color)");
+
+        if (task.getCurrentStep() != null) {
+            String stepLabel = task.getCurrentStep().getLabel();
+            String colorTheme = task.getCurrentStep().getColorTheme();
+            Span stepBadge = new Span("⏳ " + stepLabel);
+            stepBadge.getStyle()
+                    .set("padding", "2px 10px")
+                    .set("border-radius", "12px")
+                    .set("font-size", "var(--lumo-font-size-xs)")
+                    .set("font-weight", "bold");
+            applyThemeStyles(stepBadge, colorTheme);
+            statusRow.add(statusLabel, stepBadge);
+        } else {
+            boolean reqAuth = task.getTaskTemplate() != null && task.getTaskTemplate().isRequiresSignature();
+            Span pendenteBadge = new Span("⏳ " + (reqAuth ? "Pendente de Autorização" : "Pendente"));
+            pendenteBadge.getStyle()
+                    .set("background-color", "var(--lumo-contrast-20pct)")
+                    .set("color", "var(--lumo-secondary-text-color)")
+                    .set("padding", "2px 10px")
+                    .set("border-radius", "12px")
+                    .set("font-size", "var(--lumo-font-size-xs)")
+                    .set("font-weight", "bold");
+            statusRow.add(statusLabel, pendenteBadge);
+        }
+
+        // Designado (criador como referência inicial)
+        Span creatorSpan = new Span(" | Criado por: @" + (task.getCreator() != null ? task.getCreator().getUsername() : "?"));
+        creatorSpan.getStyle().set("font-size", "var(--lumo-font-size-s)");
+        creatorSpan.getStyle().set("color", "var(--lumo-secondary-text-color)");
+        statusRow.add(creatorSpan);
+        card.add(statusRow);
+
+        // Campos preenchidos
+        if (!task.getTaskFieldValues().isEmpty()) {
+            Div fieldsDiv = new Div();
+            fieldsDiv.getStyle()
+                    .set("background", "var(--lumo-contrast-5pct)")
+                    .set("border-radius", "8px")
+                    .set("padding", "var(--lumo-space-s)")
+                    .set("margin-bottom", "var(--lumo-space-s)")
+                    .set("font-size", "var(--lumo-font-size-s)");
+            for (TaskFieldValue fv : task.getTaskFieldValues()) {
+                String fieldLabel = fv.getTaskFieldDefinition() != null ? fv.getTaskFieldDefinition().getLabel() : "Campo";
+                Div row = new Div();
+                Span lbl = new Span(fieldLabel + ": ");
+                lbl.getStyle().set("font-weight", "bold");
+                row.add(lbl, new Span(fv.getValue()));
+                fieldsDiv.add(row);
+            }
+            card.add(fieldsDiv);
+        }
+
+        List<TemplateStepRelation> allRelations = taskTemplateService.getStepRelationsByTemplateId(task.getTaskTemplate().getId());
+        List<TaskStepDefinition> allowedSteps = taskService.getAllowedNextSteps(task);
+        
+        // Mapear os steps permitidos de volta para suas relações para ter acesso aos metadados (cores, campos de resposta, etc)
+        List<TemplateStepRelation> visibleRelations = allRelations.stream()
+                .filter(r -> allowedSteps.contains(r.getTaskStepDefinition()))
+                .collect(Collectors.toList());
+
+        // Mapeamento de StepId -> Campo de Resposta
+        Map<Long, com.vaadin.flow.component.Component> responseFieldsByStepId = new HashMap<>();
+        
+        // Criar campos de resposta se a tarefa não estiver finalizada
+        if (!taskService.isTaskFinalized(task)) {
+            for (TemplateStepRelation sr : visibleRelations) {
+                if (sr.isHasResponseField()) {
+                    String stepLabel = sr.getTaskStepDefinition().getLabel();
+                    String label = sr.getResponseFieldLabel() != null ? sr.getResponseFieldLabel() : "Resposta / Comentário";
+                    InputType type = sr.getResponseInputType() != null ? sr.getResponseInputType() : InputType.TEXT;
+                    String placeholder = "Preencha se " + stepLabel;
+                    
+                    com.vaadin.flow.component.Component responseComponent = createInputComponent(type, label, null, sr.isResponseRequired(), sr.getResponseOptions(), placeholder, sr.isResponseIsCompact());
+
+                    responseFieldsByStepId.put(sr.getTaskStepDefinition().getId(), responseComponent);
+                    card.add(responseComponent);
+                }
+            }
+        }
+
+        // Botões dos steps
+        FlexLayout actions = new FlexLayout();
+        actions.getStyle().set("flex-wrap", "wrap");
+        actions.getStyle().set("gap", "var(--lumo-space-s)");
+
+        for (TemplateStepRelation sr : visibleRelations) {
+            TaskStepDefinition step = sr.getTaskStepDefinition();
+            
+            // Verificação de permissão de execução (regra administrativa/autorização)
+            if (!taskService.canUserExecuteStep(task, currentUser)) {
+                continue;
+            }
+
+            if (task.getCurrentStep() != null && step.getId().equals(task.getCurrentStep().getId())) {
+                continue;
+            }
+
+            Button stepBtn = new Button(step.getLabel(), ev -> {
+                com.vaadin.flow.component.Component comp = responseFieldsByStepId.get(step.getId());
+                String response = extractFieldValue(comp);
+                
+                if (sr.isResponseRequired() && (response == null || response.isBlank())) {
+                    if (comp instanceof com.vaadin.flow.component.HasValidation hv) {
+                        hv.setInvalid(true);
+                        hv.setErrorMessage("A resposta é obrigatória para avançar.");
+                    }
+                    Notification n = new Notification("A resposta é obrigatória para avançar para '" + step.getLabel() + "'.");
+                    n.setDuration(3000);
+                    n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                    n.open();
+                    return;
+                } else if (comp instanceof com.vaadin.flow.component.HasValidation hv) {
+                    hv.setInvalid(false);
+                }
+
+                taskService.executeStep(task.getId(), step, currentUser, response);
+            });
+            stepBtn.setEnabled(!taskService.isTaskFinalized(task));
+            stepBtn.addThemeVariants(ButtonVariant.LUMO_SMALL);
+            if (sr.isFinalizer()) {
+                stepBtn.addThemeVariants(ButtonVariant.LUMO_SUCCESS);
+            } else {
+                stepBtn.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
+            }
+            actions.add(stepBtn);
+        }
+
+        // Botão Ver Detalhes
+        Button detailsBtn = new Button("Ver Detalhes", ev -> openTaskDetailsDialog(task));
+        detailsBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
+        actions.add(detailsBtn);
+
+        card.add(actions);
+
+        // Wrapper alinhado à esquerda (tasks são neutras, não têm side mine/other)
+        HorizontalLayout wrapper = new HorizontalLayout(card);
+        wrapper.setWidthFull();
+        wrapper.setJustifyContentMode(FlexComponent.JustifyContentMode.START);
+        wrapper.getStyle().set("padding-top", "var(--lumo-space-xs)");
+        wrapper.getStyle().set("padding-bottom", "var(--lumo-space-xs)");
+        return wrapper;
+    }
+
+    private com.vaadin.flow.component.Component createInputComponent(InputType type, String label, String desc, boolean required, List<TaskFieldOption> optionsObj, String placeholder, boolean isCompact) {
+        List<String> options = optionsObj != null ? optionsObj.stream().map(TaskFieldOption::getOptionLabel).toList() : new ArrayList<>();
+        com.vaadin.flow.component.Component fieldComponent = null;
+
+        switch (type) {
+            case TEXT:
+                if (isCompact) {
+                    com.vaadin.flow.component.textfield.TextField tf = new com.vaadin.flow.component.textfield.TextField(label);
+                    if (desc != null) tf.setHelperText(desc);
+                    if (placeholder != null) tf.setPlaceholder(placeholder);
+                    tf.setWidthFull();
+                    tf.setRequiredIndicatorVisible(required);
+                    fieldComponent = tf;
+                } else {
+                    com.vaadin.flow.component.textfield.TextArea ta = new com.vaadin.flow.component.textfield.TextArea(label);
+                    if (desc != null) ta.setHelperText(desc);
+                    if (placeholder != null) ta.setPlaceholder(placeholder);
+                    ta.setWidthFull();
+                    ta.setRequiredIndicatorVisible(required);
+                    fieldComponent = ta;
+                }
+                break;
+            case DATE:
+                com.vaadin.flow.component.datepicker.DatePicker dp = new com.vaadin.flow.component.datepicker.DatePicker(label);
+                if (desc != null) dp.setHelperText(desc);
+                if (placeholder != null) dp.setPlaceholder(placeholder);
+                dp.setWidthFull();
+                dp.setRequiredIndicatorVisible(required);
+                fieldComponent = dp;
+                break;
+            case TIME:
+                com.vaadin.flow.component.timepicker.TimePicker tp = new com.vaadin.flow.component.timepicker.TimePicker(label);
+                if (desc != null) tp.setHelperText(desc);
+                if (placeholder != null) tp.setPlaceholder(placeholder);
+                tp.setWidthFull();
+                tp.setRequiredIndicatorVisible(required);
+                fieldComponent = tp;
+                break;
+            case NUMBER:
+                com.vaadin.flow.component.textfield.NumberField nf = new com.vaadin.flow.component.textfield.NumberField(label);
+                if (desc != null) nf.setHelperText(desc);
+                if (placeholder != null) nf.setPlaceholder(placeholder);
+                nf.setWidthFull();
+                nf.setRequiredIndicatorVisible(required);
+                fieldComponent = nf;
+                break;
+            case CHECKBOX:
+                com.vaadin.flow.component.checkbox.CheckboxGroup<String> cbGroup = new com.vaadin.flow.component.checkbox.CheckboxGroup<>();
+                cbGroup.setLabel(label);
+                cbGroup.setItems(options);
+                cbGroup.setRequiredIndicatorVisible(required);
+                fieldComponent = cbGroup;
+                break;
+            case RADIO:
+                com.vaadin.flow.component.radiobutton.RadioButtonGroup<String> radio = new com.vaadin.flow.component.radiobutton.RadioButtonGroup<>();
+                radio.setLabel(label);
+                if (desc != null) radio.setHelperText(desc);
+                radio.setItems(options);
+                radio.setRequiredIndicatorVisible(required);
+                fieldComponent = radio;
+                break;
+            case DROPDOWN:
+                com.vaadin.flow.component.combobox.ComboBox<String> combo = new com.vaadin.flow.component.combobox.ComboBox<>(label);
+                if (desc != null) combo.setHelperText(desc);
+                if (placeholder != null) combo.setPlaceholder(placeholder);
+                combo.setWidthFull();
+                combo.setRequiredIndicatorVisible(required);
+                combo.setItems(options);
+                fieldComponent = combo;
+                break;
+            case MULTISELECT_DROPDOWN:
+                com.vaadin.flow.component.combobox.MultiSelectComboBox<String> multiCombo = new com.vaadin.flow.component.combobox.MultiSelectComboBox<>(label);
+                if (desc != null) multiCombo.setHelperText(desc);
+                if (placeholder != null) multiCombo.setPlaceholder(placeholder);
+                multiCombo.setWidthFull();
+                multiCombo.setRequiredIndicatorVisible(required);
+                multiCombo.setItems(options);
+                fieldComponent = multiCombo;
+                break;
+            case TEXT_LIST:
+                com.vaadin.flow.component.combobox.MultiSelectComboBox<String> textList = new com.vaadin.flow.component.combobox.MultiSelectComboBox<>(label);
+                if (desc != null) textList.setHelperText(desc);
+                if (placeholder != null) textList.setPlaceholder(placeholder);
+                textList.setWidthFull();
+                textList.setRequiredIndicatorVisible(required);
+                textList.setAllowCustomValue(true);
+                textList.addCustomValueSetListener(e -> {
+                    String customValue = e.getDetail();
+                    Set<String> items = new LinkedHashSet<>(textList.getGenericDataView().getItems().toList());
+                    items.add(customValue);
+                    textList.setItems(items);
+                    Set<String> currentValues = new HashSet<>(textList.getValue());
+                    currentValues.add(customValue);
+                    textList.setValue(currentValues);
+                });
+                fieldComponent = textList;
+                break;
+        }
+        return fieldComponent;
+    }
+
+    private String extractFieldValue(com.vaadin.flow.component.Component comp) {
+        if (comp == null) return "";
+        if (comp instanceof com.vaadin.flow.component.HasValue<?, ?> hv) {
+            Object val = hv.getValue();
+            if (val == null) return "";
+            if (val instanceof java.util.Collection<?> col) {
+                return col.stream().map(Object::toString).collect(Collectors.joining(", "));
+            }
+            if (val instanceof java.time.LocalDate ld) {
+                return ld.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE);
+            }
+            if (val instanceof java.time.LocalTime lt) {
+                return lt.format(java.time.format.DateTimeFormatter.ISO_LOCAL_TIME);
+            }
+            return val.toString();
+        }
+        return "";
+    }
+
+    private String resolveTemplateEmoji(String templateName) {
+        if (templateName == null) return "📋";
+        String lower = templateName.toLowerCase();
+        if (lower.contains("bug")) return "🐛";
+        if (lower.contains("feature")) return "⭐";
+        if (lower.contains("review")) return "🔄";
+        if (lower.contains("meeting")) return "📄";
+        if (lower.contains("design")) return "🎨";
+        if (lower.contains("qa")) return "🔍";
+        return "📋";
+    }
+
+    private void openTaskDetailsDialog(Task task) {
+        Dialog dialog = new Dialog();
+        dialog.setWidth("500px");
+        dialog.setHeaderTitle("Detalhes da Tarefa");
+
+        VerticalLayout content = new VerticalLayout();
+        content.setPadding(false);
+        content.setSpacing(true);
+
+        Span title = new Span(resolveTemplateEmoji(task.getTaskTemplate() != null ? task.getTaskTemplate().getName() : "") + " " + (task.getTaskTemplate() != null ? task.getTaskTemplate().getName() : "Tarefa"));
+        title.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-l)");
+        content.add(title);
+
+        if (task.getCurrentStep() != null) {
+            String stepLabel = task.getCurrentStep().getLabel();
+            String colorTheme = task.getCurrentStep().getColorTheme();
+            Span stepBadge = new Span(stepLabel);
+            stepBadge.getStyle()
+                    .set("padding", "2px 10px")
+                    .set("border-radius", "12px")
+                    .set("font-size", "var(--lumo-font-size-xs)")
+                    .set("font-weight", "bold");
+            
+            applyThemeStyles(stepBadge, colorTheme);
+            
+            HorizontalLayout statusRow = new HorizontalLayout(new Span("Status: "), stepBadge);
+            statusRow.setAlignItems(FlexComponent.Alignment.CENTER);
+            content.add(statusRow);
+        }
+
+        if (task.getCreator() != null) {
+            content.add(new Span("Criado por: @" + task.getCreator().getUsername()));
+        }
+
+        if (!task.getTaskFieldValues().isEmpty()) {
+            Span fieldsTitle = new Span("Campos:");
+            fieldsTitle.getStyle().set("font-weight", "bold");
+            content.add(fieldsTitle);
+            for (TaskFieldValue fv : task.getTaskFieldValues()) {
+                String lbl = fv.getTaskFieldDefinition() != null ? fv.getTaskFieldDefinition().getLabel() : "Campo";
+                content.add(new Span("• " + lbl + ": " + fv.getValue()));
+            }
+        }
+
+        if (!task.getTaskEvents().isEmpty()) {
+            Span histTitle = new Span("Histórico:");
+            histTitle.getStyle().set("font-weight", "bold");
+            content.add(histTitle);
+            for (com.xflprflx.neokioski.models.TaskEvent ev : task.getTaskEvents()) {
+                String who = ev.getUser() != null ? "@" + ev.getUser().getUsername() : "sistema";
+                String when = ev.getTimestamp() != null ? dateTimeFormatter.format(ev.getTimestamp()) : "";
+                String step = ev.getTaskStepDefinition() != null ? ev.getTaskStepDefinition().getLabel() : "";
+                String line = "• " + who + " → " + step + " (" + when + ")";
+                content.add(new Span(line));
+                if (ev.getResponse() != null && !ev.getResponse().isBlank()) {
+                    Span resp = new Span("  Resp: " + ev.getResponse());
+                    resp.getStyle().set("font-style", "italic").set("color", "var(--lumo-secondary-text-color)").set("margin-left", "20px");
+                    content.add(resp);
+                }
+            }
+        }
+
+        Scroller scroller2 = new Scroller(content);
+        scroller2.setMaxHeight("400px");
+        dialog.add(scroller2);
+        dialog.getFooter().add(new Button("Fechar", ev -> dialog.close()));
+        dialog.open();
+    }
+
     private Div renderMessageContent(String content) {
         Div container = new Div();
         if (content == null || content.isEmpty()) return container;
@@ -956,8 +1617,28 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             }
         };
 
+        taskListener = task -> {
+            if (getUI().isPresent()) {
+                getUI().get().access(() -> {
+                    // Atualizar o card na linha do chat se existir
+                    Long messageId = taskIdToMessageId.get(task.getId());
+                    if (messageId != null) {
+                        chatService.getMessagesByGroup(group).stream()
+                            .filter(m -> m.getId().equals(messageId))
+                            .findFirst()
+                            .ifPresent(this::addOrUpdateMessageInUI);
+                    }
+                    // Atualizar a lista de tarefas lateral sempre
+                    refreshTaskList();
+
+                    // (O som de pedido agora é tratado globalmente no MainLayout)
+                });
+            }
+        };
+
         if (group != null) {
             chatService.register(group.getId(), listener);
+            taskService.register(group.getId(), taskListener);
         }
     }
 
@@ -1112,17 +1793,18 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         scroller.getElement().executeJs("this.scrollTo(0, this.scrollHeight)");
     }
 
-    private void playNotificationSound(String type) {
-        getElement().executeJs(
-            "try {" +
-            "  const audioSrc = window.audioData['" + type + "'];" +
-            "  if (!audioSrc) throw new Error('Dados de áudio não encontrados para: ' + '" + type + "');" +
-            "  const audio = new Audio(audioSrc);" +
-            "  audio.play().catch(e => console.error('Falha ao tocar áudio (' + '" + type + "' + '):', e));" +
-            "} catch (err) {" +
-            "  console.error('Erro na função playNotificationSound:', err);" +
-            "}"
-        );
+    private void playNotificationSound(String soundId) {
+        securityService.getAuthenticatedInternalUser().ifPresent(u -> {
+            userService.findById(u.getId()).ifPresent(user -> {
+                if (user.isNotifyChatSounds()) {
+                    getUI().ifPresent(ui -> ui.getPage().executeJs(
+                        "if(window.audioData && window.audioData[$0]) {" +
+                        "  new Audio(window.audioData[$0]).play().catch(e => console.error('Sound error:', e));" +
+                        "}", soundId
+                    ));
+                }
+            });
+        });
     }
 
     @Override
@@ -1132,8 +1814,9 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             "window.audioData = window.audioData || {};" +
             "window.audioData['new-message'] = 'data:audio/mp3;base64,%s';" +
             "window.audioData['reply-to-me'] = 'data:audio/mp3;base64,%s';" +
-            "window.audioData['i-was-mentioned'] = 'data:audio/mp3;base64,%s';",
-            newMessageB64, replyToMeB64, mentionedB64
+            "window.audioData['i-was-mentioned'] = 'data:audio/mp3;base64,%s';" +
+            "window.audioData['remove-or-edit'] = 'data:audio/mp3;base64,%s';",
+            newMessageB64, replyToMeB64, mentionedB64, removeOrEditB64
         );
         attachEvent.getUI().getPage().executeJs(js);
         showPermissionDialog();
@@ -1167,6 +1850,60 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         if (listener != null && group != null) {
             chatService.unregister(group.getId(), listener);
         }
+        if (taskListener != null && group != null) {
+            taskService.unregister(group.getId(), taskListener);
+        }
         super.onDetach(detachEvent);
+    }
+
+    private void applyThemeStyles(Span span, String theme) {
+        String[] colors = getThemeColors(theme);
+        span.getStyle().set("background-color", colors[1]); // Uso a cor forte (fg) no badge
+        // No tema Black, fg é branco, então o texto deve ser escuro
+        if (theme != null && theme.equalsIgnoreCase("black")) {
+            span.getStyle().set("color", "#212121");
+        } else {
+            span.getStyle().set("color", "#ffffff"); // Texto branco nos outros temas (que têm cores escuras)
+        }
+    }
+
+    private String[] getThemeColors(String theme) {
+        if (theme == null) theme = "gray";
+        
+        String bg, fg;
+        boolean isDark = false;
+        switch (theme.toLowerCase()) {
+            case "blue": bg = "#e3f2fd"; fg = "#1565c0"; break;
+            case "yellow": bg = "#fff9c4"; fg = "#dc6d00"; break;
+            case "green": bg = "#e8f5e9"; fg = "#2e7d32"; break;
+            case "red": bg = "#ffebee"; fg = "#c62828"; break;
+            case "purple": bg = "#f3e5f5"; fg = "#7b1fa2"; break;
+            case "orange": bg = "#fff3e0"; fg = "#ef6c00"; break;
+            case "cyan": bg = "#e0f7fa"; fg = "#00838f"; break;
+            case "pink": bg = "#fce4ec"; fg = "#c2185b"; break;
+            case "gray": bg = "#f5f5f5"; fg = "#616161"; break;
+            case "black": bg = "#212121"; fg = "#ffffff"; isDark = true; break;
+            default:
+                bg = "var(--lumo-contrast-5pct)";
+                fg = "var(--lumo-contrast-80pct)";
+        }
+        return new String[]{bg, fg, String.valueOf(isDark)};
+    }
+
+    private String getThemeColorRGB(String theme) {
+        if (theme == null) theme = "gray";
+        return switch (theme.toLowerCase()) {
+            case "blue" -> "21, 101, 192";
+            case "yellow" -> "220, 109, 0";
+            case "green" -> "46, 125, 50";
+            case "red" -> "198, 40, 40";
+            case "purple" -> "123, 31, 162";
+            case "orange" -> "239, 108, 0";
+            case "cyan" -> "0, 131, 143";
+            case "pink" -> "194, 24, 91";
+            case "gray" -> "97, 97, 97";
+            case "black" -> "255, 255, 255";
+            default -> "110, 110, 110";
+        };
     }
 }

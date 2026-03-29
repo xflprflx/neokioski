@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import java.util.Objects;
 
 @Entity
-@Table(name = "tb_template_fiel_relations")
+@Table(name = "tb_template_field_relations")
 public class TemplateFieldRelation {
 
     @Id

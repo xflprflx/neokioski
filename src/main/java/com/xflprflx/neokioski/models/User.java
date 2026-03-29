@@ -21,12 +21,32 @@ public class User {
     private String username;
     @Column(nullable = false)
     private String password;
-    private String isActive;
+    private boolean isActive;
     @Enumerated(EnumType.STRING)
     private Role role;
+    private boolean notifyStoreOrder;
+    private boolean notifyChatSounds = true;
+
     @ManyToMany(mappedBy = "users")
     private Set<Group> groups = new HashSet<>();
+
     public User() {
+    }
+
+    public boolean isNotifyStoreOrder() {
+        return notifyStoreOrder;
+    }
+
+    public void setNotifyStoreOrder(boolean notifyStoreOrder) {
+        this.notifyStoreOrder = notifyStoreOrder;
+    }
+
+    public boolean isNotifyChatSounds() {
+        return notifyChatSounds;
+    }
+
+    public void setNotifyChatSounds(boolean notifyChatSounds) {
+        this.notifyChatSounds = notifyChatSounds;
     }
 
     public Long getId() {
@@ -61,12 +81,12 @@ public class User {
         this.password = password;
     }
 
-    public String getIsActive() {
+    public boolean isActive() {
         return isActive;
     }
 
-    public void setIsActive(String isActive) {
-        this.isActive = isActive;
+    public void setActive(boolean active) {
+        isActive = active;
     }
 
     public Role getRole() {

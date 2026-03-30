@@ -286,6 +286,15 @@ public class TaskService {
                 .anyMatch(TemplateStepRelation::isFinalizer);
     }
 
+    public Instant getFinalizedTimestamp(Task task) {
+        if (!isTaskFinalized(task)) return null;
+        return task.getTaskEvents().stream()
+                .filter(ev -> ev.getTaskStepDefinition() != null)
+                .max(Comparator.comparing(TaskEvent::getTimestamp))
+                .map(TaskEvent::getTimestamp)
+                .orElse(task.getCreatedAt());
+    }
+
     public boolean shouldTaskPulse(Task task) {
         if (task.getCurrentStep() == null) return false;
 

@@ -53,6 +53,7 @@ import jakarta.annotation.security.PermitAll;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -1279,6 +1280,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         HorizontalLayout statusRow = new HorizontalLayout();
         statusRow.setSpacing(true);
         statusRow.setPadding(false);
+        statusRow.setWidthFull();
         statusRow.setAlignItems(FlexComponent.Alignment.CENTER);
         statusRow.getStyle().set("margin-bottom", "var(--lumo-space-xs)");
 
@@ -1309,6 +1311,53 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     .set("font-weight", "bold");
             statusRow.add(statusLabel, pendenteBadge);
         }
+
+        // Cronômetro
+        Span timerSpan = new Span("⏱️ --:--");
+        timerSpan.addClassName("task-timer-display");
+        timerSpan.getStyle()
+                .set("font-variant-numeric", "tabular-nums")
+                .set("font-weight", "bold")
+                .set("font-size", "var(--lumo-font-size-s)")
+                .set("color", "var(--lumo-secondary-text-color)")
+                .set("margin-left", "auto");
+        
+        statusRow.add(timerSpan);
+
+        Instant start = task.getCreatedAt();
+        boolean finalized = taskService.isTaskFinalized(task);
+        Instant end = finalized ? taskService.getFinalizedTimestamp(task) : null;
+        
+        long startMs = start.toEpochMilli();
+        long endMs = (end != null) ? end.toEpochMilli() : 0;
+
+        card.getElement().executeJs(
+            "const el = this.querySelector('.task-timer-display');" +
+            "if (el) {" +
+            "  const start = parseInt($0);" +
+            "  const finalized = $1;" +
+            "  const end = parseInt($2);" +
+            "  const format = (ms) => {" +
+            "    if (ms < 0) ms = 0;" +
+            "    const s = Math.floor(ms / 1000);" +
+            "    const h = Math.floor(s / 3600);" +
+            "    const m = Math.floor((s % 3600) / 60);" +
+            "    const sec = s % 60;" +
+            "    return (h > 0 ? h + ':' : '') + (m < 10 ? '0' + m : m) + ':' + (sec < 10 ? '0' + sec : sec);" +
+            "  };" +
+            "  if (finalized) {" +
+            "    el.innerText = '⏱️ ' + format(end - start);" +
+            "  } else {" +
+            "    const update = () => {" +
+            "      if (!el.isConnected) return;" +
+            "      el.innerText = '⏱️ ' + format(Date.now() - start);" +
+            "      setTimeout(update, 1000);" +
+            "    };" +
+            "    update();" +
+            "  }" +
+            "}",
+            String.valueOf(startMs), finalized, String.valueOf(endMs)
+        );
 
         // Designado (criador como referência inicial)
         Span creatorSpan = new Span(" | Criado por: @" + (task.getCreator() != null ? task.getCreator().getUsername() : "?"));

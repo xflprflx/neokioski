@@ -148,6 +148,10 @@ public class TaskService {
         return taskRepository.findByGroupWithCollections(group);
     }
 
+    public List<Task> getTasksByGroup(Group group, Instant start, Instant end) {
+        return taskRepository.findByGroupAndCreatedAtBetweenOrderByCreatedAtDesc(group, start, end);
+    }
+
     public List<Task> getMyTasks(Group group, User user) {
         return taskRepository.findMyTasksByGroup(group, user);
     }

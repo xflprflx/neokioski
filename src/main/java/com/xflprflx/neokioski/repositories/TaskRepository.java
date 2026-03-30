@@ -27,7 +27,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     List<Task> findAllPending();
 
     @Query("""
-           SELECT t FROM Task t
+           SELECT DISTINCT t FROM Task t
            LEFT JOIN TemplateStepRelation sr
              ON sr.taskTemplate = t.taskTemplate
             AND sr.taskStepDefinition = t.currentStep
@@ -37,5 +37,6 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
            """)
     List<Task> findPendingByGroup(@Param("group") Group group);
 
-
+    @Query("SELECT DISTINCT t FROM Task t WHERE t.group = :group AND t.createdAt BETWEEN :start AND :end ORDER BY t.createdAt DESC")
+    List<Task> findByGroupAndCreatedAtBetweenOrderByCreatedAtDesc(@Param("group") Group group, @Param("start") java.time.Instant start, @Param("end") java.time.Instant end);
 }

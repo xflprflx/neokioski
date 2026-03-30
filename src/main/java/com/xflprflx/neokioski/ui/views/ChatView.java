@@ -109,6 +109,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private String filterStatus = "todos";
     private ComboBox<String> ownerFilter;
     private ComboBox<String> statusFilter;
+    private com.vaadin.flow.component.datepicker.DatePicker startDatePicker;
+    private com.vaadin.flow.component.datepicker.DatePicker endDatePicker;
     private com.vaadin.flow.component.checkbox.Checkbox showTasksInChatCheckbox;
     private com.vaadin.flow.component.checkbox.Checkbox notifyStoreOrderCheckbox;
     private com.vaadin.flow.component.checkbox.Checkbox notifyChatSoundsCheckbox;
@@ -209,6 +211,13 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
         messageInput.addSubmitListener(event -> {
             if (group != null && currentUser != null) {
+                // Ao enviar, forçar data para hoje para ver a própria mensagem (conforme solicitado pelo usuário)
+                java.time.LocalDate today = java.time.LocalDate.now();
+                if (!today.equals(startDatePicker.getValue()) || !today.equals(endDatePicker.getValue())) {
+                    startDatePicker.setValue(today);
+                    endDatePicker.setValue(today);
+                    // loadMessages() será chamado pelos ValueChangeListeners
+                }
                 chatService.sendMessage(event.getValue(), currentUser, group, replyTo);
                 cancelReply();
             }
@@ -297,7 +306,23 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         audioControls.setAlignItems(FlexComponent.Alignment.CENTER);
         audioControls.getStyle().set("margin-right", "var(--lumo-space-m)");
 
-        HorizontalLayout header = new HorizontalLayout(groupName, toggleButtons, showTasksInChatCheckbox, audioControls);
+        // Filtros de Data
+        startDatePicker = new com.vaadin.flow.component.datepicker.DatePicker("Início");
+        startDatePicker.setValue(java.time.LocalDate.now());
+        startDatePicker.setWidth("140px");
+        startDatePicker.addValueChangeListener(e -> refreshAllComponents());
+
+        endDatePicker = new com.vaadin.flow.component.datepicker.DatePicker("Fim");
+        endDatePicker.setValue(java.time.LocalDate.now());
+        endDatePicker.setWidth("140px");
+        endDatePicker.addValueChangeListener(e -> refreshAllComponents());
+
+        HorizontalLayout dateFilters = new HorizontalLayout(startDatePicker, endDatePicker);
+        dateFilters.setSpacing(true);
+        dateFilters.setAlignItems(FlexComponent.Alignment.CENTER);
+        dateFilters.getStyle().set("margin-left", "var(--lumo-space-m)");
+
+        HorizontalLayout header = new HorizontalLayout(groupName, toggleButtons, showTasksInChatCheckbox, dateFilters, audioControls);
         header.setWidthFull();
         header.setAlignItems(FlexComponent.Alignment.CENTER);
         header.setPadding(true);
@@ -357,11 +382,20 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         taskArea.setFlexGrow(1, taskScroller);
     }
 
+    private void refreshAllComponents() {
+        loadMessages();
+        refreshTaskList();
+    }
+
     private void refreshTaskList() {
-        if (group == null) return;
+        if (group == null || startDatePicker == null || endDatePicker == null || startDatePicker.getValue() == null || endDatePicker.getValue() == null) return;
         taskListArea.removeAll();
 
-        List<Task> tasks = taskService.getTasksByGroup(group);
+        // Converter LocalDate para Instant (Início e Fim do dia)
+        java.time.Instant start = startDatePicker.getValue().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant();
+        java.time.Instant end = endDatePicker.getValue().atTime(23, 59, 59, 999_000_000).atZone(java.time.ZoneId.systemDefault()).toInstant();
+
+        List<Task> tasks = taskService.getTasksByGroup(group, start, end);
         
         // Filtro de Autorização
         tasks = tasks.stream()
@@ -822,9 +856,19 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     private void loadMessages() {
+        if (group == null || startDatePicker == null || endDatePicker == null || startDatePicker.getValue() == null || endDatePicker.getValue() == null) return;
+        
         messageContainer.removeAll();
         messageWrappers.clear();
-        List<ChatMessage> messages = chatService.getMessagesByGroup(group);
+
+        // Converter LocalDate para Instant (Início e Fim do dia)
+        java.time.LocalDate startL = startDatePicker.getValue();
+        java.time.LocalDate endL = endDatePicker.getValue();
+        
+        java.time.Instant start = startL.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant();
+        java.time.Instant end = endL.atTime(23, 59, 59, 999_000_000).atZone(java.time.ZoneId.systemDefault()).toInstant();
+
+        List<ChatMessage> messages = chatService.getMessagesByGroup(group, start, end);
         for (ChatMessage msg : messages) {
             addOrUpdateMessageInUI(msg);
         }

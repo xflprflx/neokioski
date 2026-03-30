@@ -78,6 +78,19 @@ public class ChatService {
         }).orElse(null);
     }
 
+    public List<ChatMessage> getMessagesByGroup(Group group, java.time.Instant start, java.time.Instant end) {
+        // Busca todas as mensagens (sem fetch)
+        List<ChatMessage> all = repository.findByGroupAndTimestampBetweenOrderByTimestampAsc(group, start, end);
+        // Busca mensagens com task e suas coleções carregadas eagerly
+        List<ChatMessage> withTask = repository.findByGroupWithTaskAndTimestampBetweenOrderByTimestampAsc(group, start, end);
+        // Substitui os objetos com task pelo equivalente com coleções inicializadas
+        Map<Long, ChatMessage> taskMap = new HashMap<>();
+        for (ChatMessage m : withTask) taskMap.put(m.getId(), m);
+        return all.stream()
+                .map(m -> taskMap.getOrDefault(m.getId(), m))
+                .toList();
+    }
+
     public List<ChatMessage> getMessagesByGroup(Group group) {
         // Busca todas as mensagens (sem fetch)
         List<ChatMessage> all = repository.findByGroupOrderByTimestampAsc(group);

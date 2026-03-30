@@ -314,6 +314,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         taskArea.setSpacing(true);
         taskArea.getStyle().set("background", "var(--lumo-contrast-5pct)");
         taskArea.getStyle().set("border-left", "1px solid var(--lumo-contrast-10pct)");
+        taskArea.getStyle().set("overflow", "hidden");
 
         Span title = new Span("📋 Tarefas do Grupo");
         title.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-l)");
@@ -345,11 +346,15 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         taskListArea.setWidthFull();
         taskListArea.setPadding(false);
         taskListArea.setSpacing(true);
+        taskListArea.getStyle().set("padding-bottom", "var(--lumo-space-xl)");
 
         Scroller taskScroller = new Scroller(taskListArea);
-        taskScroller.setSizeFull();
+        taskScroller.setWidthFull();
+        taskScroller.getStyle().set("flex-grow", "1");
+        taskScroller.getStyle().set("min-height", "0");
 
         taskArea.add(title, filters, taskScroller);
+        taskArea.setFlexGrow(1, taskScroller);
     }
 
     private void refreshTaskList() {

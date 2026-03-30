@@ -30,6 +30,7 @@ public class TaskTemplate {
             joinColumns = @JoinColumn(name = "task_template_id"),
             inverseJoinColumns = @JoinColumn(name = "group_id")
     )
+    @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
     private List<Group> groups = new ArrayList<>();
     @OneToMany(mappedBy = "taskTemplate")
     private List<TemplateStepRelation> templateStepRelation = new ArrayList<>();
@@ -44,6 +45,7 @@ public class TaskTemplate {
             joinColumns = @JoinColumn(name = "task_template_id"),
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
+    @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
     private List<User> authorizingUsers = new ArrayList<>();
 
     public TaskTemplate() {

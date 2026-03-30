@@ -43,6 +43,7 @@ public class TemplateStepRelation {
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @JoinColumn(name = "template_step_relation_id")
     @OrderBy("id ASC")
+    @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
     private List<TaskFieldOption> responseOptions = new ArrayList<>();
 
     @ManyToOne(optional = false)
@@ -58,6 +59,7 @@ public class TemplateStepRelation {
             joinColumns = @JoinColumn(name = "template_step_relation_id"),
             inverseJoinColumns = @JoinColumn(name = "next_step_definition_id")
     )
+    @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
     private List<TaskStepDefinition> allowedNextSteps = new ArrayList<>();
 
     @Column(nullable = false)

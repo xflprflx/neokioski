@@ -19,6 +19,7 @@ public class TaskService {
     private final TemplateStepRelationRepository stepRelationRepository;
     private final ChatService chatService;
     private final ChatMessageRepository chatMessageRepository;
+    private final TaskAlertService taskAlertService;
     private final java.util.Map<Long, List<Consumer<Task>>> listeners =
             Collections.synchronizedMap(new java.util.HashMap<>());
     private final List<Consumer<Task>> globalListeners = new CopyOnWriteArrayList<>();
@@ -26,11 +27,13 @@ public class TaskService {
     public TaskService(TaskRepository taskRepository,
                        TemplateStepRelationRepository stepRelationRepository,
                        ChatService chatService,
-                       ChatMessageRepository chatMessageRepository) {
+                       ChatMessageRepository chatMessageRepository,
+                       TaskAlertService taskAlertService) {
         this.taskRepository = taskRepository;
         this.stepRelationRepository = stepRelationRepository;
         this.chatService = chatService;
         this.chatMessageRepository = chatMessageRepository;
+        this.taskAlertService = taskAlertService;
     }
 
     @Transactional
@@ -62,6 +65,7 @@ public class TaskService {
         task.getTaskEvents().add(event);
 
         Task saved = taskRepository.save(task);
+        taskAlertService.scheduleAlertsForTask(saved);
         broadcast(group.getId(), saved);
         return saved;
     }
@@ -125,6 +129,12 @@ public class TaskService {
                     }
                 }
             });
+
+        if (isTaskFinalized(saved)) {
+            taskAlertService.cancelAllAlertsForTask(saved);
+        } else {
+            taskAlertService.cancelAlertByTargetStep(saved, step);
+        }
 
         broadcast(task.getGroup().getId(), saved);
         return saved;

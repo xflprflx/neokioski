@@ -17,6 +17,13 @@ public class TaskTemplateService {
     private final TemplateStepRelationRepository templateStepRelationRepository;
     private final TaskFieldOptionRepository taskFieldOptionRepository;
     private final TaskAlertRepository taskAlertRepository;
+    @org.springframework.context.annotation.Lazy
+    @org.springframework.beans.factory.annotation.Autowired
+    private TaskRepository taskRepository;
+
+    @org.springframework.context.annotation.Lazy
+    @org.springframework.beans.factory.annotation.Autowired
+    private TaskAlertService taskAlertService;
 
     public TaskTemplateService(TaskTemplateRepository taskTemplateRepository,
                                TaskFieldDefinitionRepository taskFieldDefinitionRepository,
@@ -84,6 +91,18 @@ public class TaskTemplateService {
                 alert.setTaskTemplate(savedTemplate);
                 taskAlertRepository.save(alert);
             }
+        }
+
+        // Tentar reajustar cronômetros das tarefas pendentes em memória (via Dynamic Scheduling)
+        try {
+            java.util.List<com.xflprflx.neokioski.models.Task> pendings = taskRepository.findAllPending();
+            for (com.xflprflx.neokioski.models.Task pt : pendings) {
+                if (pt.getTaskTemplate() != null && pt.getTaskTemplate().getId().equals(savedTemplate.getId())) {
+                    taskAlertService.scheduleAlertsForTask(pt);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Aviso: Falha ao tentar reagendar alertas das tarefas ativas após edição do template: " + e.getMessage());
         }
 
         return savedTemplate;

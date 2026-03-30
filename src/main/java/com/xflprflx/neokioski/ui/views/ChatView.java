@@ -1686,21 +1686,24 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     addOrUpdateMessageInUI(msg);
                     scrollToBottom();
                     
-                    if (!msg.getUser().getId().equals(currentUser.getId())) {
+                    if (msg.getUser() == null || !msg.getUser().getId().equals(currentUser.getId())) {
                         boolean isReplyToMe = msg.getReplyTo() != null && 
+                                             msg.getReplyTo().getUser() != null &&
                                              msg.getReplyTo().getUser().getId().equals(currentUser.getId());
                         boolean mentioned = currentUser != null && isUserMentioned(msg.getContent(), currentUser.getUsername());
                         
                         if (isNew) {
                             if (isReplyToMe) {
                                 playNotificationSound("reply-to-me");
-                                Notification n = new Notification(msg.getUser().getName() + " respondeu a você!");
+                                String title = msg.getUser() != null ? msg.getUser().getName() : "Sistema";
+                                Notification n = new Notification(title + " respondeu a você!");
                                 n.setDuration(5000);
                                 n.addThemeVariants(NotificationVariant.LUMO_PRIMARY);
                                 n.open();
                             } else if (mentioned) {
                                 playNotificationSound("i-was-mentioned");
-                                Notification n = new Notification(msg.getUser().getName() + " mencionou você!");
+                                String title = msg.getUser() != null ? msg.getUser().getName() : "Sistema";
+                                Notification n = new Notification(title + " mencionou você!");
                                 n.setDuration(5000);
                                 n.addThemeVariants(NotificationVariant.LUMO_PRIMARY);
                                 n.open();
@@ -1710,7 +1713,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                         } else {
                             if (mentioned && !msg.isDeleted()) {
                                 playNotificationSound("i-was-mentioned");
-                                Notification n = new Notification(msg.getUser().getName() + " mencionou você na edição da mensagem!");
+                                String title = msg.getUser() != null ? msg.getUser().getName() : "Sistema";
+                                Notification n = new Notification(title + " mencionou você na edição da mensagem!");
                                 n.setDuration(5000);
                                 n.addThemeVariants(NotificationVariant.LUMO_PRIMARY);
                                 n.open();

@@ -24,23 +24,30 @@ public class TaskTemplate {
     private boolean requiresSignature;
     @Column(nullable = false)
     private boolean playAlertSound = false;
+    @Column(nullable = false)
+    private boolean registraNoRelatorioLoja = false;
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "tb_task_templates_groups",
             joinColumns = @JoinColumn(name = "task_template_id"),
             inverseJoinColumns = @JoinColumn(name = "group_id")
     )
+    @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
     private List<Group> groups = new ArrayList<>();
     @OneToMany(mappedBy = "taskTemplate")
     private List<TemplateStepRelation> templateStepRelation = new ArrayList<>();
     @OneToMany(mappedBy = "taskTemplate")
     private List<TemplateFieldRelation> templateFieldRelation = new ArrayList<>();
+    @OneToMany(mappedBy = "taskTemplate", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<TaskAlert> alerts = new ArrayList<>();
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "tb_task_templates_authorizer_users",
             joinColumns = @JoinColumn(name = "task_template_id"),
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
+    @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
     private List<User> authorizingUsers = new ArrayList<>();
 
     public TaskTemplate() {
@@ -86,6 +93,14 @@ public class TaskTemplate {
         this.playAlertSound = playAlertSound;
     }
 
+    public boolean isRegistraNoRelatorioLoja() {
+        return registraNoRelatorioLoja;
+    }
+
+    public void setRegistraNoRelatorioLoja(boolean registraNoRelatorioLoja) {
+        this.registraNoRelatorioLoja = registraNoRelatorioLoja;
+    }
+
     public List<Group> getGroups() {
         return groups;
     }
@@ -108,6 +123,19 @@ public class TaskTemplate {
 
     public void setAuthorizingUsers(List<User> authorizingUsers) {
         this.authorizingUsers = authorizingUsers;
+    }
+
+    public List<TaskAlert> getAlerts() {
+        return alerts;
+    }
+
+    public void setAlerts(List<TaskAlert> alerts) {
+        this.alerts = alerts;
+    }
+
+    public void addAlert(TaskAlert alert) {
+        this.alerts.add(alert);
+        alert.setTaskTemplate(this);
     }
 
     @Override

@@ -27,10 +27,12 @@ public class ChatMessage {
     private Group group;
 
     @OneToMany(mappedBy = "chatMessage", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
     private List<MessageReaction> reactions = new ArrayList<>();
 
     @OneToMany(mappedBy = "chatMessage", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @OrderBy("editTimestamp DESC")
+    @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
     private List<MessageEdit> edits = new ArrayList<>();
 
     private boolean isDeleted = false;
@@ -39,7 +41,8 @@ public class ChatMessage {
     @JoinColumn(name = "reply_to_id")
     private ChatMessage replyTo;
 
-    @OneToOne
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "task_id")
     private Task task;
 
     public ChatMessage() {

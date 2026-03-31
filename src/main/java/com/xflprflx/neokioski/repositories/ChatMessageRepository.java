@@ -7,10 +7,32 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.List;
 
 @Repository
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
+
+    @Query("""
+           SELECT DISTINCT m FROM ChatMessage m
+           LEFT JOIN FETCH m.task t
+           LEFT JOIN FETCH t.taskTemplate
+           LEFT JOIN FETCH t.currentStep
+           WHERE m.group = :group
+             AND m.task IS NOT NULL
+             AND m.timestamp BETWEEN :start AND :end
+           ORDER BY m.timestamp ASC
+           """)
+    List<ChatMessage> findByGroupWithTaskAndTimestampBetweenOrderByTimestampAsc(
+            @Param("group") Group group, 
+            @Param("start") Instant start, 
+            @Param("end") Instant end);
+
+    @Query("SELECT m FROM ChatMessage m WHERE m.group = :group AND m.timestamp BETWEEN :start AND :end ORDER BY m.timestamp ASC")
+    List<ChatMessage> findByGroupAndTimestampBetweenOrderByTimestampAsc(
+            @Param("group") Group group, 
+            @Param("start") Instant start, 
+            @Param("end") Instant end);
 
     @Query("""
            SELECT DISTINCT m FROM ChatMessage m
@@ -26,5 +48,5 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     @Query("SELECT m FROM ChatMessage m WHERE m.group = :group ORDER BY m.timestamp ASC")
     List<ChatMessage> findByGroupOrderByTimestampAsc(@Param("group") Group group);
 
-    java.util.Optional<ChatMessage> findByTask(com.xflprflx.neokioski.models.Task task);
+    java.util.List<ChatMessage> findByTaskOrderByIdAsc(com.xflprflx.neokioski.models.Task task);
 }

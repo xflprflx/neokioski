@@ -49,10 +49,12 @@ import com.xflprflx.neokioski.models.template.TemplateFieldRelation;
 import com.xflprflx.neokioski.models.template.TemplateStepRelation;
 import com.xflprflx.neokioski.models.template.TaskFieldOption;
 import com.xflprflx.neokioski.models.template.InputType;
+import com.xflprflx.neokioski.ui.utils.TaskUIUtils;
 import jakarta.annotation.security.PermitAll;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -108,6 +110,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private String filterStatus = "todos";
     private ComboBox<String> ownerFilter;
     private ComboBox<String> statusFilter;
+    private com.vaadin.flow.component.datepicker.DatePicker startDatePicker;
+    private com.vaadin.flow.component.datepicker.DatePicker endDatePicker;
     private com.vaadin.flow.component.checkbox.Checkbox showTasksInChatCheckbox;
     private com.vaadin.flow.component.checkbox.Checkbox notifyStoreOrderCheckbox;
     private com.vaadin.flow.component.checkbox.Checkbox notifyChatSoundsCheckbox;
@@ -208,6 +212,13 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
         messageInput.addSubmitListener(event -> {
             if (group != null && currentUser != null) {
+                // Ao enviar, forçar data para hoje para ver a própria mensagem (conforme solicitado pelo usuário)
+                java.time.LocalDate today = java.time.LocalDate.now();
+                if (!today.equals(startDatePicker.getValue()) || !today.equals(endDatePicker.getValue())) {
+                    startDatePicker.setValue(today);
+                    endDatePicker.setValue(today);
+                    // loadMessages() será chamado pelos ValueChangeListeners
+                }
                 chatService.sendMessage(event.getValue(), currentUser, group, replyTo);
                 cancelReply();
             }
@@ -296,7 +307,23 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         audioControls.setAlignItems(FlexComponent.Alignment.CENTER);
         audioControls.getStyle().set("margin-right", "var(--lumo-space-m)");
 
-        HorizontalLayout header = new HorizontalLayout(groupName, toggleButtons, showTasksInChatCheckbox, audioControls);
+        // Filtros de Data
+        startDatePicker = new com.vaadin.flow.component.datepicker.DatePicker("Início");
+        startDatePicker.setValue(java.time.LocalDate.now());
+        startDatePicker.setWidth("140px");
+        startDatePicker.addValueChangeListener(e -> refreshAllComponents());
+
+        endDatePicker = new com.vaadin.flow.component.datepicker.DatePicker("Fim");
+        endDatePicker.setValue(java.time.LocalDate.now());
+        endDatePicker.setWidth("140px");
+        endDatePicker.addValueChangeListener(e -> refreshAllComponents());
+
+        HorizontalLayout dateFilters = new HorizontalLayout(startDatePicker, endDatePicker);
+        dateFilters.setSpacing(true);
+        dateFilters.setAlignItems(FlexComponent.Alignment.CENTER);
+        dateFilters.getStyle().set("margin-left", "var(--lumo-space-m)");
+
+        HorizontalLayout header = new HorizontalLayout(groupName, toggleButtons, showTasksInChatCheckbox, dateFilters, audioControls);
         header.setWidthFull();
         header.setAlignItems(FlexComponent.Alignment.CENTER);
         header.setPadding(true);
@@ -313,6 +340,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         taskArea.setSpacing(true);
         taskArea.getStyle().set("background", "var(--lumo-contrast-5pct)");
         taskArea.getStyle().set("border-left", "1px solid var(--lumo-contrast-10pct)");
+        taskArea.getStyle().set("overflow", "hidden");
 
         Span title = new Span("📋 Tarefas do Grupo");
         title.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-l)");
@@ -344,18 +372,31 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         taskListArea.setWidthFull();
         taskListArea.setPadding(false);
         taskListArea.setSpacing(true);
+        taskListArea.getStyle().set("padding-bottom", "var(--lumo-space-xl)");
 
         Scroller taskScroller = new Scroller(taskListArea);
-        taskScroller.setSizeFull();
+        taskScroller.setWidthFull();
+        taskScroller.getStyle().set("flex-grow", "1");
+        taskScroller.getStyle().set("min-height", "0");
 
         taskArea.add(title, filters, taskScroller);
+        taskArea.setFlexGrow(1, taskScroller);
+    }
+
+    private void refreshAllComponents() {
+        loadMessages();
+        refreshTaskList();
     }
 
     private void refreshTaskList() {
-        if (group == null) return;
+        if (group == null || startDatePicker == null || endDatePicker == null || startDatePicker.getValue() == null || endDatePicker.getValue() == null) return;
         taskListArea.removeAll();
 
-        List<Task> tasks = taskService.getTasksByGroup(group);
+        // Converter LocalDate para Instant (Início e Fim do dia)
+        java.time.Instant start = startDatePicker.getValue().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant();
+        java.time.Instant end = endDatePicker.getValue().atTime(23, 59, 59, 999_000_000).atZone(java.time.ZoneId.systemDefault()).toInstant();
+
+        List<Task> tasks = taskService.getTasksByGroup(group, start, end);
         
         // Filtro de Autorização
         tasks = tasks.stream()
@@ -390,7 +431,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             taskListArea.add(new Span("Nenhuma tarefa encontrada."));
         } else {
             for (Task task : tasks) {
-                taskListArea.add(createTaskCardLayout(task));
+                taskListArea.add(createTaskCardLayout(task, null));
             }
         }
     }
@@ -467,7 +508,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         card.getStyle().set("border-radius", "12px");
         card.getStyle().set("margin-bottom", "4px");
 
-        String emoji = resolveTemplateEmoji(template.getName());
+        String emoji = TaskUIUtils.resolveTemplateEmoji(template.getName());
         Span title = new Span(emoji + " " + template.getName());
         title.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-s)");
         card.add(title);
@@ -816,9 +857,19 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     private void loadMessages() {
+        if (group == null || startDatePicker == null || endDatePicker == null || startDatePicker.getValue() == null || endDatePicker.getValue() == null) return;
+        
         messageContainer.removeAll();
         messageWrappers.clear();
-        List<ChatMessage> messages = chatService.getMessagesByGroup(group);
+
+        // Converter LocalDate para Instant (Início e Fim do dia)
+        java.time.LocalDate startL = startDatePicker.getValue();
+        java.time.LocalDate endL = endDatePicker.getValue();
+        
+        java.time.Instant start = startL.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant();
+        java.time.Instant end = endL.atTime(23, 59, 59, 999_000_000).atZone(java.time.ZoneId.systemDefault()).toInstant();
+
+        List<ChatMessage> messages = chatService.getMessagesByGroup(group, start, end);
         for (ChatMessage msg : messages) {
             addOrUpdateMessageInUI(msg);
         }
@@ -851,7 +902,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             HorizontalLayout oldWrapper = messageWrappers.get(msg.getId());
             HorizontalLayout newWrapper;
             if (msg.getTask() != null) {
-                newWrapper = createTaskCardLayout(msg.getTask());
+                newWrapper = createTaskCardLayout(msg.getTask(), msg);
             } else {
                 newWrapper = createMessageLayout(msg);
             }
@@ -861,7 +912,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         } else {
             HorizontalLayout wrapper;
             if (msg.getTask() != null) {
-                wrapper = createTaskCardLayout(msg.getTask());
+                wrapper = createTaskCardLayout(msg.getTask(), msg);
             } else {
                 wrapper = createMessageLayout(msg);
             }
@@ -872,8 +923,74 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     private HorizontalLayout createMessageLayout(ChatMessage msg) {
-        boolean isMine = currentUser != null && msg.getUser().getId().equals(currentUser.getId());
+        boolean isSystemMessage = msg.getUser() == null;
+        boolean isMine = !isSystemMessage && currentUser != null && msg.getUser().getId().equals(currentUser.getId());
         boolean isAdmin = currentUser != null && currentUser.getRole() == Role.ADMIN;
+
+        if (isSystemMessage) {
+            VerticalLayout sysLayout = new VerticalLayout();
+            sysLayout.setPadding(false);
+            sysLayout.setSpacing(false);
+            sysLayout.setAlignItems(FlexComponent.Alignment.CENTER);
+
+            // Replicamos a lógica de reply para mensagens de alerta linkarem para a tarefa
+            if (msg.getReplyTo() != null) {
+                ChatMessage repliedMsg = msg.getReplyTo();
+                Span replyAuthor = new Span(repliedMsg.getUser() != null ? repliedMsg.getUser().getName() : "Sistema");
+                replyAuthor.getStyle().set("font-weight", "bold");
+                replyAuthor.getStyle().set("font-size", "var(--lumo-font-size-xxs)");
+                
+                String replyContent;
+                if (repliedMsg.getTask() != null) {
+                    replyContent = "📋 " + (repliedMsg.getTask().getTaskTemplate() != null ? repliedMsg.getTask().getTaskTemplate().getName() : "Tarefa");
+                } else {
+                    replyContent = repliedMsg.getContent();
+                }
+                
+                Span replyText = new Span(replyContent);
+                replyText.getStyle().set("font-size", "var(--lumo-font-size-xs)");
+                replyText.getStyle().set("opacity", "0.8");
+                replyText.getStyle().set("white-space", "nowrap");
+                replyText.getStyle().set("overflow", "hidden");
+                replyText.getStyle().set("text-overflow", "ellipsis");
+                
+                VerticalLayout sysQuote = new VerticalLayout(replyAuthor, replyText);
+                sysQuote.setSpacing(false);
+                sysQuote.setPadding(false);
+                sysQuote.getStyle().set("background-color", "rgba(0, 0, 0, 0.08)");
+                sysQuote.getStyle().set("border-left", "3px solid var(--lumo-primary-color)");
+                sysQuote.getStyle().set("padding", "var(--lumo-space-xs) var(--lumo-space-s)");
+                sysQuote.getStyle().set("margin-bottom", "var(--lumo-space-xs)");
+                sysQuote.getStyle().set("border-radius", "4px");
+                sysQuote.setWidth("fit-content");
+                sysQuote.setMaxWidth("300px");
+                sysQuote.getStyle().set("cursor", "pointer");
+                sysQuote.addClickListener(e -> {
+                    getElement().executeJs("const el = document.getElementById('msg-" + repliedMsg.getId() + "'); if(el) el.scrollIntoView({behavior: 'smooth', block: 'center'});");
+                    // Adicionar uma animação rápida de destaque no alvo
+                    getElement().executeJs("const el = document.getElementById('msg-" + repliedMsg.getId() + "'); if(el) { el.style.transition = 'box-shadow 0.3s'; el.style.boxShadow = '0 0 0 4px var(--lumo-primary-color-50pct)'; setTimeout(() => { el.style.boxShadow = 'none'; }, 1500); }");
+                });
+                sysLayout.add(sysQuote);
+            }
+
+            Span sysText = new Span("⚙️ " + msg.getContent());
+            sysText.getStyle()
+                .set("font-style", "italic")
+                .set("font-size", "var(--lumo-font-size-s)")
+                .set("color", "var(--lumo-secondary-text-color)");
+            
+            sysLayout.add(sysText);
+
+            Div sysBubble = new Div(sysLayout);
+            sysBubble.getStyle()
+                .set("padding", "var(--lumo-space-xs) var(--lumo-space-m)")
+                .set("background-color", "var(--lumo-contrast-5pct)")
+                .set("border-radius", "12px");
+            HorizontalLayout sysWrapper = new HorizontalLayout(sysBubble);
+            sysWrapper.setWidthFull();
+            sysWrapper.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
+            return sysWrapper;
+        }
 
         // Se a mensagem foi excluída e o usuário não é ADMIN, mostrar apenas o indicador
         if (msg.isDeleted() && !isAdmin) {
@@ -893,8 +1010,14 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             return wrapper;
         }
 
+        // Verificação de segurança extra (não deveria ocorrer após o check acima)
+        if (msg.getUser() == null) {
+            HorizontalLayout fallback = new HorizontalLayout();
+            return fallback;
+        }
+
         // Avatar
-        Avatar avatar = new Avatar(msg.getUser().getName());
+        Avatar avatar = new Avatar(msg.getUser() != null ? msg.getUser().getName() : "?");
         if (isMine) {
             avatar.getStyle().set("margin-left", "var(--lumo-space-m)");
         } else {
@@ -1109,9 +1232,12 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     /**
      * Cria o card visual de uma task para exibir no fluxo de mensagens.
      */
-    private HorizontalLayout createTaskCardLayout(Task task) {
+    private HorizontalLayout createTaskCardLayout(Task task, ChatMessage sourceMsgForAlert) {
+        boolean isSystemAlert = sourceMsgForAlert != null && sourceMsgForAlert.getUser() == null
+                && sourceMsgForAlert.getContent() != null && !sourceMsgForAlert.getContent().isBlank();
+
         String themeColor = task.getCurrentStep() != null ? task.getCurrentStep().getColorTheme() : "gray";
-        String[] colors = getThemeColors(themeColor);
+        String[] colors = TaskUIUtils.getThemeColors(themeColor);
         String bgColor = colors[0];
         String borderColor = colors[1];
         boolean isDark = Boolean.parseBoolean(colors[2]);
@@ -1141,7 +1267,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         }
 
         if (taskService.shouldTaskPulse(task)) {
-            String rgb = getThemeColorRGB(themeColor);
+            String rgb = TaskUIUtils.getThemeColorRGB(themeColor);
             
             card.getStyle().set("border", "2px solid rgb(" + rgb + ")");
             card.getStyle().set("border-left", "6px solid rgb(" + rgb + ")");
@@ -1158,9 +1284,40 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             );
         }
 
+        if (task.isAlerted()) {
+            card.getStyle().set("border", "3px solid #ff1744");
+            card.getStyle().set("border-left", "8px solid #ff1744");
+            
+            card.getElement().executeJs(
+                "if (!document.getElementById('alert-pulse')) {" +
+                "  const s = document.createElement('style');" +
+                "  s.id = 'alert-pulse';" +
+                "  s.textContent = '@keyframes alert-pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 23, 68, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(255, 23, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 23, 68, 0); } }';" +
+                "  document.head.appendChild(s);" +
+                "}" +
+                "this.style.animation = 'alert-pulse 1.5s infinite';"
+            );
+        }
+
+        // Banner de alerta (mensagem de sistema)
+        if (isSystemAlert) {
+            Div alertBanner = new Div();
+            alertBanner.getStyle()
+                .set("background-color", "rgba(255, 23, 68, 0.12)")
+                .set("border", "1px solid rgba(255, 23, 68, 0.4)")
+                .set("border-radius", "8px")
+                .set("padding", "var(--lumo-space-xs) var(--lumo-space-s)")
+                .set("margin-bottom", "var(--lumo-space-s)")
+                .set("font-size", "var(--lumo-font-size-s)")
+                .set("color", "#ff1744")
+                .set("font-weight", "bold");
+            alertBanner.add(new Span("⏰ " + sourceMsgForAlert.getContent()));
+            card.add(alertBanner);
+        }
+
         // Emoji + template name (cabeçalho)
         String templateName = task.getTaskTemplate() != null ? task.getTaskTemplate().getName() : "Tarefa";
-        String emoji = resolveTemplateEmoji(templateName);
+        String emoji = TaskUIUtils.resolveTemplateEmoji(templateName);
         Span header = new Span(emoji + " " + templateName);
         header.getStyle()
                 .set("font-weight", "bold")
@@ -1173,6 +1330,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         HorizontalLayout statusRow = new HorizontalLayout();
         statusRow.setSpacing(true);
         statusRow.setPadding(false);
+        statusRow.setWidthFull();
         statusRow.setAlignItems(FlexComponent.Alignment.CENTER);
         statusRow.getStyle().set("margin-bottom", "var(--lumo-space-xs)");
 
@@ -1189,7 +1347,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     .set("border-radius", "12px")
                     .set("font-size", "var(--lumo-font-size-xs)")
                     .set("font-weight", "bold");
-            applyThemeStyles(stepBadge, colorTheme);
+            TaskUIUtils.applyThemeStyles(stepBadge, colorTheme);
             statusRow.add(statusLabel, stepBadge);
         } else {
             boolean reqAuth = task.getTaskTemplate() != null && task.getTaskTemplate().isRequiresSignature();
@@ -1203,6 +1361,53 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     .set("font-weight", "bold");
             statusRow.add(statusLabel, pendenteBadge);
         }
+
+        // Cronômetro
+        Span timerSpan = new Span("⏱️ --:--");
+        timerSpan.addClassName("task-timer-display");
+        timerSpan.getStyle()
+                .set("font-variant-numeric", "tabular-nums")
+                .set("font-weight", "bold")
+                .set("font-size", "var(--lumo-font-size-s)")
+                .set("color", "var(--lumo-secondary-text-color)")
+                .set("margin-left", "auto");
+        
+        statusRow.add(timerSpan);
+
+        Instant start = task.getCreatedAt();
+        boolean finalized = taskService.isTaskFinalized(task);
+        Instant end = finalized ? taskService.getFinalizedTimestamp(task) : null;
+        
+        long startMs = start.toEpochMilli();
+        long endMs = (end != null) ? end.toEpochMilli() : 0;
+
+        card.getElement().executeJs(
+            "const el = this.querySelector('.task-timer-display');" +
+            "if (el) {" +
+            "  const start = parseInt($0);" +
+            "  const finalized = $1;" +
+            "  const end = parseInt($2);" +
+            "  const format = (ms) => {" +
+            "    if (ms < 0) ms = 0;" +
+            "    const s = Math.floor(ms / 1000);" +
+            "    const h = Math.floor(s / 3600);" +
+            "    const m = Math.floor((s % 3600) / 60);" +
+            "    const sec = s % 60;" +
+            "    return (h > 0 ? h + ':' : '') + (m < 10 ? '0' + m : m) + ':' + (sec < 10 ? '0' + sec : sec);" +
+            "  };" +
+            "  if (finalized) {" +
+            "    el.innerText = '⏱️ ' + format(end - start);" +
+            "  } else {" +
+            "    const update = () => {" +
+            "      if (!el.isConnected) return;" +
+            "      el.innerText = '⏱️ ' + format(Date.now() - start);" +
+            "      setTimeout(update, 1000);" +
+            "    };" +
+            "    update();" +
+            "  }" +
+            "}",
+            String.valueOf(startMs), finalized, String.valueOf(endMs)
+        );
 
         // Designado (criador como referência inicial)
         Span creatorSpan = new Span(" | Criado por: @" + (task.getCreator() != null ? task.getCreator().getUsername() : "?"));
@@ -1442,18 +1647,6 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         return "";
     }
 
-    private String resolveTemplateEmoji(String templateName) {
-        if (templateName == null) return "📋";
-        String lower = templateName.toLowerCase();
-        if (lower.contains("bug")) return "🐛";
-        if (lower.contains("feature")) return "⭐";
-        if (lower.contains("review")) return "🔄";
-        if (lower.contains("meeting")) return "📄";
-        if (lower.contains("design")) return "🎨";
-        if (lower.contains("qa")) return "🔍";
-        return "📋";
-    }
-
     private void openTaskDetailsDialog(Task task) {
         Dialog dialog = new Dialog();
         dialog.setWidth("500px");
@@ -1463,7 +1656,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         content.setPadding(false);
         content.setSpacing(true);
 
-        Span title = new Span(resolveTemplateEmoji(task.getTaskTemplate() != null ? task.getTaskTemplate().getName() : "") + " " + (task.getTaskTemplate() != null ? task.getTaskTemplate().getName() : "Tarefa"));
+        String tName = task.getTaskTemplate() != null ? task.getTaskTemplate().getName() : "";
+        Span title = new Span(TaskUIUtils.resolveTemplateEmoji(tName) + " " + (tName.isEmpty() ? "Tarefa" : tName));
         title.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-l)");
         content.add(title);
 
@@ -1477,7 +1671,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     .set("font-size", "var(--lumo-font-size-xs)")
                     .set("font-weight", "bold");
             
-            applyThemeStyles(stepBadge, colorTheme);
+            TaskUIUtils.applyThemeStyles(stepBadge, colorTheme);
             
             HorizontalLayout statusRow = new HorizontalLayout(new Span("Status: "), stepBadge);
             statusRow.setAlignItems(FlexComponent.Alignment.CENTER);
@@ -1580,21 +1774,24 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     addOrUpdateMessageInUI(msg);
                     scrollToBottom();
                     
-                    if (!msg.getUser().getId().equals(currentUser.getId())) {
+                    if (msg.getUser() == null || !msg.getUser().getId().equals(currentUser.getId())) {
                         boolean isReplyToMe = msg.getReplyTo() != null && 
+                                             msg.getReplyTo().getUser() != null &&
                                              msg.getReplyTo().getUser().getId().equals(currentUser.getId());
                         boolean mentioned = currentUser != null && isUserMentioned(msg.getContent(), currentUser.getUsername());
                         
                         if (isNew) {
                             if (isReplyToMe) {
                                 playNotificationSound("reply-to-me");
-                                Notification n = new Notification(msg.getUser().getName() + " respondeu a você!");
+                                String title = msg.getUser() != null ? msg.getUser().getName() : "Sistema";
+                                Notification n = new Notification(title + " respondeu a você!");
                                 n.setDuration(5000);
                                 n.addThemeVariants(NotificationVariant.LUMO_PRIMARY);
                                 n.open();
                             } else if (mentioned) {
                                 playNotificationSound("i-was-mentioned");
-                                Notification n = new Notification(msg.getUser().getName() + " mencionou você!");
+                                String title = msg.getUser() != null ? msg.getUser().getName() : "Sistema";
+                                Notification n = new Notification(title + " mencionou você!");
                                 n.setDuration(5000);
                                 n.addThemeVariants(NotificationVariant.LUMO_PRIMARY);
                                 n.open();
@@ -1604,7 +1801,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                         } else {
                             if (mentioned && !msg.isDeleted()) {
                                 playNotificationSound("i-was-mentioned");
-                                Notification n = new Notification(msg.getUser().getName() + " mencionou você na edição da mensagem!");
+                                String title = msg.getUser() != null ? msg.getUser().getName() : "Sistema";
+                                Notification n = new Notification(title + " mencionou você na edição da mensagem!");
                                 n.setDuration(5000);
                                 n.addThemeVariants(NotificationVariant.LUMO_PRIMARY);
                                 n.open();
@@ -1854,56 +2052,5 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             taskService.unregister(group.getId(), taskListener);
         }
         super.onDetach(detachEvent);
-    }
-
-    private void applyThemeStyles(Span span, String theme) {
-        String[] colors = getThemeColors(theme);
-        span.getStyle().set("background-color", colors[1]); // Uso a cor forte (fg) no badge
-        // No tema Black, fg é branco, então o texto deve ser escuro
-        if (theme != null && theme.equalsIgnoreCase("black")) {
-            span.getStyle().set("color", "#212121");
-        } else {
-            span.getStyle().set("color", "#ffffff"); // Texto branco nos outros temas (que têm cores escuras)
-        }
-    }
-
-    private String[] getThemeColors(String theme) {
-        if (theme == null) theme = "gray";
-        
-        String bg, fg;
-        boolean isDark = false;
-        switch (theme.toLowerCase()) {
-            case "blue": bg = "#e3f2fd"; fg = "#1565c0"; break;
-            case "yellow": bg = "#fff9c4"; fg = "#dc6d00"; break;
-            case "green": bg = "#e8f5e9"; fg = "#2e7d32"; break;
-            case "red": bg = "#ffebee"; fg = "#c62828"; break;
-            case "purple": bg = "#f3e5f5"; fg = "#7b1fa2"; break;
-            case "orange": bg = "#fff3e0"; fg = "#ef6c00"; break;
-            case "cyan": bg = "#e0f7fa"; fg = "#00838f"; break;
-            case "pink": bg = "#fce4ec"; fg = "#c2185b"; break;
-            case "gray": bg = "#f5f5f5"; fg = "#616161"; break;
-            case "black": bg = "#212121"; fg = "#ffffff"; isDark = true; break;
-            default:
-                bg = "var(--lumo-contrast-5pct)";
-                fg = "var(--lumo-contrast-80pct)";
-        }
-        return new String[]{bg, fg, String.valueOf(isDark)};
-    }
-
-    private String getThemeColorRGB(String theme) {
-        if (theme == null) theme = "gray";
-        return switch (theme.toLowerCase()) {
-            case "blue" -> "21, 101, 192";
-            case "yellow" -> "220, 109, 0";
-            case "green" -> "46, 125, 50";
-            case "red" -> "198, 40, 40";
-            case "purple" -> "123, 31, 162";
-            case "orange" -> "239, 108, 0";
-            case "cyan" -> "0, 131, 143";
-            case "pink" -> "194, 24, 91";
-            case "gray" -> "97, 97, 97";
-            case "black" -> "255, 255, 255";
-            default -> "110, 110, 110";
-        };
     }
 }

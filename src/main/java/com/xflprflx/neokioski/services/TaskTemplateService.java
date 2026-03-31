@@ -16,29 +16,50 @@ public class TaskTemplateService {
     private final TemplateFieldRelationRepository templateFieldRelationRepository;
     private final TemplateStepRelationRepository templateStepRelationRepository;
     private final TaskFieldOptionRepository taskFieldOptionRepository;
+    private final TaskAlertRepository taskAlertRepository;
+    @org.springframework.context.annotation.Lazy
+    @org.springframework.beans.factory.annotation.Autowired
+    private TaskRepository taskRepository;
+
+    @org.springframework.context.annotation.Lazy
+    @org.springframework.beans.factory.annotation.Autowired
+    private TaskAlertService taskAlertService;
 
     public TaskTemplateService(TaskTemplateRepository taskTemplateRepository,
                                TaskFieldDefinitionRepository taskFieldDefinitionRepository,
                                TaskStepDefinitionRepository taskStepDefinitionRepository,
                                TemplateFieldRelationRepository templateFieldRelationRepository,
                                TemplateStepRelationRepository templateStepRelationRepository,
-                               TaskFieldOptionRepository taskFieldOptionRepository) {
+                               TaskFieldOptionRepository taskFieldOptionRepository,
+                               TaskAlertRepository taskAlertRepository) {
         this.taskTemplateRepository = taskTemplateRepository;
         this.taskFieldDefinitionRepository = taskFieldDefinitionRepository;
         this.taskStepDefinitionRepository = taskStepDefinitionRepository;
         this.templateFieldRelationRepository = templateFieldRelationRepository;
         this.templateStepRelationRepository = templateStepRelationRepository;
         this.taskFieldOptionRepository = taskFieldOptionRepository;
+        this.taskAlertRepository = taskAlertRepository;
     }
 
     @Transactional
     public TaskTemplate saveTemplate(TaskTemplate template, 
                                      List<TemplateFieldRelation> fieldRelations, 
-                                     List<TemplateStepRelation> stepRelations) {
+                                     List<TemplateStepRelation> stepRelations,
+                                     List<TaskAlert> alerts) {
         
+        // Limpa apenas os alertas antigos da coleção que foram excluídos na interface (para orphanRemoval funcionar adequadamente),
+        // preservando os que ficaram para não quebrar a identidade e trocar de ID
+        if (template.getAlerts() != null && alerts != null) {
+            java.util.Set<Long> incomingIds = alerts.stream()
+                .map(TaskAlert::getId)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+            template.getAlerts().removeIf(a -> a.getId() != null && !incomingIds.contains(a.getId()));
+        }
+
         TaskTemplate savedTemplate = taskTemplateRepository.save(template);
 
-        if (template.getId() != null) {
+        if (savedTemplate.getId() != null) {
             templateFieldRelationRepository.deleteByTaskTemplateId(savedTemplate.getId());
             templateStepRelationRepository.deleteByTaskTemplateId(savedTemplate.getId());
         }
@@ -53,6 +74,8 @@ public class TaskTemplateService {
             templateFieldRelationRepository.save(fr);
         }
 
+        // Os definitions precisam ser salvos antes de vincularmos aos alertas 
+        // para evitar o erro de 'TransientPropertyValueException'
         for (TemplateStepRelation sr : stepRelations) {
             taskStepDefinitionRepository.save(sr.getTaskStepDefinition());
         }
@@ -60,6 +83,26 @@ public class TaskTemplateService {
         for (TemplateStepRelation sr : stepRelations) {
             sr.setTaskTemplate(savedTemplate);
             templateStepRelationRepository.save(sr);
+        }
+
+        // Agora que os passos (targetStep) já estão com IDs, podemos persistir os alertas novos.
+        if (alerts != null) {
+            for (TaskAlert alert : alerts) {
+                alert.setTaskTemplate(savedTemplate);
+                taskAlertRepository.save(alert);
+            }
+        }
+
+        // Tentar reajustar cronômetros das tarefas pendentes em memória (via Dynamic Scheduling)
+        try {
+            java.util.List<com.xflprflx.neokioski.models.Task> pendings = taskRepository.findAllPending();
+            for (com.xflprflx.neokioski.models.Task pt : pendings) {
+                if (pt.getTaskTemplate() != null && pt.getTaskTemplate().getId().equals(savedTemplate.getId())) {
+                    taskAlertService.scheduleAlertsForTask(pt);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Aviso: Falha ao tentar reagendar alertas das tarefas ativas após edição do template: " + e.getMessage());
         }
 
         return savedTemplate;
@@ -89,6 +132,8 @@ public class TaskTemplateService {
     public void deleteTemplate(Long id) {
         templateFieldRelationRepository.deleteByTaskTemplateId(id);
         templateStepRelationRepository.deleteByTaskTemplateId(id);
+        List<TaskAlert> alerts = taskAlertRepository.findByTaskTemplateId(id);
+        taskAlertRepository.deleteAll(alerts);
         taskTemplateRepository.deleteById(id);
     }
 }

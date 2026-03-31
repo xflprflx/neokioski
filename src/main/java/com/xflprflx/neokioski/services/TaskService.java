@@ -19,6 +19,7 @@ public class TaskService {
     private final TemplateStepRelationRepository stepRelationRepository;
     private final ChatService chatService;
     private final ChatMessageRepository chatMessageRepository;
+    private final TaskAlertService taskAlertService;
     private final java.util.Map<Long, List<Consumer<Task>>> listeners =
             Collections.synchronizedMap(new java.util.HashMap<>());
     private final List<Consumer<Task>> globalListeners = new CopyOnWriteArrayList<>();
@@ -26,11 +27,13 @@ public class TaskService {
     public TaskService(TaskRepository taskRepository,
                        TemplateStepRelationRepository stepRelationRepository,
                        ChatService chatService,
-                       ChatMessageRepository chatMessageRepository) {
+                       ChatMessageRepository chatMessageRepository,
+                       TaskAlertService taskAlertService) {
         this.taskRepository = taskRepository;
         this.stepRelationRepository = stepRelationRepository;
         this.chatService = chatService;
         this.chatMessageRepository = chatMessageRepository;
+        this.taskAlertService = taskAlertService;
     }
 
     @Transactional
@@ -62,6 +65,7 @@ public class TaskService {
         task.getTaskEvents().add(event);
 
         Task saved = taskRepository.save(task);
+        taskAlertService.scheduleAlertsForTask(saved);
         broadcast(group.getId(), saved);
         return saved;
     }
@@ -91,7 +95,8 @@ public class TaskService {
                     task.getTaskTemplate().getId(), step.getId()
             ).ifPresent(relation -> {
                 // Buscar a mensagem original do card da tarefa para dar "Reply"
-                ChatMessage originalMsg = chatMessageRepository.findByTask(task).orElse(null);
+                List<ChatMessage> msgs = chatMessageRepository.findByTaskOrderByIdAsc(task);
+            ChatMessage originalMsg = msgs.isEmpty() ? null : msgs.get(0);
 
                 // Menção ao Autor da Tarefa
                 if (relation.isMentionAuthor() && relation.getMentionMessage() != null && !relation.getMentionMessage().isEmpty()) {
@@ -125,6 +130,12 @@ public class TaskService {
                 }
             });
 
+        if (isTaskFinalized(saved)) {
+            taskAlertService.cancelAllAlertsForTask(saved);
+        } else {
+            taskAlertService.cancelAlertByTargetStep(saved, step);
+        }
+
         broadcast(task.getGroup().getId(), saved);
         return saved;
     }
@@ -135,6 +146,10 @@ public class TaskService {
 
     public List<Task> getTasksByGroup(Group group) {
         return taskRepository.findByGroupWithCollections(group);
+    }
+
+    public List<Task> getTasksByGroup(Group group, Instant start, Instant end) {
+        return taskRepository.findByGroupAndCreatedAtBetweenOrderByCreatedAtDesc(group, start, end);
     }
 
     public List<Task> getMyTasks(Group group, User user) {
@@ -275,6 +290,15 @@ public class TaskService {
                 .anyMatch(TemplateStepRelation::isFinalizer);
     }
 
+    public Instant getFinalizedTimestamp(Task task) {
+        if (!isTaskFinalized(task)) return null;
+        return task.getTaskEvents().stream()
+                .filter(ev -> ev.getTaskStepDefinition() != null)
+                .max(Comparator.comparing(TaskEvent::getTimestamp))
+                .map(TaskEvent::getTimestamp)
+                .orElse(task.getCreatedAt());
+    }
+
     public boolean shouldTaskPulse(Task task) {
         if (task.getCurrentStep() == null) return false;
 
@@ -327,4 +351,78 @@ public class TaskService {
         if (groupListeners != null) groupListeners.forEach(l -> l.accept(task));
         globalListeners.forEach(l -> l.accept(task));
     }
+
+    public List<StoreReportEntry> getStoreReportData(Instant start, Instant end) {
+        List<Task> tasks = taskRepository.findAllByCreatedAtBetween(start, end);
+
+        return tasks.stream()
+                .filter(t -> t.getTaskTemplate().isRegistraNoRelatorioLoja())
+                .filter(this::isTaskFinalized)
+                .filter(t -> t.getCurrentStep() != null && t.getCurrentStep().getLabel().equalsIgnoreCase("COLETADO"))
+                .map(this::mapToStoreReportEntry)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+
+    private StoreReportEntry mapToStoreReportEntry(Task task) {
+        String delivery = "";
+        User collector = null;
+        Instant collectedAt = null;
+
+        // Buscar o número da Delivery e quem coletou
+        for (TaskEvent event : task.getTaskEvents()) {
+            if (event.getTaskStepDefinition() != null) {
+                // Verificar se este step é o de coleta
+                if (event.getTaskStepDefinition().getLabel().equalsIgnoreCase("COLETADO")) {
+                    collector = event.getUser();
+                    collectedAt = event.getTimestamp();
+                }
+
+                // Tentar encontrar a "DELIVERY" nas respostas dos passos
+                Optional<TemplateStepRelation> rel = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
+                        task.getTaskTemplate().getId(), event.getTaskStepDefinition().getId()
+                );
+
+                if (rel.isPresent() && rel.get().getResponseFieldLabel() != null
+                        && rel.get().getResponseFieldLabel().toUpperCase().contains("DELIVERY")) {
+                    if (event.getResponse() != null && !event.getResponse().isBlank()) {
+                        delivery = event.getResponse();
+                    }
+                }
+            }
+        }
+
+        // Se não achou no step response, procurar nos campos iniciais (TaskFieldValue)
+        if (delivery.isEmpty()) {
+            for (TaskFieldValue fv : task.getTaskFieldValues()) {
+                if (fv.getTaskFieldDefinition() != null &&
+                        fv.getTaskFieldDefinition().getLabel().toUpperCase().contains("DELIVERY")) {
+                    delivery = fv.getValue();
+                    break;
+                }
+            }
+        }
+
+        if (collector == null) return null;
+
+        return new StoreReportEntry(
+                task.getId(),
+                task.getTaskTemplate().getName(),
+                task.getCreatedAt(),
+                collectedAt,
+                task.getCreator() != null ? task.getCreator().getName() : "Sistema",
+                collector.getName(),
+                delivery
+        );
+    }
+
+    public record StoreReportEntry(
+            Long taskId,
+            String templateName,
+            Instant createdAt,
+            Instant collectedAt,
+            String creatorName,
+            String collectorName,
+            String deliveryNumber
+    ) {}
 }

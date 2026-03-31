@@ -49,6 +49,7 @@ import com.xflprflx.neokioski.models.template.TemplateFieldRelation;
 import com.xflprflx.neokioski.models.template.TemplateStepRelation;
 import com.xflprflx.neokioski.models.template.TaskFieldOption;
 import com.xflprflx.neokioski.models.template.InputType;
+import com.xflprflx.neokioski.ui.utils.TaskUIUtils;
 import jakarta.annotation.security.PermitAll;
 
 import java.io.IOException;
@@ -507,7 +508,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         card.getStyle().set("border-radius", "12px");
         card.getStyle().set("margin-bottom", "4px");
 
-        String emoji = resolveTemplateEmoji(template.getName());
+        String emoji = TaskUIUtils.resolveTemplateEmoji(template.getName());
         Span title = new Span(emoji + " " + template.getName());
         title.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-s)");
         card.add(title);
@@ -1236,7 +1237,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                 && sourceMsgForAlert.getContent() != null && !sourceMsgForAlert.getContent().isBlank();
 
         String themeColor = task.getCurrentStep() != null ? task.getCurrentStep().getColorTheme() : "gray";
-        String[] colors = getThemeColors(themeColor);
+        String[] colors = TaskUIUtils.getThemeColors(themeColor);
         String bgColor = colors[0];
         String borderColor = colors[1];
         boolean isDark = Boolean.parseBoolean(colors[2]);
@@ -1266,7 +1267,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         }
 
         if (taskService.shouldTaskPulse(task)) {
-            String rgb = getThemeColorRGB(themeColor);
+            String rgb = TaskUIUtils.getThemeColorRGB(themeColor);
             
             card.getStyle().set("border", "2px solid rgb(" + rgb + ")");
             card.getStyle().set("border-left", "6px solid rgb(" + rgb + ")");
@@ -1316,7 +1317,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
         // Emoji + template name (cabeçalho)
         String templateName = task.getTaskTemplate() != null ? task.getTaskTemplate().getName() : "Tarefa";
-        String emoji = resolveTemplateEmoji(templateName);
+        String emoji = TaskUIUtils.resolveTemplateEmoji(templateName);
         Span header = new Span(emoji + " " + templateName);
         header.getStyle()
                 .set("font-weight", "bold")
@@ -1346,7 +1347,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     .set("border-radius", "12px")
                     .set("font-size", "var(--lumo-font-size-xs)")
                     .set("font-weight", "bold");
-            applyThemeStyles(stepBadge, colorTheme);
+            TaskUIUtils.applyThemeStyles(stepBadge, colorTheme);
             statusRow.add(statusLabel, stepBadge);
         } else {
             boolean reqAuth = task.getTaskTemplate() != null && task.getTaskTemplate().isRequiresSignature();
@@ -1646,18 +1647,6 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         return "";
     }
 
-    private String resolveTemplateEmoji(String templateName) {
-        if (templateName == null) return "📋";
-        String lower = templateName.toLowerCase();
-        if (lower.contains("bug")) return "🐛";
-        if (lower.contains("feature")) return "⭐";
-        if (lower.contains("review")) return "🔄";
-        if (lower.contains("meeting")) return "📄";
-        if (lower.contains("design")) return "🎨";
-        if (lower.contains("qa")) return "🔍";
-        return "📋";
-    }
-
     private void openTaskDetailsDialog(Task task) {
         Dialog dialog = new Dialog();
         dialog.setWidth("500px");
@@ -1667,7 +1656,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         content.setPadding(false);
         content.setSpacing(true);
 
-        Span title = new Span(resolveTemplateEmoji(task.getTaskTemplate() != null ? task.getTaskTemplate().getName() : "") + " " + (task.getTaskTemplate() != null ? task.getTaskTemplate().getName() : "Tarefa"));
+        String tName = task.getTaskTemplate() != null ? task.getTaskTemplate().getName() : "";
+        Span title = new Span(TaskUIUtils.resolveTemplateEmoji(tName) + " " + (tName.isEmpty() ? "Tarefa" : tName));
         title.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-l)");
         content.add(title);
 
@@ -1681,7 +1671,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     .set("font-size", "var(--lumo-font-size-xs)")
                     .set("font-weight", "bold");
             
-            applyThemeStyles(stepBadge, colorTheme);
+            TaskUIUtils.applyThemeStyles(stepBadge, colorTheme);
             
             HorizontalLayout statusRow = new HorizontalLayout(new Span("Status: "), stepBadge);
             statusRow.setAlignItems(FlexComponent.Alignment.CENTER);
@@ -2062,56 +2052,5 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             taskService.unregister(group.getId(), taskListener);
         }
         super.onDetach(detachEvent);
-    }
-
-    private void applyThemeStyles(Span span, String theme) {
-        String[] colors = getThemeColors(theme);
-        span.getStyle().set("background-color", colors[1]); // Uso a cor forte (fg) no badge
-        // No tema Black, fg é branco, então o texto deve ser escuro
-        if (theme != null && theme.equalsIgnoreCase("black")) {
-            span.getStyle().set("color", "#212121");
-        } else {
-            span.getStyle().set("color", "#ffffff"); // Texto branco nos outros temas (que têm cores escuras)
-        }
-    }
-
-    private String[] getThemeColors(String theme) {
-        if (theme == null) theme = "gray";
-        
-        String bg, fg;
-        boolean isDark = false;
-        switch (theme.toLowerCase()) {
-            case "blue": bg = "#e3f2fd"; fg = "#1565c0"; break;
-            case "yellow": bg = "#fff9c4"; fg = "#dc6d00"; break;
-            case "green": bg = "#e8f5e9"; fg = "#2e7d32"; break;
-            case "red": bg = "#ffebee"; fg = "#c62828"; break;
-            case "purple": bg = "#f3e5f5"; fg = "#7b1fa2"; break;
-            case "orange": bg = "#fff3e0"; fg = "#ef6c00"; break;
-            case "cyan": bg = "#e0f7fa"; fg = "#00838f"; break;
-            case "pink": bg = "#fce4ec"; fg = "#c2185b"; break;
-            case "gray": bg = "#f5f5f5"; fg = "#616161"; break;
-            case "black": bg = "#212121"; fg = "#ffffff"; isDark = true; break;
-            default:
-                bg = "var(--lumo-contrast-5pct)";
-                fg = "var(--lumo-contrast-80pct)";
-        }
-        return new String[]{bg, fg, String.valueOf(isDark)};
-    }
-
-    private String getThemeColorRGB(String theme) {
-        if (theme == null) theme = "gray";
-        return switch (theme.toLowerCase()) {
-            case "blue" -> "21, 101, 192";
-            case "yellow" -> "220, 109, 0";
-            case "green" -> "46, 125, 50";
-            case "red" -> "198, 40, 40";
-            case "purple" -> "123, 31, 162";
-            case "orange" -> "239, 108, 0";
-            case "cyan" -> "0, 131, 143";
-            case "pink" -> "194, 24, 91";
-            case "gray" -> "97, 97, 97";
-            case "black" -> "255, 255, 255";
-            default -> "110, 110, 110";
-        };
     }
 }

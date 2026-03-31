@@ -19,7 +19,9 @@ import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.listbox.ListBox;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
+import com.vaadin.flow.component.orderedlayout.FlexLayout;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.tabs.Tab;
@@ -36,6 +38,7 @@ import com.xflprflx.neokioski.services.GroupService;
 import com.xflprflx.neokioski.services.TaskTemplateService;
 import com.xflprflx.neokioski.services.UserService;
 import com.xflprflx.neokioski.models.User;
+import com.xflprflx.neokioski.ui.utils.TaskUIUtils;
 import jakarta.annotation.security.RolesAllowed;
 
 import java.util.ArrayList;
@@ -68,6 +71,16 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     private Tab alertsTab = new Tab("Alertas");
     private VerticalLayout tabContent = new VerticalLayout();
     private VerticalLayout workflowPreview = new VerticalLayout();
+    private VerticalLayout chatLayout = new VerticalLayout();
+    private Scroller chatScroller = new Scroller();
+    
+    private boolean isSimulatedSent = false;
+    private boolean isSimulatedFinalized = false;
+    private String simulatedCurrentStepLabel = null;
+    private List<String> simulatedLog = new ArrayList<>();
+    
+    private Map<String, Component> requestFields = new HashMap<>();
+    private Map<String, Component> stepResponseFields = new HashMap<>();
 
     // Sugestões de menção
     private Div suggestionWrapper;
@@ -144,7 +157,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         leftSide.add(createTopConfiguration(), createTabs(), tabContent, createFooter());
 
         setupWorkflowPreviewLayout();
-        updateWorkflowPreview();
+        updateCardsPreview();
 
         mainContent.add(leftSide, workflowPreview);
         mainContent.setFlexGrow(3, leftSide);
@@ -351,6 +364,11 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
 
         secondRow.add(showSendBtnLayout, reqSignatureLayout, authorizingUsersCombo, playAlertSoundLayout, registraRelatorioLayout);
 
+        // Listeners para atualizar o preview
+        nameField.addValueChangeListener(e -> updateCardsPreview());
+        showSendButton.addValueChangeListener(e -> updateCardsPreview());
+        requireSignature.addValueChangeListener(e -> updateCardsPreview());
+
         VerticalLayout configLayout = new VerticalLayout(firstRow, secondRow);
         configLayout.setPadding(false);
         return configLayout;
@@ -448,7 +466,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     alerts.add(dto);
                 }
                 
+                
                 alertsGrid.getDataProvider().refreshAll();
+                updateCardsPreview();
                 dialog.close();
             } catch (NumberFormatException ex) {
                 Notification.show("Tempo deve ser um número");
@@ -516,6 +536,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     }
                     fields.add(targetIndex, draggedField);
                     fieldsGrid.getDataProvider().refreshAll();
+                    updateCardsPreview();
                 }
             });
 
@@ -583,7 +604,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 fields.add(dto);
             }
             
+            
             fieldsGrid.getDataProvider().refreshAll();
+            updateCardsPreview();
             dialog.close();
         });
         saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
@@ -624,7 +647,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 deleteBtn.addClickListener(e -> {
                     steps.remove(item);
                     stepsGrid.getDataProvider().refreshAll();
-                    updateWorkflowPreview();
+                    updateCardsPreview();
                 });
                 return new HorizontalLayout(editBtn, deleteBtn);
             }).setHeader("Ações");
@@ -648,7 +671,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     }
                     steps.add(targetIndex, draggedStep);
                     stepsGrid.getDataProvider().refreshAll();
-                    updateWorkflowPreview();
+                    updateCardsPreview();
                 }
             });
 
@@ -831,7 +854,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 steps.add(dto);
             }
             stepsGrid.getDataProvider().refreshAll();
-            updateWorkflowPreview();
+            updateCardsPreview();
             dialog.close();
         });
         saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
@@ -842,97 +865,484 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     private void setupWorkflowPreviewLayout() {
-        workflowPreview.setWidth("350px");
+        workflowPreview.setWidth("450px");
         workflowPreview.getStyle().set("border", "1px solid var(--lumo-contrast-20pct)");
         workflowPreview.getStyle().set("border-radius", "8px");
-        workflowPreview.setAlignItems(FlexComponent.Alignment.CENTER);
+        workflowPreview.setPadding(false);
+        workflowPreview.setSpacing(false);
+        workflowPreview.getStyle().set("background", "var(--lumo-contrast-5pct)");
+        workflowPreview.getStyle().set("overflow", "hidden");
+
+        HorizontalLayout headerPreview = new HorizontalLayout();
+        headerPreview.setWidthFull();
+        headerPreview.setPadding(true);
+        headerPreview.setAlignItems(FlexComponent.Alignment.CENTER);
+        headerPreview.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
+        headerPreview.getStyle().set("background", "var(--lumo-base-color)");
+        headerPreview.getStyle().set("border-bottom", "1px solid var(--lumo-contrast-10pct)");
+        
+        H3 previewTitle = new H3("Mini-Chat Preview");
+        previewTitle.getStyle().set("margin", "0").set("font-size", "var(--lumo-font-size-m)");
+        
+        Button resetBtn = new Button(VaadinIcon.REFRESH.create(), e -> {
+            isSimulatedSent = false;
+            isSimulatedFinalized = false;
+            simulatedCurrentStepLabel = null;
+            simulatedLog.clear();
+            updateCardsPreview();
+        });
+        resetBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
+        resetBtn.setTooltipText("Limpar Chat e Reiniciar Simulação");
+        
+        headerPreview.add(previewTitle, resetBtn);
+        
+        chatLayout.setWidthFull();
+        chatLayout.setPadding(true);
+        chatLayout.setSpacing(true);
+        
+        chatScroller.setContent(chatLayout);
+        chatScroller.setWidthFull();
+        chatScroller.setHeightFull();
+        
+        workflowPreview.add(headerPreview, chatScroller);
     }
 
-    private void updateWorkflowPreview() {
-        workflowPreview.removeAll();
-        H3 previewTitle = new H3("Pré-visualização do Fluxo");
-        workflowPreview.add(previewTitle);
+    private void updateCardsPreview() {
+        chatLayout.removeAll();
 
-        if (steps.isEmpty()) {
-            workflowPreview.add(new Span("Nenhuma etapa definida."));
-            return;
-        }
-
-        for (int i = 0; i < steps.size(); i++) {
-            StepDTO s = steps.get(i);
-            VaadinIcon icon = VaadinIcon.COG;
-            
-            if (s.isFinalizer) {
-                icon = VaadinIcon.STAR;
-            } else if (i == 0) {
-                icon = VaadinIcon.PENCIL;
-            }
-
-            workflowPreview.add(createPreviewStep(s.label, s.colorTheme, icon));
-            if (i < steps.size() - 1) {
-                workflowPreview.add(new Span(VaadinIcon.ARROW_DOWN.create()));
-            }
-        }
-    }
-
-    private Div createPreviewStep(String label, String colorScheme, VaadinIcon icon) {
-        Div step = new Div();
-        step.setWidthFull();
-        step.setHeight("80px");
-        step.getStyle().set("border-radius", "8px");
-        step.getStyle().set("display", "flex");
-        step.getStyle().set("align-items", "center");
-        step.getStyle().set("justify-content", "center");
-        step.getStyle().set("flex-direction", "column");
-        step.getStyle().set("font-weight", "bold");
-
-        if ("blue".equals(colorScheme)) {
-            step.getStyle().set("background-color", "#e3f2fd");
-            step.getStyle().set("border", "1px solid #90caf9");
-            step.getStyle().set("color", "#1565c0");
-        } else if ("yellow".equals(colorScheme)) {
-            step.getStyle().set("background-color", "#fff9c4");
-            step.getStyle().set("border", "1px solid #fff59d");
-            step.getStyle().set("color", "#dc6d00");
-        } else if ("green".equals(colorScheme)) {
-            step.getStyle().set("background-color", "#e8f5e9");
-            step.getStyle().set("border", "1px solid #a5d6a7");
-            step.getStyle().set("color", "#2e7d32");
-        } else if ("red".equals(colorScheme)) {
-            step.getStyle().set("background-color", "#ffebee");
-            step.getStyle().set("border", "1px solid #ef9a9a");
-            step.getStyle().set("color", "#c62828");
-        } else if ("purple".equals(colorScheme)) {
-            step.getStyle().set("background-color", "#f3e5f5");
-            step.getStyle().set("border", "1px solid #ce93d8");
-            step.getStyle().set("color", "#7b1fa2");
-        } else if ("orange".equals(colorScheme)) {
-            step.getStyle().set("background-color", "#fff3e0");
-            step.getStyle().set("border", "1px solid #ffcc80");
-            step.getStyle().set("color", "#ef6c00");
-        } else if ("cyan".equals(colorScheme)) {
-            step.getStyle().set("background-color", "#e0f7fa");
-            step.getStyle().set("border", "1px solid #80deea");
-            step.getStyle().set("color", "#00838f");
-        } else if ("pink".equals(colorScheme)) {
-            step.getStyle().set("background-color", "#fce4ec");
-            step.getStyle().set("border", "1px solid #f48fb1");
-            step.getStyle().set("color", "#c2185b");
-        } else if ("gray".equals(colorScheme)) {
-            step.getStyle().set("background-color", "#f5f5f5");
-            step.getStyle().set("border", "1px solid #e0e0e0");
-            step.getStyle().set("color", "#616161");
-        } else if ("black".equals(colorScheme)) {
-            step.getStyle().set("background-color", "#212121");
-            step.getStyle().set("border", "1px solid #000000");
-            step.getStyle().set("color", "#ffffff");
+        // 1. O card de solicitação
+        if (!isSimulatedSent) {
+            chatLayout.add(createRequestCardPreview());
         } else {
-            step.getStyle().set("border", "1px solid var(--lumo-contrast-20pct)");
+            chatLayout.add(createRequestCardSnapshot());
+            
+            // 2. Mensagens do log (se houver)
+            for (String msg : simulatedLog) {
+                chatLayout.add(createChatBubble("Sistema", msg));
+            }
+
+            // 3. O card da etapa atual
+            chatLayout.add(createStepCardPreview(simulatedCurrentStepLabel));
         }
 
-        step.add(icon.create());
-        step.add(new Span(label));
-        return step;
+        chatLayout.getElement().executeJs("setTimeout(() => { this.scrollTop = this.scrollHeight; }, 50);");
+    }
+
+    private Component createChatBubble(String user, String content) {
+        Div container = new Div();
+        container.setWidthFull();
+        container.getStyle()
+                .set("display", "flex")
+                .set("flex-direction", "column")
+                .set("align-items", "flex-start")
+                .set("margin-bottom", "var(--lumo-space-s)");
+
+        Span userLabel = new Span(user);
+        userLabel.getStyle()
+                .set("font-size", "var(--lumo-font-size-xxs)")
+                .set("font-weight", "bold")
+                .set("color", "var(--lumo-secondary-text-color)")
+                .set("margin-left", "8px");
+
+        Div bubble = new Div();
+        bubble.getStyle()
+                .set("background", "var(--lumo-base-color)")
+                .set("border", "1px solid var(--lumo-contrast-10pct)")
+                .set("border-radius", "0 12px 12px 12px")
+                .set("padding", "8px 12px")
+                .set("font-size", "var(--lumo-font-size-s)")
+                .set("max-width", "85%")
+                .set("box-shadow", "var(--lumo-box-shadow-xs)");
+
+        // Renderizar menções no conteúdo simulado
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("@\\w+").matcher(content);
+        int lastPos = 0;
+        while (m.find()) {
+            bubble.add(new Span(content.substring(lastPos, m.start())));
+            Span mention = new Span(m.group());
+            mention.getStyle()
+                    .set("color", "var(--lumo-primary-text-color)")
+                    .set("font-weight", "bold")
+                    .set("background", "var(--lumo-primary-color-10pct)")
+                    .set("padding", "0 4px")
+                    .set("border-radius", "4px");
+            bubble.add(mention);
+            lastPos = m.end();
+        }
+        bubble.add(new Span(content.substring(lastPos)));
+
+        container.add(userLabel, bubble);
+        return container;
+    }
+
+    private Component createRequestCardPreview() {
+        requestFields.clear();
+        VerticalLayout card = new VerticalLayout();
+        card.setWidthFull();
+        card.setPadding(true);
+        card.setSpacing(true);
+        card.getStyle().set("background-color", "var(--lumo-base-color)");
+        card.getStyle().set("border", "1px solid var(--lumo-contrast-10pct)");
+        card.getStyle().set("border-radius", "12px");
+        card.getStyle().set("box-shadow", "var(--lumo-box-shadow-s)");
+
+        if (isSimulatedSent) {
+            card.getStyle().set("opacity", "0.6");
+        }
+
+        String tName = nameField.getValue() != null && !nameField.getValue().isEmpty() ? nameField.getValue() : "Nome do Template";
+        String emoji = TaskUIUtils.resolveTemplateEmoji(tName);
+        Span title = new Span(emoji + " " + tName);
+        title.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-s)");
+        card.add(title);
+
+        for (FieldDTO f : fields) {
+            Component input = createInputComponentPreview(f.inputType, f.label, f.description, f.isRequired, f.options, "");
+            if (isSimulatedSent && input instanceof com.vaadin.flow.component.HasEnabled he) {
+                he.setEnabled(false);
+            }
+            requestFields.put(f.label, input);
+            card.add(input);
+        }
+
+        if (!isSimulatedSent) {
+            Button submitBtn = new Button("Enviar (Simulação)", e -> {
+                if (steps.isEmpty()) {
+                    Notification.show("Defina ao menos uma etapa para simular o envio.");
+                    return;
+                }
+
+                // Validações Reais
+                for (FieldDTO f : fields) {
+                    if (f.isRequired) {
+                        Component comp = requestFields.get(f.label);
+                        String val = extractFieldValue(comp);
+                        if (val == null || val.isBlank()) {
+                            if (comp instanceof com.vaadin.flow.component.HasValidation hv) {
+                                hv.setInvalid(true);
+                                hv.setErrorMessage("Este campo é obrigatório.");
+                            }
+                            Notification.show("O campo '" + f.label + "' é obrigatório.");
+                            return;
+                        } else if (comp instanceof com.vaadin.flow.component.HasValidation hv) {
+                            hv.setInvalid(false);
+                        }
+                    }
+                }
+
+                // Registrar snapshot e mensagens de log (simples)
+                simulatedLog.add("🆕 Nova solicitação criada.");
+
+                isSimulatedSent = true;
+                simulatedCurrentStepLabel = null; // Inicia como Pendente
+                
+                updateCardsPreview();
+            });
+            submitBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
+            submitBtn.setWidthFull();
+
+            if (showSendButton.getValue()) {
+                card.add(submitBtn);
+            } else {
+                Span info = new Span("Botão enviar desativado nas configurações");
+                info.getStyle().set("font-size", "var(--lumo-font-size-xxs)").set("color", "var(--lumo-secondary-text-color)");
+                card.add(info);
+            }
+        } else {
+            Span sent = new Span("✓ Solicitação enviada");
+            sent.getStyle().set("color", "var(--lumo-success-text-color)").set("font-size", "var(--lumo-font-size-xs)");
+            card.add(sent);
+        }
+
+        return card;
+    }
+
+    private Component createRequestCardSnapshot() {
+        VerticalLayout card = new VerticalLayout();
+        card.setWidthFull();
+        card.setPadding(true);
+        card.setSpacing(true);
+        card.getStyle().set("background", "var(--lumo-contrast-5pct)").set("border-radius", "8px").set("border", "1px solid var(--lumo-contrast-10pct)");
+
+        Span title = new Span("Resumo da Solicitação");
+        title.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-s)");
+        card.add(title);
+
+        for (FieldDTO f : fields) {
+            Component field = requestFields.get(f.label);
+            String val = extractFieldValue(field);
+            
+            Div row = new Div();
+            row.setWidthFull();
+            Span lbl = new Span(f.label + ": ");
+            lbl.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-xs)");
+            Span valSpan = new Span(val != null && !val.isBlank() ? val : "-");
+            valSpan.getStyle().set("font-size", "var(--lumo-font-size-xs)");
+            row.add(lbl, valSpan);
+            card.add(row);
+        }
+        return card;
+    }
+
+    private Component createStepCardPreview(String label) {
+        StepDTO currentStep = label != null ? steps.stream().filter(s -> s.label.equals(label)).findFirst().orElse(null) : null;
+        
+        // Se label for null, estamos no estado "Pendente"
+        boolean isPending = (currentStep == null);
+
+        String themeColor = isPending ? "gray" : currentStep.colorTheme;
+        String[] colors = TaskUIUtils.getThemeColors(themeColor);
+        String bgColor = colors[0];
+        String borderColor = colors[1];
+        boolean isDark = Boolean.parseBoolean(colors[2]);
+
+        Div card = new Div();
+        card.getStyle()
+                .set("border", "1px solid " + borderColor)
+                .set("border-left", "6px solid " + borderColor)
+                .set("border-radius", "12px")
+                .set("padding", "var(--lumo-space-m)")
+                .set("background", bgColor)
+                .set("box-shadow", "var(--lumo-box-shadow-s)")
+                .set("width", "100%");
+
+        if (isDark) {
+            card.getStyle().set("color", "#ffffff");
+            card.getStyle().set("--lumo-secondary-text-color", "rgba(255, 255, 255, 0.7)");
+            card.getStyle().set("--lumo-contrast-10pct", "rgba(255, 255, 255, 0.2)");
+        }
+
+        String tName = nameField.getValue() != null && !nameField.getValue().isEmpty() ? nameField.getValue() : "Nome do Template";
+        String emoji = TaskUIUtils.resolveTemplateEmoji(tName);
+        Span header = new Span(emoji + " " + tName);
+        header.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-m)").set("display", "block").set("margin-bottom", "var(--lumo-space-xs)");
+        card.add(header);
+
+        HorizontalLayout statusRow = new HorizontalLayout();
+        statusRow.setAlignItems(FlexComponent.Alignment.CENTER);
+        Span statusLabel = new Span("Status: ");
+        statusLabel.getStyle().set("font-size", "var(--lumo-font-size-s)");
+        
+        String badgeText = isPending ? "⏳ Pendente" : (isSimulatedFinalized ? "✅ " + label : "💡 " + label);
+        Span statusBadge = new Span(badgeText);
+        statusBadge.getStyle()
+                .set("padding", "2px 10px")
+                .set("border-radius", "12px")
+                .set("font-size", "var(--lumo-font-size-xs)")
+                .set("font-weight", "bold");
+        
+        if (isPending) {
+            statusBadge.getStyle().set("background-color", "var(--lumo-contrast-20pct)").set("color", "var(--lumo-secondary-text-color)");
+        } else {
+            TaskUIUtils.applyThemeStyles(statusBadge, currentStep != null ? currentStep.colorTheme : "default");
+        }
+        statusRow.add(statusLabel, statusBadge);
+
+        // Cronômetro (simulado)
+        Span timer = new Span(isSimulatedFinalized ? "⏱️ 00:45" : "⏱️ 00:01");
+        timer.getStyle().set("font-size", "var(--lumo-font-size-xs)").set("color", "var(--lumo-secondary-text-color)").set("margin-left", "auto");
+        statusRow.add(timer);
+        card.add(statusRow);
+
+        // Campos do Template (Exibição)
+        if (!fields.isEmpty()) {
+            Div fieldsDiv = new Div();
+            fieldsDiv.getStyle().set("background", "var(--lumo-contrast-5pct)").set("border-radius", "8px").set("padding", "var(--lumo-space-s)").set("margin-top", "var(--lumo-space-s)").set("font-size", "var(--lumo-font-size-s)");
+            for (FieldDTO f : fields) {
+                Div row = new Div();
+                Span lbl = new Span(f.label + ": ");
+                lbl.getStyle().set("font-weight", "bold");
+                row.add(lbl, new Span("Exemplo de Valor"));
+                fieldsDiv.add(row);
+            }
+            card.add(fieldsDiv);
+        }
+
+        // Identificar as próximas etapas permitidas para mostrar os campos de resposta preditivos
+        List<StepDTO> nextSteps = new ArrayList<>();
+        if (isPending) {
+            nextSteps.addAll(steps); // No estado pendente, todas as etapas são candidatas
+        } else if (currentStep != null) {
+            List<String> nextAllowed = currentStep.allowedNextStepLabels;
+            for (StepDTO s : steps) {
+                if (s.label.equals(currentStep.label)) continue;
+                if (!nextAllowed.isEmpty() && !nextAllowed.contains(s.label)) continue;
+                nextSteps.add(s);
+            }
+        }
+
+        // Limpar o mapa de inputs do passo anterior
+        stepResponseFields.clear();
+
+        // Adicionar campos de resposta de todas as próximas etapas possíveis (comportamento real do NeoKioski)
+        if (!isSimulatedFinalized) {
+            for (StepDTO nextStep : nextSteps) {
+                if (nextStep.hasResponseField) {
+                    Component respInput = createInputComponentPreview(
+                        nextStep.responseInputType, 
+                        nextStep.responseFieldLabel != null ? nextStep.responseFieldLabel : "Resposta (" + nextStep.label + ")", 
+                        null, 
+                        nextStep.isResponseRequired, 
+                        nextStep.responseOptions.stream().map(o -> {
+                            TaskFieldOption opt = new TaskFieldOption();
+                            opt.setOptionLabel(o);
+                            return opt;
+                        }).collect(Collectors.toList()), 
+                        "Preencha se " + nextStep.label
+                    );
+                    stepResponseFields.put(nextStep.label, respInput);
+                    card.add(respInput);
+                }
+            }
+        }
+
+        // Botões de Ação
+        FlexLayout actions = new FlexLayout();
+        actions.getStyle().set("flex-wrap", "wrap").set("gap", "var(--lumo-space-s)").set("margin-top", "var(--lumo-space-m)");
+
+        if (isSimulatedFinalized && !isPending) {
+            Span finalizedInfo = new Span("✓ Fluxo Finalizado");
+            finalizedInfo.getStyle()
+                    .set("font-size", "var(--lumo-font-size-xxs)")
+                    .set("color", "var(--lumo-secondary-text-color)")
+                    .set("margin-top", "var(--lumo-space-s)");
+            card.add(finalizedInfo);
+        } else {
+            for (StepDTO nextStep : nextSteps) {
+                Button btn = createSimulatedStepButton(nextStep);
+                actions.add(btn);
+            }
+        }
+
+        card.add(actions);
+        return card;
+    }
+
+    private Button createSimulatedStepButton(StepDTO targetStep) {
+        Button btn = new Button(targetStep.label, e -> {
+            // Validação de resposta obrigatória para a etapa ESPECÍFICA de destino
+            if (targetStep.hasResponseField && targetStep.isResponseRequired) {
+                Component input = stepResponseFields.get(targetStep.label);
+                String val = extractFieldValue(input);
+                if (val == null || val.isBlank()) {
+                    if (input instanceof com.vaadin.flow.component.HasValidation hv) {
+                        hv.setInvalid(true);
+                        hv.setErrorMessage("A resposta é obrigatória para " + targetStep.label);
+                    }
+                    Notification.show("A resposta para '" + targetStep.label + "' é obrigatória.");
+                    return;
+                }
+            }
+
+            simulatedCurrentStepLabel = targetStep.label;
+            isSimulatedFinalized = targetStep.isFinalizer;
+            
+            // Mensagem de menção da etapa
+            if (targetStep.mentionAuthor && targetStep.mentionMessage != null && !targetStep.mentionMessage.isBlank()) {
+                simulatedLog.add(targetStep.mentionMessage);
+            }
+            
+            updateCardsPreview();
+        });
+        btn.addThemeVariants(ButtonVariant.LUMO_SMALL);
+        if (targetStep.isFinalizer) btn.addThemeVariants(ButtonVariant.LUMO_SUCCESS);
+        else btn.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
+        return btn;
+    }
+
+    private Component createInputComponentPreview(InputType type, String label, String desc, boolean required, List<?> optionsList, String placeholder) {
+        List<String> options = new ArrayList<>();
+        if (optionsList != null) {
+            for (Object o : optionsList) {
+                if (o instanceof TaskFieldOption tfo) options.add(tfo.getOptionLabel());
+                else options.add(o.toString());
+            }
+        }
+
+        Component fieldComponent = null;
+        switch (type) {
+            case TEXT:
+            default:
+                TextField tf = new TextField(label);
+                if (desc != null) tf.setHelperText(desc);
+                if (placeholder != null) tf.setPlaceholder(placeholder);
+                tf.setWidthFull();
+                tf.setRequiredIndicatorVisible(required);
+                fieldComponent = tf;
+                break;
+            case DATE:
+                com.vaadin.flow.component.datepicker.DatePicker dp = new com.vaadin.flow.component.datepicker.DatePicker(label);
+                if (desc != null) dp.setHelperText(desc);
+                dp.setWidthFull();
+                dp.setRequiredIndicatorVisible(required);
+                fieldComponent = dp;
+                break;
+            case TIME:
+                com.vaadin.flow.component.timepicker.TimePicker tp = new com.vaadin.flow.component.timepicker.TimePicker(label);
+                if (desc != null) tp.setHelperText(desc);
+                tp.setWidthFull();
+                tp.setRequiredIndicatorVisible(required);
+                fieldComponent = tp;
+                break;
+            case NUMBER:
+                com.vaadin.flow.component.textfield.NumberField nf = new com.vaadin.flow.component.textfield.NumberField(label);
+                if (desc != null) nf.setHelperText(desc);
+                nf.setWidthFull();
+                nf.setRequiredIndicatorVisible(required);
+                fieldComponent = nf;
+                break;
+            case CHECKBOX:
+                com.vaadin.flow.component.checkbox.CheckboxGroup<String> cbGroup = new com.vaadin.flow.component.checkbox.CheckboxGroup<>();
+                cbGroup.setLabel(label);
+                cbGroup.setItems(options);
+                cbGroup.setRequiredIndicatorVisible(required);
+                fieldComponent = cbGroup;
+                break;
+            case RADIO:
+                com.vaadin.flow.component.radiobutton.RadioButtonGroup<String> radio = new com.vaadin.flow.component.radiobutton.RadioButtonGroup<>();
+                radio.setLabel(label);
+                radio.setItems(options);
+                radio.setRequiredIndicatorVisible(required);
+                fieldComponent = radio;
+                break;
+            case DROPDOWN:
+                com.vaadin.flow.component.combobox.ComboBox<String> combo = new com.vaadin.flow.component.combobox.ComboBox<>(label);
+                if (desc != null) combo.setHelperText(desc);
+                combo.setWidthFull();
+                combo.setRequiredIndicatorVisible(required);
+                combo.setItems(options);
+                fieldComponent = combo;
+                break;
+            case MULTISELECT_DROPDOWN:
+                com.vaadin.flow.component.combobox.MultiSelectComboBox<String> multiCombo = new com.vaadin.flow.component.combobox.MultiSelectComboBox<>(label);
+                if (desc != null) multiCombo.setHelperText(desc);
+                multiCombo.setWidthFull();
+                multiCombo.setRequiredIndicatorVisible(required);
+                multiCombo.setItems(options);
+                fieldComponent = multiCombo;
+                break;
+        }
+
+        return fieldComponent;
+    }
+
+    private String extractFieldValue(Component comp) {
+        if (comp == null) return "";
+        if (comp instanceof com.vaadin.flow.component.HasValue<?, ?> hv) {
+            Object val = hv.getValue();
+            if (val == null) return "";
+            if (val instanceof java.util.Collection<?> col) {
+                return col.stream().map(Object::toString).collect(Collectors.joining(", "));
+            }
+            if (val instanceof java.time.LocalDate ld) {
+                return ld.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE);
+            }
+            if (val instanceof java.time.LocalTime lt) {
+                return lt.format(java.time.format.DateTimeFormatter.ISO_LOCAL_TIME);
+            }
+            return String.valueOf(val);
+        }
+        return "";
     }
 
     private HorizontalLayout createFooter() {
@@ -1175,7 +1585,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 }
                 alertsGrid.getDataProvider().refreshAll();
 
-                updateWorkflowPreview();
+                updateCardsPreview();
             }
         }
     }

@@ -98,7 +98,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     // Novas áreas de layout
     private final VerticalLayout chatArea = new VerticalLayout();
     private final VerticalLayout taskArea = new VerticalLayout();
-    private final VerticalLayout taskListArea = new VerticalLayout();
+    private final FlexLayout taskListArea = new FlexLayout();
     private final SplitLayout chatVerticalSplit = new SplitLayout();
     private final VerticalLayout bottomControls = new VerticalLayout();
     private final Scroller templateScroller = new Scroller(templateBar);
@@ -370,8 +370,10 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         filters.setWidthFull();
 
         taskListArea.setWidthFull();
-        taskListArea.setPadding(false);
-        taskListArea.setSpacing(true);
+        taskListArea.setFlexWrap(FlexLayout.FlexWrap.WRAP);
+        taskListArea.setJustifyContentMode(FlexComponent.JustifyContentMode.START);
+        taskListArea.setAlignItems(FlexComponent.Alignment.START);
+        taskListArea.getStyle().set("gap", "var(--lumo-space-m)");
         taskListArea.getStyle().set("padding-bottom", "var(--lumo-space-xl)");
 
         Scroller taskScroller = new Scroller(taskListArea);
@@ -430,8 +432,11 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         if (tasks.isEmpty()) {
             taskListArea.add(new Span("Nenhuma tarefa encontrada."));
         } else {
+            tasks.sort(java.util.Comparator.comparing(Task::getCreatedAt));
             for (Task task : tasks) {
-                taskListArea.add(createTaskCardLayout(task, null));
+                HorizontalLayout cardWrapper = createTaskCardLayout(task, null);
+                cardWrapper.setWidth("auto");
+                taskListArea.add(cardWrapper);
             }
         }
     }

@@ -430,7 +430,31 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         }
 
         if (tasks.isEmpty()) {
-            taskListArea.add(new Span("Nenhuma tarefa encontrada."));
+            VerticalLayout emptyState = new VerticalLayout();
+            emptyState.setWidthFull();
+            emptyState.setDefaultHorizontalComponentAlignment(FlexComponent.Alignment.CENTER);
+            emptyState.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
+            emptyState.getStyle().set("margin-top", "var(--lumo-space-xl)");
+            emptyState.getStyle().set("padding", "var(--lumo-space-xl)");
+            
+            com.vaadin.flow.component.html.Image img = new com.vaadin.flow.component.html.Image("themes/neokioski/equipe.png", "Equipe");
+            img.setMaxWidth("400px");
+            img.getStyle().set("opacity", "0.9");
+            img.getStyle().set("margin-bottom", "var(--lumo-space-m)");
+            
+            Span title = new Span("Painel Zerado!");
+            title.getStyle()
+                 .set("font-size", "var(--lumo-font-size-xl)")
+                 .set("font-weight", "bold")
+                 .set("color", "var(--lumo-primary-color)");
+                 
+            Span subtitle = new Span("Nenhuma tarefa encontrada com os filtros atuais.");
+            subtitle.getStyle()
+                    .set("color", "var(--lumo-secondary-text-color)")
+                    .set("font-size", "var(--lumo-font-size-m)");
+            
+            emptyState.add(img, title, subtitle);
+            taskListArea.add(emptyState);
         } else {
             tasks.sort(java.util.Comparator.comparing(Task::getCreatedAt));
             for (Task task : tasks) {

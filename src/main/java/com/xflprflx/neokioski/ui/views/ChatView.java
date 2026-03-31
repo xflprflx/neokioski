@@ -207,6 +207,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         messageContainer.setSpacing(true);
 
         scroller.setSizeFull();
+        scroller.getStyle().set("min-height", "0");
         messageInput.setWidthFull();
         messageInput.getStyle().set("flex-shrink", "0");
 
@@ -230,29 +231,35 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         bottomControls.setSizeFull();
         bottomControls.setPadding(false);
         bottomControls.setSpacing(false);
-        bottomControls.getStyle().set("flex-shrink", "0");
+        bottomControls.getStyle().set("min-height", "0");
         bottomControls.getStyle().set("background", "var(--lumo-base-color)");
         bottomControls.getStyle().set("z-index", "10");
+        templateScroller.getStyle().set("min-height", "0");
         bottomControls.add(replyBar, templateScroller, messageInput);
         bottomControls.setFlexGrow(1, templateScroller);
         bottomControls.setFlexGrow(0, replyBar);
         bottomControls.setFlexGrow(0, messageInput);
         
         chatVerticalSplit.setSizeFull();
+        chatVerticalSplit.getStyle().set("min-height", "0");
         chatVerticalSplit.setOrientation(SplitLayout.Orientation.VERTICAL);
         chatVerticalSplit.addToPrimary(scroller);
         chatVerticalSplit.addToSecondary(bottomControls);
         chatVerticalSplit.setSplitterPosition(75); // Iniciar com 75% para o chat
         
+        chatArea.getStyle().set("min-height", "0");
         chatArea.add(chatVerticalSplit);
+
 
         // Área de Tarefas
         configureTaskArea();
 
         // Split Layout
         mainSplit.setSizeFull();
+        mainSplit.getStyle().set("min-height", "0");
         mainSplit.setSplitterPosition(50);
         
+        getStyle().set("min-height", "0");
         add(controls, mainSplit);
         setFlexGrow(1, mainSplit);
         configureSuggestions();

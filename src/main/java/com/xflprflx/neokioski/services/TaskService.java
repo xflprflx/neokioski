@@ -228,6 +228,7 @@ public class TaskService {
                 result = allRels.stream()
                         .map(TemplateStepRelation::getTaskStepDefinition)
                         .filter(s -> !s.getId().equals(task.getCurrentStep().getId()))
+                        .filter(s -> !restrictedStepIds.contains(s.getId()))
                         .collect(Collectors.toList());
             } else {
                 result = new ArrayList<>(nextSteps);

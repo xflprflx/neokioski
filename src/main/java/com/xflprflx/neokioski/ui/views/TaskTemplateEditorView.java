@@ -46,6 +46,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.HashSet;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @RolesAllowed("ADMIN")
@@ -1159,15 +1160,31 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         }
 
         // Identificar as próximas etapas permitidas para mostrar os campos de resposta preditivos
+        Set<String> restrictedStepLabels = steps.stream()
+                .filter(s -> s.allowedNextStepLabels != null)
+                .flatMap(s -> s.allowedNextStepLabels.stream())
+                .collect(Collectors.toSet());
+
         List<StepDTO> nextSteps = new ArrayList<>();
         if (isPending) {
-            nextSteps.addAll(steps); // No estado pendente, todas as etapas são candidatas
+            for (StepDTO s : steps) {
+                if (!restrictedStepLabels.contains(s.label) || s.isGlobal) {
+                    nextSteps.add(s);
+                }
+            }
         } else if (currentStep != null) {
-            List<String> nextAllowed = currentStep.allowedNextStepLabels;
+            List<String> nextAllowed = currentStep.allowedNextStepLabels != null ? currentStep.allowedNextStepLabels : new ArrayList<>();
             for (StepDTO s : steps) {
                 if (s.label.equals(currentStep.label)) continue;
-                if (!nextAllowed.isEmpty() && !nextAllowed.contains(s.label)) continue;
-                nextSteps.add(s);
+                if (!nextAllowed.isEmpty()) {
+                    if (nextAllowed.contains(s.label) || s.isGlobal) {
+                        nextSteps.add(s);
+                    }
+                } else {
+                    if (!restrictedStepLabels.contains(s.label) || s.isGlobal) {
+                        nextSteps.add(s);
+                    }
+                }
             }
         }
 

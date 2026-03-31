@@ -59,6 +59,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     private Checkbox requireSignature = new Checkbox();
     private MultiSelectComboBox<User> authorizingUsersCombo = new MultiSelectComboBox<>("Usuários Autorizadores");
     private Checkbox playAlertSoundUI = new Checkbox();
+    private Checkbox registraNoRelatorioLojaUI = new Checkbox();
 
     // Tabs
     private Tabs tabs = new Tabs();
@@ -343,7 +344,12 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         Span playAlertSoundText = new Span("Tocar alerta sonoro?");
         playAlertSoundLayout.add(playAlertSoundUI, playAlertSoundText);
 
-        secondRow.add(showSendBtnLayout, reqSignatureLayout, authorizingUsersCombo, playAlertSoundLayout);
+        HorizontalLayout registraRelatorioLayout = new HorizontalLayout();
+        registraRelatorioLayout.setAlignItems(FlexComponent.Alignment.CENTER);
+        Span registraRelatorioText = new Span("Registra no relatório de loja?");
+        registraRelatorioLayout.add(registraNoRelatorioLojaUI, registraRelatorioText);
+
+        secondRow.add(showSendBtnLayout, reqSignatureLayout, authorizingUsersCombo, playAlertSoundLayout, registraRelatorioLayout);
 
         VerticalLayout configLayout = new VerticalLayout(firstRow, secondRow);
         configLayout.setPadding(false);
@@ -973,16 +979,36 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 return;
             }
         }
-        
+
+        if (registraNoRelatorioLojaUI.getValue()) {
+            boolean hasColetadoFinalizer = steps.stream()
+                    .anyMatch(s -> s.label.equalsIgnoreCase("COLETADO") && s.isFinalizer);
+
+            if (!hasColetadoFinalizer) {
+                com.vaadin.flow.component.notification.Notification.show("Templates com relatório de loja exigem o passo 'COLETADO' marcado como Finalizador", 5000, com.vaadin.flow.component.notification.Notification.Position.MIDDLE)
+                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                return;
+            }
+
+            boolean hasDeliveryInFields = fields.stream()
+                    .anyMatch(f -> f.label.toUpperCase().contains("DELIVERY"));
+
+            boolean hasDeliveryInSteps = steps.stream()
+                    .anyMatch(s -> s.hasResponseField && s.responseFieldLabel != null && s.responseFieldLabel.toUpperCase().contains("DELIVERY"));
+
+            if (!hasDeliveryInFields && !hasDeliveryInSteps) {
+                com.vaadin.flow.component.notification.Notification.show("Templates com relatório de loja exigem um campo (no formulário ou resposta de etapa) contendo 'DELIVERY' no rótulo", 5000, com.vaadin.flow.component.notification.Notification.Position.MIDDLE)
+                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                return;
+            }
+        }
         t.getAuthorizingUsers().clear();
         t.getAuthorizingUsers().addAll(authorizingUsersCombo.getValue());
-        
         t.setPlayAlertSound(playAlertSoundUI.getValue());
+        t.setRegistraNoRelatorioLoja(registraNoRelatorioLojaUI.getValue());
         t.getGroups().clear();
         if (groupComboBox.getValue() != null) {
-            for (Group g : groupComboBox.getValue()) {
-                t.addGroups(g);
-            }
+            t.getGroups().addAll(groupComboBox.getValue());
         }
 
         List<TemplateFieldRelation> fieldRelations = new ArrayList<>();
@@ -1090,6 +1116,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 authorizingUsersCombo.setValue(new HashSet<>(t.getAuthorizingUsers()));
                 authorizingUsersCombo.setVisible(t.isRequiresSignature());
                 playAlertSoundUI.setValue(t.isPlayAlertSound());
+                registraNoRelatorioLojaUI.setValue(t.isRegistraNoRelatorioLoja());
                 groupComboBox.setValue(t.getGroups());
 
                 fields.clear();

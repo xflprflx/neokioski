@@ -24,6 +24,8 @@ public class TaskTemplate {
     private boolean requiresSignature;
     @Column(nullable = false)
     private boolean playAlertSound = false;
+    @Column(nullable = false)
+    private boolean registraNoRelatorioLoja = false;
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "tb_task_templates_groups",
@@ -89,6 +91,14 @@ public class TaskTemplate {
 
     public void setPlayAlertSound(boolean playAlertSound) {
         this.playAlertSound = playAlertSound;
+    }
+
+    public boolean isRegistraNoRelatorioLoja() {
+        return registraNoRelatorioLoja;
+    }
+
+    public void setRegistraNoRelatorioLoja(boolean registraNoRelatorioLoja) {
+        this.registraNoRelatorioLoja = registraNoRelatorioLoja;
     }
 
     public List<Group> getGroups() {

@@ -351,4 +351,78 @@ public class TaskService {
         if (groupListeners != null) groupListeners.forEach(l -> l.accept(task));
         globalListeners.forEach(l -> l.accept(task));
     }
+
+    public List<StoreReportEntry> getStoreReportData(Instant start, Instant end) {
+        List<Task> tasks = taskRepository.findAllByCreatedAtBetween(start, end);
+
+        return tasks.stream()
+                .filter(t -> t.getTaskTemplate().isRegistraNoRelatorioLoja())
+                .filter(this::isTaskFinalized)
+                .filter(t -> t.getCurrentStep() != null && t.getCurrentStep().getLabel().equalsIgnoreCase("COLETADO"))
+                .map(this::mapToStoreReportEntry)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+
+    private StoreReportEntry mapToStoreReportEntry(Task task) {
+        String delivery = "";
+        User collector = null;
+        Instant collectedAt = null;
+
+        // Buscar o número da Delivery e quem coletou
+        for (TaskEvent event : task.getTaskEvents()) {
+            if (event.getTaskStepDefinition() != null) {
+                // Verificar se este step é o de coleta
+                if (event.getTaskStepDefinition().getLabel().equalsIgnoreCase("COLETADO")) {
+                    collector = event.getUser();
+                    collectedAt = event.getTimestamp();
+                }
+
+                // Tentar encontrar a "DELIVERY" nas respostas dos passos
+                Optional<TemplateStepRelation> rel = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
+                        task.getTaskTemplate().getId(), event.getTaskStepDefinition().getId()
+                );
+
+                if (rel.isPresent() && rel.get().getResponseFieldLabel() != null
+                        && rel.get().getResponseFieldLabel().toUpperCase().contains("DELIVERY")) {
+                    if (event.getResponse() != null && !event.getResponse().isBlank()) {
+                        delivery = event.getResponse();
+                    }
+                }
+            }
+        }
+
+        // Se não achou no step response, procurar nos campos iniciais (TaskFieldValue)
+        if (delivery.isEmpty()) {
+            for (TaskFieldValue fv : task.getTaskFieldValues()) {
+                if (fv.getTaskFieldDefinition() != null &&
+                        fv.getTaskFieldDefinition().getLabel().toUpperCase().contains("DELIVERY")) {
+                    delivery = fv.getValue();
+                    break;
+                }
+            }
+        }
+
+        if (collector == null) return null;
+
+        return new StoreReportEntry(
+                task.getId(),
+                task.getTaskTemplate().getName(),
+                task.getCreatedAt(),
+                collectedAt,
+                task.getCreator() != null ? task.getCreator().getName() : "Sistema",
+                collector.getName(),
+                delivery
+        );
+    }
+
+    public record StoreReportEntry(
+            Long taskId,
+            String templateName,
+            Instant createdAt,
+            Instant collectedAt,
+            String creatorName,
+            String collectorName,
+            String deliveryNumber
+    ) {}
 }

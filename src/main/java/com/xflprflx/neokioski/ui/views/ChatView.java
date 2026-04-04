@@ -98,7 +98,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     // Novas áreas de layout
     private final VerticalLayout chatArea = new VerticalLayout();
     private final VerticalLayout taskArea = new VerticalLayout();
-    private final VerticalLayout taskListArea = new VerticalLayout();
+    private final FlexLayout taskListArea = new FlexLayout();
     private final SplitLayout chatVerticalSplit = new SplitLayout();
     private final VerticalLayout bottomControls = new VerticalLayout();
     private final Scroller templateScroller = new Scroller(templateBar);
@@ -207,6 +207,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         messageContainer.setSpacing(true);
 
         scroller.setSizeFull();
+        scroller.getStyle().set("min-height", "0");
         messageInput.setWidthFull();
         messageInput.getStyle().set("flex-shrink", "0");
 
@@ -230,29 +231,35 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         bottomControls.setSizeFull();
         bottomControls.setPadding(false);
         bottomControls.setSpacing(false);
-        bottomControls.getStyle().set("flex-shrink", "0");
+        bottomControls.getStyle().set("min-height", "0");
         bottomControls.getStyle().set("background", "var(--lumo-base-color)");
         bottomControls.getStyle().set("z-index", "10");
+        templateScroller.getStyle().set("min-height", "0");
         bottomControls.add(replyBar, templateScroller, messageInput);
         bottomControls.setFlexGrow(1, templateScroller);
         bottomControls.setFlexGrow(0, replyBar);
         bottomControls.setFlexGrow(0, messageInput);
         
         chatVerticalSplit.setSizeFull();
+        chatVerticalSplit.getStyle().set("min-height", "0");
         chatVerticalSplit.setOrientation(SplitLayout.Orientation.VERTICAL);
         chatVerticalSplit.addToPrimary(scroller);
         chatVerticalSplit.addToSecondary(bottomControls);
         chatVerticalSplit.setSplitterPosition(75); // Iniciar com 75% para o chat
         
+        chatArea.getStyle().set("min-height", "0");
         chatArea.add(chatVerticalSplit);
+
 
         // Área de Tarefas
         configureTaskArea();
 
         // Split Layout
         mainSplit.setSizeFull();
+        mainSplit.getStyle().set("min-height", "0");
         mainSplit.setSplitterPosition(50);
         
+        getStyle().set("min-height", "0");
         add(controls, mainSplit);
         setFlexGrow(1, mainSplit);
         configureSuggestions();
@@ -370,8 +377,10 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         filters.setWidthFull();
 
         taskListArea.setWidthFull();
-        taskListArea.setPadding(false);
-        taskListArea.setSpacing(true);
+        taskListArea.setFlexWrap(FlexLayout.FlexWrap.WRAP);
+        taskListArea.setJustifyContentMode(FlexComponent.JustifyContentMode.START);
+        taskListArea.setAlignItems(FlexComponent.Alignment.START);
+        taskListArea.getStyle().set("gap", "var(--lumo-space-m)");
         taskListArea.getStyle().set("padding-bottom", "var(--lumo-space-xl)");
 
         Scroller taskScroller = new Scroller(taskListArea);
@@ -428,10 +437,37 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         }
 
         if (tasks.isEmpty()) {
-            taskListArea.add(new Span("Nenhuma tarefa encontrada."));
+            VerticalLayout emptyState = new VerticalLayout();
+            emptyState.setWidthFull();
+            emptyState.setDefaultHorizontalComponentAlignment(FlexComponent.Alignment.CENTER);
+            emptyState.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
+            emptyState.getStyle().set("margin-top", "var(--lumo-space-xl)");
+            emptyState.getStyle().set("padding", "var(--lumo-space-xl)");
+            
+            com.vaadin.flow.component.html.Image img = new com.vaadin.flow.component.html.Image("themes/neokioski/equipe.png", "Equipe");
+            img.setMaxWidth("400px");
+            img.getStyle().set("opacity", "0.9");
+            img.getStyle().set("margin-bottom", "var(--lumo-space-m)");
+            
+            Span title = new Span("Painel Zerado!");
+            title.getStyle()
+                 .set("font-size", "var(--lumo-font-size-xl)")
+                 .set("font-weight", "bold")
+                 .set("color", "var(--lumo-primary-color)");
+                 
+            Span subtitle = new Span("Nenhuma tarefa encontrada com os filtros atuais.");
+            subtitle.getStyle()
+                    .set("color", "var(--lumo-secondary-text-color)")
+                    .set("font-size", "var(--lumo-font-size-m)");
+            
+            emptyState.add(img, title, subtitle);
+            taskListArea.add(emptyState);
         } else {
+            tasks.sort(java.util.Comparator.comparing(Task::getCreatedAt));
             for (Task task : tasks) {
-                taskListArea.add(createTaskCardLayout(task, null));
+                HorizontalLayout cardWrapper = createTaskCardLayout(task, null);
+                cardWrapper.setWidth("auto");
+                taskListArea.add(cardWrapper);
             }
         }
     }
@@ -659,6 +695,38 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                 .filter(u -> u.getUsername().toLowerCase().contains(query.toLowerCase()) || 
                              u.getName().toLowerCase().contains(query.toLowerCase()))
                 .collect(Collectors.toList());
+
+        // Adicionar sugestão virtual para o Criador da Tarefa
+        if ("criador".contains(query.toLowerCase()) || "@criador".contains(query.toLowerCase())) {
+            User virtualCreator = new User();
+            virtualCreator.setName("Criador da Tarefa (Original)");
+            virtualCreator.setUsername("criador");
+            suggestions.add(0, virtualCreator);
+        }
+
+        // Adicionar sugestão virtual para os Autorizadores
+        if ("autorizadores".contains(query.toLowerCase()) || "@autorizadores".contains(query.toLowerCase())) {
+            User virtualAuts = new User();
+            virtualAuts.setName("Usuários Autorizadores");
+            virtualAuts.setUsername("autorizadores");
+            suggestions.add(0, virtualAuts);
+        }
+
+        // Adicionar sugestão virtual para o Usuário Atual (Executante)
+        if ("usuario".contains(query.toLowerCase()) || "@usuario".contains(query.toLowerCase())) {
+            User virtualUser = new User();
+            virtualUser.setName("Usuário Atual (Executante)");
+            virtualUser.setUsername("usuario");
+            suggestions.add(0, virtualUser);
+        }
+
+        // Adicionar sugestão virtual para o Autor Anterior
+        if ("autor_anterior".contains(query.toLowerCase()) || "@autor_anterior".contains(query.toLowerCase())) {
+            User virtualPrev = new User();
+            virtualPrev.setName("Autor Anterior");
+            virtualPrev.setUsername("autor_anterior");
+            suggestions.add(suggestions.size() > 1 ? 2 : suggestions.size(), virtualPrev);
+        }
 
         if (suggestions.isEmpty()) {
             activeSuggestionWrapper.setVisible(false);

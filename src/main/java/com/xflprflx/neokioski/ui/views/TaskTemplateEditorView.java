@@ -216,12 +216,28 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                              u.getName().toLowerCase().contains(query.toLowerCase()))
                 .collect(Collectors.toList());
 
-        // Adicionar sugestão virtual para o Autor da Tarefa
-        if ("autor".contains(query.toLowerCase()) || "@autor".contains(query.toLowerCase())) {
-            User virtualAuthor = new User();
-            virtualAuthor.setName("Autor da Tarefa");
-            virtualAuthor.setUsername("autor");
-            suggestions.add(0, virtualAuthor);
+        // Adicionar sugestão virtual para o Criador da Tarefa
+        if ("criador".contains(query.toLowerCase()) || "@criador".contains(query.toLowerCase())) {
+            User virtualCreator = new User();
+            virtualCreator.setName("Criador da Tarefa (Original)");
+            virtualCreator.setUsername("criador");
+            suggestions.add(0, virtualCreator);
+        }
+        
+        // Adicionar sugestão virtual para os Autorizadores
+        if ("autorizadores".contains(query.toLowerCase()) || "@autorizadores".contains(query.toLowerCase())) {
+            User virtualAuts = new User();
+            virtualAuts.setName("Usuários Autorizadores");
+            virtualAuts.setUsername("autorizadores");
+            suggestions.add(0, virtualAuts);
+        }
+
+        // Adicionar sugestão virtual para o Usuário Atual (Executante)
+        if ("usuario".contains(query.toLowerCase()) || "@usuario".contains(query.toLowerCase())) {
+            User virtualUser = new User();
+            virtualUser.setName("Usuário Atual (Executante)");
+            virtualUser.setUsername("usuario");
+            suggestions.add(0, virtualUser);
         }
         
         // Adicionar sugestão virtual para o Autor Anterior
@@ -229,7 +245,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             User virtualPrev = new User();
             virtualPrev.setName("Autor Anterior");
             virtualPrev.setUsername("autor_anterior");
-            suggestions.add(1, virtualPrev);
+            suggestions.add(suggestions.size() > 1 ? 2 : suggestions.size(), virtualPrev);
         }
 
         if (suggestions.isEmpty()) {

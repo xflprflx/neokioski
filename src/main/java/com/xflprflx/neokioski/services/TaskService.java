@@ -98,12 +98,28 @@ public class TaskService {
                 List<ChatMessage> msgs = chatMessageRepository.findByTaskOrderByIdAsc(task);
             ChatMessage originalMsg = msgs.isEmpty() ? null : msgs.get(0);
 
-                // Menção ao Autor da Tarefa
+                // Menção ao Autor da Tarefa (Criador)
                 if (relation.isMentionAuthor() && relation.getMentionMessage() != null && !relation.getMentionMessage().isEmpty()) {
                     String message = relation.getMentionMessage();
                     if (task.getCreator() != null) {
-                        message = message.replace("@autor", "@" + task.getCreator().getUsername());
+                        String creatorMention = "@" + task.getCreator().getUsername();
+                        message = message.replace("@criador", creatorMention);
                     }
+
+                    // Processar @autorizadores se estiver na mensagem
+                    List<User> authorizers = task.getTaskTemplate().getAuthorizingUsers();
+                    if (authorizers != null && !authorizers.isEmpty()) {
+                        String authorizersMention = authorizers.stream()
+                            .map(u -> "@" + u.getUsername())
+                            .collect(java.util.stream.Collectors.joining(" "));
+                        message = message.replace("@autorizadores", authorizersMention);
+                    }
+
+                    // Processar @usuario (quem está executando a ação agora)
+                    if (user != null) {
+                        message = message.replace("@usuario", "@" + user.getUsername());
+                    }
+
                     // Adicionar variável @resposta
                     message = message.replace("@resposta", response != null ? response : "");
                     
@@ -113,6 +129,27 @@ public class TaskService {
                 // Menção ao Autor Anterior
                 if (relation.isMentionPreviousActor() && relation.getMentionPreviousActorMessage() != null && !relation.getMentionPreviousActorMessage().isEmpty()) {
                     String message = relation.getMentionPreviousActorMessage();
+                    
+                    // Processar @autorizadores se estiver na mensagem
+                    List<User> authorizers = task.getTaskTemplate().getAuthorizingUsers();
+                    if (authorizers != null && !authorizers.isEmpty()) {
+                        String authorizersMention = authorizers.stream()
+                            .map(u -> "@" + u.getUsername())
+                            .collect(java.util.stream.Collectors.joining(" "));
+                        message = message.replace("@autorizadores", authorizersMention);
+                    }
+
+                    // Processar @criador / @autor se estiver na mensagem
+                    if (task.getCreator() != null) {
+                        String creatorMention = "@" + task.getCreator().getUsername();
+                        message = message.replace("@criador", creatorMention);
+                    }
+
+                    // Processar @usuario (quem está executando a ação agora)
+                    if (user != null) {
+                        message = message.replace("@usuario", "@" + user.getUsername());
+                    }
+
                     List<TaskEvent> events = task.getTaskEvents().stream()
                             .sorted(java.util.Comparator.comparing(TaskEvent::getTimestamp))
                             .toList();

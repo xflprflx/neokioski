@@ -166,7 +166,6 @@ public class TaskAlertService {
 
         if (task.getCreator() != null) {
             String authorMention = "@" + task.getCreator().getUsername();
-            message = message.replace("@autor", authorMention);
             message = message.replace("@criador", authorMention);
         }
 

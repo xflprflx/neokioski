@@ -19,6 +19,10 @@ public class TaskAlert {
     @JoinColumn(name = "target_step_id", nullable = false)
     private TaskStepDefinition targetStep;
 
+    @ManyToOne
+    @JoinColumn(name = "start_step_id")
+    private TaskStepDefinition startStep;
+
     @Column(nullable = false)
     private int timeoutMinutes;
 
@@ -50,6 +54,14 @@ public class TaskAlert {
 
     public void setTargetStep(TaskStepDefinition targetStep) {
         this.targetStep = targetStep;
+    }
+
+    public TaskStepDefinition getStartStep() {
+        return startStep;
+    }
+
+    public void setStartStep(TaskStepDefinition startStep) {
+        this.startStep = startStep;
     }
 
     public int getTimeoutMinutes() {

@@ -42,7 +42,7 @@ public class Task {
     @JoinTable(
             name = "tb_task_task_step_definitions",
             joinColumns = @JoinColumn(name = "task_id"),
-            inverseJoinColumns = @JoinColumn(name = "task_step_defintion_id")
+            inverseJoinColumns = @JoinColumn(name = "task_step_definition_id")
     )
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
     private List<TaskStepDefinition> taskStepDefinitions = new ArrayList<>();
@@ -59,6 +59,9 @@ public class Task {
     private Set<Long> triggeredAlertIds = new HashSet<>();
 
     private boolean isAlerted = false;
+
+    @Column(name = "finalized_at")
+    private Instant finalizedAt;
 
     public Task() {
         this.createdAt = Instant.now();
@@ -151,6 +154,14 @@ public class Task {
 
     public void setAlerted(boolean isAlerted) {
         this.isAlerted = isAlerted;
+    }
+
+    public Instant getFinalizedAt() {
+        return finalizedAt;
+    }
+
+    public void setFinalizedAt(Instant finalizedAt) {
+        this.finalizedAt = finalizedAt;
     }
 
     @Override

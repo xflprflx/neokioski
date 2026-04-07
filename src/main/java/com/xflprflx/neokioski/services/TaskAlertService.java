@@ -59,9 +59,26 @@ public class TaskAlertService {
                                        e.getTaskStepDefinition().getId().equals(alert.getTargetStep().getId()));
                 if (reachedTarget) continue;
 
+                Instant startTime = null;
+                if (alert.getStartStep() != null) {
+                    java.util.Optional<Instant> startEventTime = freshTask.getTaskEvents().stream()
+                            .filter(e -> e.getTaskStepDefinition() != null && 
+                                         e.getTaskStepDefinition().getId().equals(alert.getStartStep().getId()))
+                            .map(com.xflprflx.neokioski.models.TaskEvent::getTimestamp)
+                            .min(java.util.Comparator.naturalOrder());
+                            
+                    if (startEventTime.isPresent()) {
+                         startTime = startEventTime.get();
+                    } else {
+                         // Gatilho condicional de início ainda não alcançado, não agenda alerta agora.
+                         continue;
+                    }
+                } else {
+                    startTime = freshTask.getCreatedAt() != null ? freshTask.getCreatedAt() : Instant.now();
+                }
+
                 long timeoutMinutes = alert.getTimeoutMinutes();
-                Instant taskCreatedAt = freshTask.getCreatedAt() != null ? freshTask.getCreatedAt() : Instant.now();
-                Instant alertTime = taskCreatedAt.plus(timeoutMinutes, ChronoUnit.MINUTES);
+                Instant alertTime = startTime.plus(timeoutMinutes, ChronoUnit.MINUTES);
                 
                 String cacheKey = getCacheKey(freshTask, alert);
 

@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import java.util.Objects;
 
 @Entity
-@Table(name = "tb_task_field_value")
+@Table(name = "tb_task_field_values")
 public class TaskFieldValue {
 
     @Id

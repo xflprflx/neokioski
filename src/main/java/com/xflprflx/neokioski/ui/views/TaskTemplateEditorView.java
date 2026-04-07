@@ -90,6 +90,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
 
     // DTOs para Grid dinâmico antes de Salvar no BD
     public static class FieldDTO {
+        public Long id;
         public String label;
         public InputType inputType;
         public boolean isRequired;
@@ -98,6 +99,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     public static class StepDTO {
+        public Long id;
         public String label;
         public String colorTheme;
         public boolean isFinalizer;
@@ -118,6 +120,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
 
     public static class AlertDTO {
         public Long id;
+        public String startStepLabel;
         public String targetStepLabel;
         public int timeoutMinutes;
         public String alertMessage;
@@ -444,11 +447,17 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle(existingDto == null ? "Novo Alerta Temporal" : "Editar Alerta");
 
-        ComboBox<String> stepCombo = new ComboBox<>("Step Alvo (Interrompe o Alerta)");
+        ComboBox<String> startStepCombo = new ComboBox<>("Etapa Inicial / Gatilho (Opcional)");
+        startStepCombo.setItems(steps.stream().map(s -> s.label).collect(Collectors.toList()));
+        startStepCombo.setWidthFull();
+        startStepCombo.setClearButtonVisible(true);
+        startStepCombo.setHelperText("Se vazio, conta a partir da criação da solicitação.");
+
+        ComboBox<String> stepCombo = new ComboBox<>("Etapa Alvo (Interrompe o Alerta)");
         stepCombo.setItems(steps.stream().map(s -> s.label).collect(Collectors.toList()));
         stepCombo.setWidthFull();
 
-        TextField timeoutField = new TextField("Tempo Limite (minutos após criação)");
+        TextField timeoutField = new TextField("Tempo Limite (minutos)");
         timeoutField.setWidthFull();
 
         com.vaadin.flow.component.textfield.TextArea messageField = new com.vaadin.flow.component.textfield.TextArea("Mensagem de Alerta");
@@ -457,6 +466,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         messageField.getElement().setAttribute("mention-id", "alert-message-input");
 
         if (existingDto != null) {
+            startStepCombo.setValue(existingDto.startStepLabel);
             stepCombo.setValue(existingDto.targetStepLabel);
             timeoutField.setValue(String.valueOf(existingDto.timeoutMinutes));
             messageField.setValue(existingDto.alertMessage != null ? existingDto.alertMessage : "");
@@ -464,17 +474,18 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
 
         setupMentionLogic(messageField.getElement(), "alert-message-input");
 
-        VerticalLayout layout = new VerticalLayout(stepCombo, timeoutField, messageField, suggestionWrapper);
+        VerticalLayout layout = new VerticalLayout(startStepCombo, stepCombo, timeoutField, messageField, suggestionWrapper);
         dialog.add(layout);
 
         Button saveBtn = new Button("Salvar", e -> {
             if (stepCombo.isEmpty() || timeoutField.isEmpty()) {
-                Notification.show("Step e Tempo são obrigatórios");
+                Notification.show("Etapa Alvo e Tempo são obrigatórios");
                 return;
             }
             try {
                 int timeout = Integer.parseInt(timeoutField.getValue());
                 AlertDTO dto = (existingDto != null) ? existingDto : new AlertDTO();
+                dto.startStepLabel = startStepCombo.getValue();
                 dto.targetStepLabel = stepCombo.getValue();
                 dto.timeoutMinutes = timeout;
                 dto.alertMessage = messageField.getValue();
@@ -1458,6 +1469,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         int fOrder = 1;
         for (FieldDTO dto : fields) {
             TaskFieldDefinition def = new TaskFieldDefinition();
+            if (dto.id != null) {
+                def.setId(dto.id);
+            }
             def.setLabel(dto.label);
             def.setInputType(dto.inputType);
             def.setDescription(dto.description);
@@ -1485,6 +1499,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         Map<String, TaskStepDefinition> defMap = new HashMap<>();
         for (StepDTO dto : steps) {
             TaskStepDefinition def = new TaskStepDefinition();
+            if (dto.id != null) {
+                def.setId(dto.id);
+            }
             def.setLabel(dto.label);
             def.setColorTheme(dto.colorTheme);
             defMap.put(dto.label, def);
@@ -1535,6 +1552,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             TaskStepDefinition target = defMap.get(dto.targetStepLabel);
             if (target != null) {
                 alert.setId(dto.id);
+                if (dto.startStepLabel != null && !dto.startStepLabel.isBlank()) {
+                     alert.setStartStep(defMap.get(dto.startStepLabel));
+                }
                 alert.setTargetStep(target);
                 alert.setTimeoutMinutes(dto.timeoutMinutes);
                 alert.setAlertMessage(dto.alertMessage);
@@ -1565,6 +1585,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 fields.clear();
                 for (TemplateFieldRelation fr : templateService.getFieldRelationsByTemplateId(parameter)) {
                     FieldDTO dto = new FieldDTO();
+                    dto.id = fr.getTaskFieldDefinition().getId();
                     dto.label = fr.getTaskFieldDefinition().getLabel();
                     dto.inputType = fr.getTaskFieldDefinition().getInputType();
                     dto.description = fr.getTaskFieldDefinition().getDescription();
@@ -1581,6 +1602,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 steps.clear();
                 for (TemplateStepRelation sr : templateService.getStepRelationsByTemplateId(parameter)) {
                     StepDTO dto = new StepDTO();
+                    dto.id = sr.getTaskStepDefinition().getId();
                     dto.label = sr.getTaskStepDefinition().getLabel();
                     dto.colorTheme = sr.getTaskStepDefinition().getColorTheme();
                     dto.isFinalizer = sr.isFinalizer();
@@ -1611,6 +1633,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 for (TaskAlert alert : t.getAlerts()) {
                     AlertDTO dto = new AlertDTO();
                     dto.id = alert.getId();
+                    if (alert.getStartStep() != null) {
+                        dto.startStepLabel = alert.getStartStep().getLabel();
+                    }
                     dto.targetStepLabel = alert.getTargetStep().getLabel();
                     dto.timeoutMinutes = alert.getTimeoutMinutes();
                     dto.alertMessage = alert.getAlertMessage();

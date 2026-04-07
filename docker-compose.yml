@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: neokioski_app
+    ports:
+      - "8080:8080" # Expõe o app na porta padrão HTTP 80 para a internet
+    environment: # Variáveis que o application-prod.yml vai ler
+      - SPRING_DATASOURCE_URL=${DATASOURCE_URL_PROD}
+      - SPRING_DATASOURCE_USERNAME=${DATASOURCE_USERNAME_PROD}
+      - SPRING_DATASOURCE_PASSWORD=${DATASOURCE_PASSWORD_PROD}
+      - APP_PROFILE=prod
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    container_name: neokioski_db
+    environment:
+      - POSTGRES_DB=${DATABASE_NAME_PROD}
+      - POSTGRES_USER=${DATASOURCE_USERNAME_PROD}
+      - POSTGRES_PASSWORD=${DATASOURCE_PASSWORD_PROD}
+    volumes: # Volume persistente: Se o container cair, os dados do banco ficam salvos
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

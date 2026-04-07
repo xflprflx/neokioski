@@ -88,6 +88,25 @@ public class TaskService {
             event.setResponse(response);
             task.getTaskEvents().add(event);
 
+            // Determinar se o step a ser salvo é finalizador *agora*:
+            boolean isFinalizerNow = false;
+            Optional<TemplateStepRelation> relationOpt = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
+                    task.getTaskTemplate().getId(), step.getId()
+            );
+            if (relationOpt.isPresent()) {
+                isFinalizerNow = relationOpt.get().isFinalizer();
+            } else {
+                String label = step.getLabel();
+                isFinalizerNow = stepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(task.getTaskTemplate().getId())
+                        .stream()
+                        .filter(r -> r.getTaskStepDefinition().getLabel().equals(label))
+                        .anyMatch(TemplateStepRelation::isFinalizer);
+            }
+
+            if (isFinalizerNow && task.getFinalizedAt() == null) {
+                task.setFinalizedAt(Instant.now());
+            }
+
             Task saved = taskRepository.save(task);
 
             // Verificar se deve mencionar o autor ou o autor anterior
@@ -171,6 +190,7 @@ public class TaskService {
             taskAlertService.cancelAllAlertsForTask(saved);
         } else {
             taskAlertService.cancelAlertByTargetStep(saved, step);
+            taskAlertService.scheduleAlertsForTask(saved);
         }
 
         broadcast(task.getGroup().getId(), saved);
@@ -308,6 +328,7 @@ public class TaskService {
     }
 
     public boolean isTaskFinalized(Task task) {
+        if (task.getFinalizedAt() != null) return true;
         if (task.getCurrentStep() == null) return false;
         
         // Tentar encontrar a relação exata pelo ID do Step
@@ -329,6 +350,7 @@ public class TaskService {
     }
 
     public Instant getFinalizedTimestamp(Task task) {
+        if (task.getFinalizedAt() != null) return task.getFinalizedAt();
         if (!isTaskFinalized(task)) return null;
         return task.getTaskEvents().stream()
                 .filter(ev -> ev.getTaskStepDefinition() != null)

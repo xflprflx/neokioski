@@ -169,6 +169,8 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
         super.onAttach(attachEvent);
         
+        final com.vaadin.flow.component.UI ui = attachEvent.getUI();
+
         // Injetar dados de áudio no cliente via URL
         StringBuilder jsBuilder = new StringBuilder();
         jsBuilder.append("window.audioData = window.audioData || {};");
@@ -186,17 +188,31 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         }
 
         jsBuilder.append(
-            "window.playAlertSound = function(soundName) {" +
-            "  console.log('SOUND: Play Alert Sound triggered:', soundName);" +
+            "window.audioQueue = window.audioQueue || [];" +
+            "window.isAudioPlaying = window.isAudioPlaying || false;" +
+            "window.playNextAudio = function() {" +
+            "  if(window.audioQueue.length === 0) { window.isAudioPlaying = false; return; }" +
+            "  window.isAudioPlaying = true;" +
+            "  const soundName = window.audioQueue.shift();" +
             "  const url = window.audioData[soundName];" +
             "  if(url) {" +
             "    const audio = new Audio(url);" +
-            "    audio.play().catch(e => console.error('Audio play failed:', e));" +
-            "  } else { console.warn('SOUND: Audio URL missing for ', soundName); }" +
+            "    audio.onended = window.playNextAudio;" +
+            "    audio.onerror = window.playNextAudio;" +
+            "    audio.play().catch(e => { console.error('Audio play failed:', e); window.playNextAudio(); });" +
+            "  } else {" +
+            "    console.warn('SOUND: Audio URL missing for ', soundName);" +
+            "    window.playNextAudio();" +
+            "  }" +
+            "};" +
+            "window.playAlertSound = function(soundName) {" +
+            "  console.log('SOUND: Play Alert Sound triggered:', soundName);" +
+            "  window.audioQueue.push(soundName);" +
+            "  if(!window.isAudioPlaying) window.playNextAudio();" +
             "};" +
             "window.playStoreOrderSound = function() { window.playAlertSound('pedido-loja'); };"
         );
-        attachEvent.getUI().getPage().executeJs(jsBuilder.toString());
+        ui.getPage().executeJs(jsBuilder.toString());
 
         // Capturar usuário atual e ID para a closure
         securityService.getAuthenticatedInternalUser().ifPresent(u -> {
@@ -205,28 +221,27 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
 
             // Registrar listener global para som de pedido
             this.globalTaskListener = task -> {
+                if (!ui.isAttached()) return;
                 if (task.getTaskTemplate() != null && task.getTaskTemplate().isPlayAlertSound()) {
                     boolean isNewTask = task.getCurrentStep() == null;
                     
-                    if (isNewTask && currentUserId != null) {
-                        userService.findById(currentUserId).ifPresent(user -> {
-                            // Verificar Role se configurado
-                            boolean hasRoleAccess = true;
-                            if (task.getTaskTemplate().getAlertRoles() != null && !task.getTaskTemplate().getAlertRoles().isEmpty()) {
-                                hasRoleAccess = task.getTaskTemplate().getAlertRoles().contains(user.getRole());
-                            }
+                    if (isNewTask && currentUser != null) {
+                        // Verificar Role se configurado
+                        boolean hasRoleAccess = true;
+                        if (task.getTaskTemplate().getAlertRoles() != null && !task.getTaskTemplate().getAlertRoles().isEmpty()) {
+                            hasRoleAccess = task.getTaskTemplate().getAlertRoles().contains(currentUser.getRole());
+                        }
 
-                            if (user.isNotifyStoreOrder() && hasRoleAccess) {
-                                String sound = task.getTaskTemplate().getAlertSound();
-                                if (sound == null || sound.isEmpty()) sound = "pedido-loja";
-                                
-                                final String soundName = sound;
-                                getUI().ifPresent(ui -> ui.access(() -> {
-                                    System.out.println("DEBUG SOUND: Disparando JS playAlertSound para " + soundName);
-                                    ui.getPage().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", soundName);
-                                }));
-                            }
-                        });
+                        if (currentUser.isNotifyStoreOrder() && hasRoleAccess) {
+                            String sound = task.getTaskTemplate().getAlertSound();
+                            if (sound == null || sound.isEmpty()) sound = "pedido-loja";
+
+                            final String soundName = sound;
+                            ui.access(() -> {
+                                System.out.println("DEBUG SOUND: Disparando JS playAlertSound para " + soundName);
+                                ui.getPage().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", soundName);
+                            });
+                        }
                     }
                 }
             };
@@ -234,6 +249,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
 
             // Registrar listener de mensagens para alertas temporais e steps
             this.chatMessageListener = message -> {
+                if (!ui.isAttached()) return;
                 System.out.println("DEBUG SOUND: Recebido no MainLayout para grupo. User=" + u.getUsername() + ", alertSound=" + message.getAlertSound() + ", roles=" + message.getAlertRoles());
                 if (message.getAlertSound() != null && !message.getAlertSound().isEmpty()) {
                     // Verificar Role se configurado
@@ -252,10 +268,10 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
                     System.out.println("DEBUG SOUND: hasRoleAccess=" + hasRoleAccess + ", notifyStoreOrder=" + notifyOrder);
 
                     if (hasRoleAccess && notifyOrder) {
-                        getUI().ifPresent(ui -> ui.access(() -> {
+                        ui.access(() -> {
                             System.out.println("DEBUG SOUND: Disparando JS playAlertSound para " + message.getAlertSound());
                             ui.getPage().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", message.getAlertSound());
-                        }));
+                        });
                     }
                 }
             };

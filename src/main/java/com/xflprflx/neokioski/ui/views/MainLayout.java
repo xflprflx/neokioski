@@ -226,13 +226,14 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
                     boolean isNewTask = task.getCurrentStep() == null;
                     
                     if (isNewTask && currentUser != null) {
-                        // Verificar Role se configurado
-                        boolean hasRoleAccess = true;
-                        if (task.getTaskTemplate().getAlertRoles() != null && !task.getTaskTemplate().getAlertRoles().isEmpty()) {
-                            hasRoleAccess = task.getTaskTemplate().getAlertRoles().contains(currentUser.getRole());
-                        }
+                        userService.findById(currentUser.getId()).ifPresent(user -> {
+                            // Verificar Role se configurado
+                            boolean hasRoleAccess = true;
+                            if (task.getTaskTemplate().getAlertRoles() != null && !task.getTaskTemplate().getAlertRoles().isEmpty()) {
+                                hasRoleAccess = task.getTaskTemplate().getAlertRoles().contains(user.getRole());
+                            }
 
-                        if (currentUser.isNotifyStoreOrder() && hasRoleAccess) {
+                            if (user.isNotifyStoreOrder() && user.isNotifyChatSounds() && hasRoleAccess) {
                             String sound = task.getTaskTemplate().getAlertSound();
                             if (sound == null || sound.isEmpty()) sound = "pedido-loja";
 
@@ -242,6 +243,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
                                 ui.getPage().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", soundName);
                             });
                         }
+                        });
                     }
                 }
             };
@@ -252,25 +254,28 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
                 if (!ui.isAttached()) return;
                 System.out.println("DEBUG SOUND: Recebido no MainLayout para grupo. User=" + u.getUsername() + ", alertSound=" + message.getAlertSound() + ", roles=" + message.getAlertRoles());
                 if (message.getAlertSound() != null && !message.getAlertSound().isEmpty()) {
-                    // Verificar Role se configurado
-                    boolean hasRoleAccess = true;
-                    if (message.getAlertRoles() != null && !message.getAlertRoles().isEmpty()) {
-                        hasRoleAccess = false;
-                        String[] roles = message.getAlertRoles().split(",");
-                        for (String rStr : roles) {
-                            if (currentUser.getRole() != null && currentUser.getRole().name().equals(rStr.trim())) {
-                                hasRoleAccess = true;
-                                break;
+                    if (currentUser != null) {
+                        userService.findById(currentUser.getId()).ifPresent(user -> {
+                            boolean hasRoleAccessFinal = true;
+                            if (message.getAlertRoles() != null && !message.getAlertRoles().isEmpty()) {
+                                hasRoleAccessFinal = false;
+                                String[] roles = message.getAlertRoles().split(",");
+                                for (String rStr : roles) {
+                                    if (user.getRole() != null && user.getRole().name().equals(rStr.trim())) {
+                                        hasRoleAccessFinal = true;
+                                        break;
+                                    }
+                                }
                             }
-                        }
-                    }
-                    boolean notifyOrder = (currentUser != null && currentUser.isNotifyStoreOrder());
-                    System.out.println("DEBUG SOUND: hasRoleAccess=" + hasRoleAccess + ", notifyStoreOrder=" + notifyOrder);
+                            boolean playSounds = user.isNotifyChatSounds();
+                            System.out.println("DEBUG SOUND: hasRoleAccess=" + hasRoleAccessFinal + ", playSounds=" + playSounds);
 
-                    if (hasRoleAccess && notifyOrder) {
-                        ui.access(() -> {
-                            System.out.println("DEBUG SOUND: Disparando JS playAlertSound para " + message.getAlertSound());
-                            ui.getPage().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", message.getAlertSound());
+                            if (hasRoleAccessFinal && playSounds) {
+                                ui.access(() -> {
+                                    System.out.println("DEBUG SOUND: Disparando JS playAlertSound para " + message.getAlertSound());
+                                    ui.getPage().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", message.getAlertSound());
+                                });
+                            }
                         });
                     }
                 }

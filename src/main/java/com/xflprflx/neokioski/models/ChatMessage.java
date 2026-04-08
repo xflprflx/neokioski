@@ -45,6 +45,10 @@ public class ChatMessage {
     @JoinColumn(name = "task_id")
     private Task task;
 
+    private String alertSound;
+
+    private String alertRoles;
+
     public ChatMessage() {
     }
 
@@ -138,5 +142,21 @@ public class ChatMessage {
 
     public void setTask(Task task) {
         this.task = task;
+    }
+
+    public String getAlertSound() {
+        return alertSound;
+    }
+
+    public void setAlertSound(String alertSound) {
+        this.alertSound = alertSound;
+    }
+
+    public String getAlertRoles() {
+        return alertRoles;
+    }
+
+    public void setAlertRoles(String alertRoles) {
+        this.alertRoles = alertRoles;
     }
 }

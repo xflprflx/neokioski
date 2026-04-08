@@ -1,5 +1,5 @@
 vaadin:
-  productionMode: true
+  productionMode: false
 spring:
   flyway:
     enabled: true

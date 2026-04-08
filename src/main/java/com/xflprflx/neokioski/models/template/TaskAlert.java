@@ -1,7 +1,11 @@
 package com.xflprflx.neokioski.models.template;
 
+import com.xflprflx.neokioski.models.enums.Role;
 import jakarta.persistence.*;
 import java.util.Objects;
+
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "tb_task_template_alerts")
@@ -28,6 +32,14 @@ public class TaskAlert {
 
     @Column(columnDefinition = "TEXT")
     private String alertMessage;
+
+    private String alertSound;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @Enumerated(EnumType.STRING)
+    @CollectionTable(name = "tb_task_alert_roles", joinColumns = @JoinColumn(name = "task_alert_id"))
+    @Column(name = "role")
+    private Set<Role> alertRoles = new HashSet<>();
 
     public TaskAlert() {
     }
@@ -78,6 +90,22 @@ public class TaskAlert {
 
     public void setAlertMessage(String alertMessage) {
         this.alertMessage = alertMessage;
+    }
+
+    public String getAlertSound() {
+        return alertSound;
+    }
+
+    public void setAlertSound(String alertSound) {
+        this.alertSound = alertSound;
+    }
+
+    public Set<Role> getAlertRoles() {
+        return alertRoles;
+    }
+
+    public void setAlertRoles(Set<Role> alertRoles) {
+        this.alertRoles = alertRoles;
     }
 
     @Override

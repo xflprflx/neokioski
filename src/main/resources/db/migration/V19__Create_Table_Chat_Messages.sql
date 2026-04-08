@@ -7,8 +7,10 @@ CREATE TABLE IF NOT EXISTS tb_chat_messages
     task_id bigint,
     "timestamp" timestamp(6) with time zone,
                                  user_id bigint,
-                                 content text COLLATE pg_catalog."default" NOT NULL,
-                                 CONSTRAINT tb_chat_messages_pkey PRIMARY KEY (id),
+                                 alert_roles character varying(255) COLLATE pg_catalog."default",
+    alert_sound character varying(255) COLLATE pg_catalog."default",
+    content text COLLATE pg_catalog."default" NOT NULL,
+    CONSTRAINT tb_chat_messages_pkey PRIMARY KEY (id),
     CONSTRAINT fkjgt8nwrye4095o4n7p8ndk2p8 FOREIGN KEY (user_id)
     REFERENCES tb_users (id) MATCH SIMPLE
                              ON UPDATE NO ACTION

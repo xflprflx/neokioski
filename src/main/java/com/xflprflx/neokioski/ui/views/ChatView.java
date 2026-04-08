@@ -29,10 +29,8 @@ import com.xflprflx.neokioski.models.Group;
 import com.xflprflx.neokioski.models.MessageReaction;
 import com.xflprflx.neokioski.models.MessageEdit;
 import com.xflprflx.neokioski.models.Task;
-import com.xflprflx.neokioski.models.TaskEvent;
 import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.models.enums.Role;
-import com.xflprflx.neokioski.models.template.TaskFieldDefinition;
 import com.xflprflx.neokioski.models.TaskFieldValue;
 import com.vaadin.flow.component.splitlayout.SplitLayout;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -52,7 +50,6 @@ import com.xflprflx.neokioski.models.template.InputType;
 import com.xflprflx.neokioski.ui.utils.TaskUIUtils;
 import jakarta.annotation.security.PermitAll;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -86,7 +83,6 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private ListBox<User> suggestionList;
     
     // Contexto de menções
-    private Element activeMentionTarget;
     private Div activeSuggestionWrapper;
     private ListBox<User> activeSuggestionList;
     private final Map<String, Div> suggestionWrappers = new HashMap<>();
@@ -220,7 +216,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     endDatePicker.setValue(today);
                     // loadMessages() será chamado pelos ValueChangeListeners
                 }
-                chatService.sendMessage(event.getValue(), currentUser, group, replyTo);
+                chatService.sendMessage(event.getValue(), currentUser, group, replyTo, null, null);
                 cancelReply();
             }
         });
@@ -619,10 +615,6 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         return card;
     }
 
-    private void showInlineTemplateForm(TaskTemplate template) {
-        // Obsoleto, mantido por compatibilidade se houver chamadas residuais, mas não terá efeito visual se removermos inlineFormContainer
-    }
-
     private void configureSuggestions() {
         suggestionList = new ListBox<>();
         suggestionWrapper = new Div(suggestionList);
@@ -640,8 +632,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         suggestionWrapper.setVisible(false);
 
         activeSuggestionWrapper = suggestionWrapper;
+        activeSuggestionWrapper = suggestionWrapper;
         activeSuggestionList = suggestionList;
-        activeMentionTarget = messageInput.getElement();
         activeMentionId = "main-input";
 
         String mainId = "main-input";
@@ -755,9 +747,6 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         
         if (wrapper != null && list != null) {
             this.activeMentionId = mentionId;
-            if (mentionId.equals("main-input")) {
-                this.activeMentionTarget = messageInput.getElement();
-            }
             this.activeSuggestionWrapper = wrapper;
             this.activeSuggestionList = list;
         }
@@ -1379,7 +1368,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                 .set("font-size", "var(--lumo-font-size-s)")
                 .set("color", "#ff1744")
                 .set("font-weight", "bold");
-            alertBanner.add(new Span("⏰ " + sourceMsgForAlert.getContent()));
+            alertBanner.add(new Span("⏰ " + (sourceMsgForAlert != null ? sourceMsgForAlert.getContent() : "")));
             card.add(alertBanner);
         }
 
@@ -1864,7 +1853,9 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                                 n.addThemeVariants(NotificationVariant.LUMO_PRIMARY);
                                 n.open();
                             } else {
-                                playNotificationSound("new-message");
+                                if (msg.getAlertSound() == null || msg.getAlertSound().isEmpty()) {
+                                    playNotificationSound("new-message");
+                                }
                             }
                         } else {
                             if (mentioned && !msg.isDeleted()) {
@@ -1958,9 +1949,9 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         suggestionLists.put(dialogId, dialogSuggestionList);
         
         this.activeMentionId = dialogId;
+        this.activeMentionId = dialogId;
         this.activeSuggestionWrapper = dialogSuggestionWrapper;
         this.activeSuggestionList = dialogSuggestionList;
-        this.activeMentionTarget = textArea.getElement();
 
         setupMentionLogic(textArea.getElement(), dialogId);
 

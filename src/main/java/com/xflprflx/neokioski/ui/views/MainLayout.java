@@ -4,10 +4,7 @@ import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.applayout.DrawerToggle;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
-import com.vaadin.flow.component.dialog.Dialog;
-import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
-import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
@@ -27,15 +24,13 @@ import com.xflprflx.neokioski.security.SecurityService;
 import com.xflprflx.neokioski.services.GroupService;
 import com.xflprflx.neokioski.services.TaskService;
 import com.xflprflx.neokioski.services.UserService;
+import com.xflprflx.neokioski.services.SoundService;
+import com.xflprflx.neokioski.services.ChatService;
+import com.xflprflx.neokioski.models.ChatMessage;
 import jakarta.annotation.security.PermitAll;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Base64;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.Optional;
 import java.util.function.Consumer;
 
 /**
@@ -50,36 +45,28 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     private final SecurityService securityService;
     private final TaskService taskService;
     private final UserService userService;
+    private final ChatService chatService;
     private final VerticalLayout drawerContainer = new VerticalLayout();
-    private Group currentGroup;
     private User currentUser;
-    private String pedidoLojaB64;
+    private List<String> availableSounds = new ArrayList<>();
     private Consumer<Task> globalTaskListener;
+    private Consumer<ChatMessage> chatMessageListener;
 
     public MainLayout(AuthenticationContext authContext, GroupService groupService,
-                      SecurityService securityService, TaskService taskService, UserService userService) {
+                      SecurityService securityService, TaskService taskService, UserService userService, 
+                      SoundService soundService, ChatService chatService) {
         this.authContext = authContext;
         this.groupService = groupService;
         this.securityService = securityService;
         this.taskService = taskService;
         this.userService = userService;
+        this.chatService = chatService;
         
-        // Carregar áudio pedido-loja
-        this.pedidoLojaB64 = loadAudioAsBase64("themes/neokioski/sounds/pedido-loja");
+        // Obter nomes de todos os sons disponíveis
+        this.availableSounds = soundService.getAvailableAlertSounds();
         
         createHeader();
         createDrawer();
-    }
-
-    private String loadAudioAsBase64(String resourcePath) {
-        String path = resourcePath.startsWith("/") ? resourcePath : "/" + resourcePath;
-        try (java.io.InputStream is = getClass().getResourceAsStream(path)) {
-            if (is == null) return "";
-            byte[] bytes = is.readAllBytes();
-            return java.util.Base64.getEncoder().encodeToString(bytes);
-        } catch (java.io.IOException e) {
-            return "";
-        }
     }
 
     private void createHeader() {
@@ -174,7 +161,6 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
                     group = groupService.findById(groupId).orElse(null);
                 } catch (NumberFormatException ignored) {}
             }
-            currentGroup = group;
             showChatNav(group);
         }
     }
@@ -183,19 +169,34 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
         super.onAttach(attachEvent);
         
-        // Injetar dados de áudio no cliente
-        String js = String.format(
-            "window.audioData = window.audioData || {};" +
-            "window.audioData['pedido-loja'] = 'data:audio/mp3;base64,%s';" +
-            "window.playStoreOrderSound = function() {" +
-            "  console.log('SOUND: Play Store Order Sound triggered');" +
-            "  if(window.audioData['pedido-loja']) {" +
-                "    new Audio(window.audioData['pedido-loja']).play().catch(e => console.error('Audio play failed:', e));" +
-            "  } else { console.warn('SOUND: Audio data missing for pedido-loja'); }" +
-            "};",
-            pedidoLojaB64
+        // Injetar dados de áudio no cliente via URL
+        StringBuilder jsBuilder = new StringBuilder();
+        jsBuilder.append("window.audioData = window.audioData || {};");
+        
+        // Mapear cada som disponível para sua URL estática
+        for (String sound : availableSounds) {
+            String url = "/sounds/" + sound.replace("#", "%23");
+            System.out.println("SOUND: Mapping " + sound + " to URL: " + url);
+            jsBuilder.append(String.format("window.audioData['%s'] = '%s';", sound, url));
+        }
+        
+        // Fallback para o som antigo se não estiver na lista nova
+        if (!availableSounds.contains("pedido-loja")) {
+             jsBuilder.append("window.audioData['pedido-loja'] = '/sounds/pedido-loja';");
+        }
+
+        jsBuilder.append(
+            "window.playAlertSound = function(soundName) {" +
+            "  console.log('SOUND: Play Alert Sound triggered:', soundName);" +
+            "  const url = window.audioData[soundName];" +
+            "  if(url) {" +
+            "    const audio = new Audio(url);" +
+            "    audio.play().catch(e => console.error('Audio play failed:', e));" +
+            "  } else { console.warn('SOUND: Audio URL missing for ', soundName); }" +
+            "};" +
+            "window.playStoreOrderSound = function() { window.playAlertSound('pedido-loja'); };"
         );
-        attachEvent.getUI().getPage().executeJs(js);
+        attachEvent.getUI().getPage().executeJs(jsBuilder.toString());
 
         // Capturar usuário atual e ID para a closure
         securityService.getAuthenticatedInternalUser().ifPresent(u -> {
@@ -209,11 +210,20 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
                     
                     if (isNewTask && currentUserId != null) {
                         userService.findById(currentUserId).ifPresent(user -> {
-                            boolean isCreator = task.getCreator() != null && task.getCreator().getId().equals(user.getId());
-                            
-                            if (user.isNotifyStoreOrder() && !isCreator) {
+                            // Verificar Role se configurado
+                            boolean hasRoleAccess = true;
+                            if (task.getTaskTemplate().getAlertRoles() != null && !task.getTaskTemplate().getAlertRoles().isEmpty()) {
+                                hasRoleAccess = task.getTaskTemplate().getAlertRoles().contains(user.getRole());
+                            }
+
+                            if (user.isNotifyStoreOrder() && hasRoleAccess) {
+                                String sound = task.getTaskTemplate().getAlertSound();
+                                if (sound == null || sound.isEmpty()) sound = "pedido-loja";
+                                
+                                final String soundName = sound;
                                 getUI().ifPresent(ui -> ui.access(() -> {
-                                    ui.getPage().executeJs("if(window.playStoreOrderSound) { window.playStoreOrderSound(); }");
+                                    System.out.println("DEBUG SOUND: Disparando JS playAlertSound para " + soundName);
+                                    ui.getPage().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", soundName);
                                 }));
                             }
                         });
@@ -221,6 +231,39 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
                 }
             };
             taskService.registerGlobal(globalTaskListener);
+
+            // Registrar listener de mensagens para alertas temporais e steps
+            this.chatMessageListener = message -> {
+                System.out.println("DEBUG SOUND: Recebido no MainLayout para grupo. User=" + u.getUsername() + ", alertSound=" + message.getAlertSound() + ", roles=" + message.getAlertRoles());
+                if (message.getAlertSound() != null && !message.getAlertSound().isEmpty()) {
+                    // Verificar Role se configurado
+                    boolean hasRoleAccess = true;
+                    if (message.getAlertRoles() != null && !message.getAlertRoles().isEmpty()) {
+                        hasRoleAccess = false;
+                        String[] roles = message.getAlertRoles().split(",");
+                        for (String rStr : roles) {
+                            if (currentUser.getRole() != null && currentUser.getRole().name().equals(rStr.trim())) {
+                                hasRoleAccess = true;
+                                break;
+                            }
+                        }
+                    }
+                    boolean notifyOrder = (currentUser != null && currentUser.isNotifyStoreOrder());
+                    System.out.println("DEBUG SOUND: hasRoleAccess=" + hasRoleAccess + ", notifyStoreOrder=" + notifyOrder);
+
+                    if (hasRoleAccess && notifyOrder) {
+                        getUI().ifPresent(ui -> ui.access(() -> {
+                            System.out.println("DEBUG SOUND: Disparando JS playAlertSound para " + message.getAlertSound());
+                            ui.getPage().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", message.getAlertSound());
+                        }));
+                    }
+                }
+            };
+            
+            // Ouvir mensagens de todos os grupos do usuário para tocar sons de alertas/steps
+            groupService.findActiveGroupsByUser(u).forEach(group -> {
+                chatService.register(group.getId(), chatMessageListener);
+            });
         });
     }
 
@@ -229,6 +272,11 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         super.onDetach(detachEvent);
         if (globalTaskListener != null) {
             taskService.unregisterGlobal(globalTaskListener);
+        }
+        if (chatMessageListener != null && currentUser != null) {
+            groupService.findActiveGroupsByUser(currentUser).forEach(group -> {
+                chatService.unregister(group.getId(), chatMessageListener);
+            });
         }
     }
 }

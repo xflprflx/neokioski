@@ -186,7 +186,8 @@ public class TaskAlertService {
             message = message.replace("@criador", authorMention);
         }
 
-        chatService.sendSystemAlertForTask(message, task);
+        String alertRolesStr = alert.getAlertRoles() != null ? alert.getAlertRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.joining(",")) : null;
+        chatService.sendSystemAlertForTask(message, task, alert.getAlertSound(), alertRolesStr);
         
         task.setAlerted(true);
         task.getTriggeredAlertIds().add(alert.getId());

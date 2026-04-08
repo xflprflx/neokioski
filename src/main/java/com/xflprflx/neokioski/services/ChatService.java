@@ -32,12 +32,14 @@ public class ChatService {
 
     @Transactional
     public ChatMessage sendMessage(String content, User user, Group group) {
-        return sendMessage(content, user, group, null);
+        return sendMessage(content, user, group, null, null, null);
     }
 
     @Transactional
-    public ChatMessage sendMessage(String content, User user, Group group, ChatMessage replyTo) {
+    public ChatMessage sendMessage(String content, User user, Group group, ChatMessage replyTo, String alertSound, String alertRoles) {
         ChatMessage message = new ChatMessage(content, user, group, replyTo);
+        message.setAlertSound(alertSound);
+        message.setAlertRoles(alertRoles);
         message = repository.save(message);
         broadcast(group.getId(), message);
         return message;
@@ -45,8 +47,15 @@ public class ChatService {
 
     @Transactional
     public ChatMessage sendSystemAlertForTask(String content, Task task) {
+        return sendSystemAlertForTask(content, task, null, null);
+    }
+
+    @Transactional
+    public ChatMessage sendSystemAlertForTask(String content, Task task, String alertSound, String alertRoles) {
         // 1. Envia mensagem de alerta vinculada como 'resposta' à tarefa original
         ChatMessage alertMsg = new ChatMessage(content, null, task.getGroup(), null);
+        alertMsg.setAlertSound(alertSound);
+        alertMsg.setAlertRoles(alertRoles);
         
         // Em vez de vincular ao `.setTask` (que geraria um clone do card na UI),
         // vinculamos ao `.setReplyTo` para que a UI renderize uma citação arrastável!
@@ -164,7 +173,13 @@ public class ChatService {
     private void broadcast(Long groupId, ChatMessage message) {
         List<Consumer<ChatMessage>> groupListeners = listeners.get(groupId);
         if (groupListeners != null) {
-            groupListeners.forEach(listener -> listener.accept(message));
+            for (Consumer<ChatMessage> listener : groupListeners) {
+                try {
+                    listener.accept(message);
+                } catch (Exception e) {
+                    System.err.println("Erro ao notificar listener de Chat no grupo " + groupId + ": " + e.getMessage());
+                }
+            }
         }
     }
 }

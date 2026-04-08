@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS tb_task_template_alerts
     target_step_id bigint NOT NULL,
     task_template_id bigint NOT NULL,
     alert_message text COLLATE pg_catalog."default",
+    alert_sound character varying(255) COLLATE pg_catalog."default",
     CONSTRAINT tb_task_template_alerts_pkey PRIMARY KEY (id),
     CONSTRAINT fk167rc60pnufm0a7lbqkac4e2t FOREIGN KEY (target_step_id)
     REFERENCES tb_task_step_definitions (id) MATCH SIMPLE

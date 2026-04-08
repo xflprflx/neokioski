@@ -2,10 +2,13 @@ package com.xflprflx.neokioski.models.template;
 
 import com.xflprflx.neokioski.models.Group;
 import com.xflprflx.neokioski.models.User;
+import com.xflprflx.neokioski.models.enums.Role;
 import jakarta.persistence.*;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.Objects;
 
 @Entity
@@ -26,6 +29,13 @@ public class TaskTemplate {
     private boolean playAlertSound = false;
     @Column(nullable = false)
     private boolean registraNoRelatorioLoja = false;
+    private String alertSound;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @Enumerated(EnumType.STRING)
+    @CollectionTable(name = "tb_task_template_alert_roles", joinColumns = @JoinColumn(name = "task_template_id"))
+    @Column(name = "role")
+    private Set<Role> alertRoles = new HashSet<>();
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "tb_task_templates_groups",
@@ -99,6 +109,22 @@ public class TaskTemplate {
 
     public void setRegistraNoRelatorioLoja(boolean registraNoRelatorioLoja) {
         this.registraNoRelatorioLoja = registraNoRelatorioLoja;
+    }
+
+    public String getAlertSound() {
+        return alertSound;
+    }
+
+    public void setAlertSound(String alertSound) {
+        this.alertSound = alertSound;
+    }
+
+    public Set<Role> getAlertRoles() {
+        return alertRoles;
+    }
+
+    public void setAlertRoles(Set<Role> alertRoles) {
+        this.alertRoles = alertRoles;
     }
 
     public List<Group> getGroups() {

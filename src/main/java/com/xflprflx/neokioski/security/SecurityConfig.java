@@ -28,9 +28,10 @@ public class SecurityConfig {
      */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        // Permite o console do H2 para facilitar testes
+        // Permite o console do H2 para facilitar testes e também o acesso aos sons
         http.authorizeHttpRequests(auth -> auth
-                .requestMatchers("/h2-console/**").permitAll());
+                .requestMatchers("/h2-console/**").permitAll()
+                .requestMatchers("/sounds/**").permitAll());
 
         http.csrf(csrf -> csrf.ignoringRequestMatchers("/h2-console/**"));
         http.headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));

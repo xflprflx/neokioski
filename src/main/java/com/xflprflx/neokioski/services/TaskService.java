@@ -66,6 +66,7 @@ public class TaskService {
 
         Task saved = taskRepository.save(task);
         taskAlertService.scheduleAlertsForTask(saved);
+        chatService.sendSystemAlertForTask("Uma nova tarefa de '" + template.getName() + "' foi criada.", saved, null, null);
         broadcast(group.getId(), saved);
         return saved;
     }
@@ -109,13 +110,16 @@ public class TaskService {
 
             Task saved = taskRepository.save(task);
 
-            // Verificar se deve mencionar o autor ou o autor anterior
+            // Verificar se deve mencionar o autor ou o autor anterior e disparar sons
             stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
                     task.getTaskTemplate().getId(), step.getId()
             ).ifPresent(relation -> {
                 // Buscar a mensagem original do card da tarefa para dar "Reply"
                 List<ChatMessage> msgs = chatMessageRepository.findByTaskOrderByIdAsc(task);
-            ChatMessage originalMsg = msgs.isEmpty() ? null : msgs.get(0);
+                ChatMessage originalMsg = msgs.isEmpty() ? null : msgs.get(0);
+                
+                boolean soundPlayed = false;
+                String stepSound = relation.getAlertSound();
 
                 // Menção ao Autor da Tarefa (Criador)
                 if (relation.isMentionAuthor() && relation.getMentionMessage() != null && !relation.getMentionMessage().isEmpty()) {
@@ -142,7 +146,9 @@ public class TaskService {
                     // Adicionar variável @resposta
                     message = message.replace("@resposta", response != null ? response : "");
                     
-                    chatService.sendMessage(message, user, task.getGroup(), originalMsg);
+                    String rolesStr = relation.getAlertRoles() != null ? relation.getAlertRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.joining(",")) : null;
+                    chatService.sendMessage(message, user, task.getGroup(), originalMsg, soundPlayed ? null : stepSound, rolesStr);
+                    soundPlayed = true;
                 }
 
                 // Menção ao Autor Anterior
@@ -180,9 +186,17 @@ public class TaskService {
                             // Adicionar variável @resposta
                             message = message.replace("@resposta", response != null ? response : "");
                             
-                            chatService.sendMessage(message, user, task.getGroup(), originalMsg);
+                            String rolesStr = relation.getAlertRoles() != null ? relation.getAlertRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.joining(",")) : null;
+                            chatService.sendMessage(message, user, task.getGroup(), originalMsg, soundPlayed ? null : stepSound, rolesStr);
+                            soundPlayed = true;
                         }
                     }
+                }
+                
+                // Se existe um som para a etapa mas nenhuma das menções foi enviada, dispara um alerta comum de sistema apenas para tocar o som
+                if (!soundPlayed && stepSound != null && !stepSound.isEmpty()) {
+                    String rolesStr = relation.getAlertRoles() != null ? relation.getAlertRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.joining(",")) : null;
+                    chatService.sendSystemAlertForTask("A tarefa avançou para a etapa: " + step.getLabel(), saved, stepSound, rolesStr);
                 }
             });
 
@@ -408,8 +422,22 @@ public class TaskService {
 
     private void broadcast(Long groupId, Task task) {
         List<Consumer<Task>> groupListeners = listeners.get(groupId);
-        if (groupListeners != null) groupListeners.forEach(l -> l.accept(task));
-        globalListeners.forEach(l -> l.accept(task));
+        if (groupListeners != null) {
+            for (Consumer<Task> l : groupListeners) {
+                try {
+                    l.accept(task);
+                } catch (Exception e) {
+                    System.err.println("Erro ao notificar listener de Task no grupo " + groupId + ": " + e.getMessage());
+                }
+            }
+        }
+        for (Consumer<Task> l : globalListeners) {
+            try {
+                l.accept(task);
+            } catch (Exception e) {
+                System.err.println("Erro ao notificar listener global de Task: " + e.getMessage());
+            }
+        }
     }
 
     public List<StoreReportEntry> getStoreReportData(Instant start, Instant end) {

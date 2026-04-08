@@ -37,7 +37,9 @@ import com.xflprflx.neokioski.models.template.*;
 import com.xflprflx.neokioski.services.GroupService;
 import com.xflprflx.neokioski.services.TaskTemplateService;
 import com.xflprflx.neokioski.services.UserService;
+import com.xflprflx.neokioski.services.SoundService;
 import com.xflprflx.neokioski.models.User;
+import com.xflprflx.neokioski.models.enums.Role;
 import com.xflprflx.neokioski.ui.utils.TaskUIUtils;
 import jakarta.annotation.security.RolesAllowed;
 
@@ -63,6 +65,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     private Checkbox requireSignature = new Checkbox();
     private MultiSelectComboBox<User> authorizingUsersCombo = new MultiSelectComboBox<>("Usuários Autorizadores");
     private Checkbox playAlertSoundUI = new Checkbox();
+    private ComboBox<String> globalAlertSoundCombo = new ComboBox<>();
+    private Button playGlobalSoundBtn = new Button(VaadinIcon.PLAY.create());
+    private MultiSelectComboBox<Role> globalAlertRolesCombo = new MultiSelectComboBox<>("Perfis que ouvem (vazio = todos)");
     private Checkbox registraNoRelatorioLojaUI = new Checkbox();
 
     // Tabs
@@ -116,6 +121,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         public boolean responseIsCompact;
         public InputType responseInputType = InputType.TEXT;
         public List<String> responseOptions = new ArrayList<>();
+        public String alertSound;
+        public Set<Role> alertRoles = new HashSet<>();
     }
 
     public static class AlertDTO {
@@ -124,6 +131,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         public String targetStepLabel;
         public int timeoutMinutes;
         public String alertMessage;
+        public String alertSound;
+        public Set<Role> alertRoles = new HashSet<>();
     }
 
     private List<FieldDTO> fields = new ArrayList<>();
@@ -141,11 +150,13 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     private final TaskTemplateService templateService;
     private final GroupService groupService;
     private final UserService userService;
+    private final SoundService soundService;
 
-    public TaskTemplateEditorView(TaskTemplateService templateService, GroupService groupService, UserService userService) {
+    public TaskTemplateEditorView(TaskTemplateService templateService, GroupService groupService, UserService userService, SoundService soundService) {
         this.templateService = templateService;
         this.groupService = groupService;
         this.userService = userService;
+        this.soundService = soundService;
 
         setSizeFull();
         setPadding(true);
@@ -374,8 +385,32 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
 
         HorizontalLayout playAlertSoundLayout = new HorizontalLayout();
         playAlertSoundLayout.setAlignItems(FlexComponent.Alignment.CENTER);
-        Span playAlertSoundText = new Span("Tocar alerta sonoro?");
-        playAlertSoundLayout.add(playAlertSoundUI, playAlertSoundText);
+        Span playAlertSoundText = new Span("Tocar som na criação?");
+        
+        globalAlertSoundCombo.setPlaceholder("Selecione o som...");
+        globalAlertSoundCombo.setItems(soundService.getAvailableAlertSounds());
+        globalAlertSoundCombo.setClearButtonVisible(true);
+        globalAlertSoundCombo.setVisible(false);
+        playGlobalSoundBtn.setVisible(false);
+        playGlobalSoundBtn.addThemeVariants(ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_TERTIARY);
+
+        globalAlertRolesCombo.setVisible(false);
+        globalAlertRolesCombo.setItems(Role.values());
+        globalAlertRolesCombo.setItemLabelGenerator(Role::getDescription);
+
+        playAlertSoundUI.addValueChangeListener(e -> {
+            globalAlertSoundCombo.setVisible(e.getValue());
+            playGlobalSoundBtn.setVisible(e.getValue());
+            globalAlertRolesCombo.setVisible(e.getValue());
+        });
+
+        playGlobalSoundBtn.addClickListener(e -> {
+            if (globalAlertSoundCombo.getValue() != null) {
+                getElement().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", globalAlertSoundCombo.getValue());
+            }
+        });
+
+        playAlertSoundLayout.add(playAlertSoundUI, playAlertSoundText, globalAlertSoundCombo, playGlobalSoundBtn, globalAlertRolesCombo);
 
         HorizontalLayout registraRelatorioLayout = new HorizontalLayout();
         registraRelatorioLayout.setAlignItems(FlexComponent.Alignment.CENTER);
@@ -464,17 +499,40 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         messageField.setWidthFull();
         messageField.setPlaceholder("Use @autor para mencionar o dono da tarefa.");
         messageField.getElement().setAttribute("mention-id", "alert-message-input");
+        setupMentionLogic(messageField.getElement(), "alert-message-input");
+
+        ComboBox<String> soundCombo = new ComboBox<>("Som de Alerta");
+        soundCombo.setItems(soundService.getAvailableAlertSounds());
+        soundCombo.setWidthFull();
+        soundCombo.setClearButtonVisible(true);
+        soundCombo.setPlaceholder("Sem som");
+
+        Button playBtn = new Button(VaadinIcon.PLAY.create(), e -> {
+            if (soundCombo.getValue() != null) {
+                getElement().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", soundCombo.getValue());
+            }
+        });
+        playBtn.addThemeVariants(ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_TERTIARY);
+
+        MultiSelectComboBox<Role> rolesCombo = new MultiSelectComboBox<>("Perfis que ouvem (vazio = todos)");
+        rolesCombo.setItems(Role.values());
+        rolesCombo.setItemLabelGenerator(Role::getDescription);
+        rolesCombo.setWidthFull();
+
+        HorizontalLayout soundLayout = new HorizontalLayout(soundCombo, playBtn, rolesCombo);
+        soundLayout.setWidthFull();
+        soundLayout.setAlignItems(FlexComponent.Alignment.END);
 
         if (existingDto != null) {
             startStepCombo.setValue(existingDto.startStepLabel);
             stepCombo.setValue(existingDto.targetStepLabel);
             timeoutField.setValue(String.valueOf(existingDto.timeoutMinutes));
             messageField.setValue(existingDto.alertMessage != null ? existingDto.alertMessage : "");
+            soundCombo.setValue(existingDto.alertSound);
+            if (existingDto.alertRoles != null) rolesCombo.setValue(existingDto.alertRoles);
         }
 
-        setupMentionLogic(messageField.getElement(), "alert-message-input");
-
-        VerticalLayout layout = new VerticalLayout(startStepCombo, stepCombo, timeoutField, messageField, suggestionWrapper);
+        VerticalLayout layout = new VerticalLayout(startStepCombo, stepCombo, timeoutField, messageField, soundLayout, suggestionWrapper);
         dialog.add(layout);
 
         Button saveBtn = new Button("Salvar", e -> {
@@ -489,6 +547,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 dto.targetStepLabel = stepCombo.getValue();
                 dto.timeoutMinutes = timeout;
                 dto.alertMessage = messageField.getValue();
+                dto.alertSound = soundCombo.getValue();
+                dto.alertRoles = new HashSet<>(rolesCombo.getValue());
                 
                 if (existingDto == null) {
                     alerts.add(dto);
@@ -844,11 +904,41 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         setupMentionLogic(mentionMessageField.getElement(), "mention-message-input");
         setupMentionLogic(mentionPrevMessageField.getElement(), "mention-prev-message-input");
 
-        VerticalLayout layout = new VerticalLayout(labelField, colorCombo, finalizerCheck, globalCheck, shouldPulseCheck,
-                mentionAuthorCheck, mentionMessageField, 
-                mentionPrevCheck, mentionPrevMessageField,
-                hasResponseCheck, responseRequiredCheck, responseLabelField, responseInputTypeCombo, responseOptionsField, responseIsCompactCheck,
-                nextStepsCombo, suggestionWrapper);
+        ComboBox<String> soundCombo = new ComboBox<>("Som ao entrar nesta etapa");
+        soundCombo.setItems(soundService.getAvailableAlertSounds());
+        soundCombo.setWidthFull();
+        soundCombo.setClearButtonVisible(true);
+        soundCombo.setPlaceholder("Sem som");
+
+        Button playBtn = new Button(VaadinIcon.PLAY.create(), e -> {
+            if (soundCombo.getValue() != null) {
+                getElement().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", soundCombo.getValue());
+            }
+        });
+        playBtn.addThemeVariants(ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_TERTIARY);
+
+        MultiSelectComboBox<Role> rolesCombo = new MultiSelectComboBox<>("Perfis que ouvem (vazio = todos)");
+        rolesCombo.setItems(Role.values());
+        rolesCombo.setItemLabelGenerator(Role::getDescription);
+        rolesCombo.setWidthFull();
+
+        HorizontalLayout soundLayout = new HorizontalLayout(soundCombo, playBtn, rolesCombo);
+        soundLayout.setWidthFull();
+        soundLayout.setAlignItems(FlexComponent.Alignment.END);
+        
+        if (existingDto != null) {
+            soundCombo.setValue(existingDto.alertSound);
+            if (existingDto.alertRoles != null) rolesCombo.setValue(existingDto.alertRoles);
+        }
+
+        VerticalLayout layout = new VerticalLayout(
+            labelField, colorCombo, globalCheck, finalizerCheck, shouldPulseCheck,
+            mentionAuthorCheck, mentionMessageField,
+            mentionPrevCheck, mentionPrevMessageField,
+            hasResponseCheck, responseRequiredCheck, responseLabelField, responseInputTypeCombo, responseOptionsField, responseIsCompactCheck,
+            soundLayout,
+            nextStepsCombo, suggestionWrapper
+        );
         dialog.add(layout);
 
         Button saveBtn = new Button("Salvar", e -> {
@@ -871,6 +961,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             dto.responseFieldLabel = responseLabelField.getValue();
             dto.responseIsCompact = responseIsCompactCheck.getValue();
             dto.responseInputType = responseInputTypeCombo.getValue();
+            dto.alertSound = soundCombo.getValue();
+            dto.alertRoles = new HashSet<>(rolesCombo.getValue());
             if (responseOptionsField.isVisible() && !responseOptionsField.isEmpty()) {
                 dto.responseOptions = List.of(responseOptionsField.getValue().split("\\s*,\\s*"));
             } else {
@@ -1118,7 +1210,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         // Se label for null, estamos no estado "Pendente"
         boolean isPending = (currentStep == null);
 
-        String themeColor = isPending ? "gray" : currentStep.colorTheme;
+        String themeColor = isPending ? "gray" : (currentStep != null ? currentStep.colorTheme : "gray");
         String[] colors = TaskUIUtils.getThemeColors(themeColor);
         String bgColor = colors[0];
         String borderColor = colors[1];
@@ -1459,6 +1551,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         t.getAuthorizingUsers().clear();
         t.getAuthorizingUsers().addAll(authorizingUsersCombo.getValue());
         t.setPlayAlertSound(playAlertSoundUI.getValue());
+        t.setAlertSound(globalAlertSoundCombo.getValue());
+        t.getAlertRoles().clear();
+        t.getAlertRoles().addAll(globalAlertRolesCombo.getValue());
         t.setRegistraNoRelatorioLoja(registraNoRelatorioLojaUI.getValue());
         t.getGroups().clear();
         if (groupComboBox.getValue() != null) {
@@ -1525,6 +1620,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             rel.setResponseFieldLabel(dto.responseFieldLabel);
             rel.setResponseIsCompact(dto.responseIsCompact);
             rel.setResponseInputType(dto.responseInputType);
+            rel.setAlertSound(dto.alertSound);
+            if (dto.alertRoles != null) rel.getAlertRoles().addAll(dto.alertRoles);
             
             if (dto.responseOptions != null && !dto.responseOptions.isEmpty()) {
                 for (String optStr : dto.responseOptions) {
@@ -1558,6 +1655,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 alert.setTargetStep(target);
                 alert.setTimeoutMinutes(dto.timeoutMinutes);
                 alert.setAlertMessage(dto.alertMessage);
+                alert.setAlertSound(dto.alertSound);
+                if (dto.alertRoles != null) alert.getAlertRoles().addAll(dto.alertRoles);
                 taskAlerts.add(alert);
             }
         }
@@ -1579,6 +1678,11 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 authorizingUsersCombo.setValue(new HashSet<>(t.getAuthorizingUsers()));
                 authorizingUsersCombo.setVisible(t.isRequiresSignature());
                 playAlertSoundUI.setValue(t.isPlayAlertSound());
+                globalAlertSoundCombo.setValue(t.getAlertSound());
+                globalAlertRolesCombo.setValue(new HashSet<>(t.getAlertRoles()));
+                globalAlertSoundCombo.setVisible(t.isPlayAlertSound());
+                globalAlertRolesCombo.setVisible(t.isPlayAlertSound());
+                playGlobalSoundBtn.setVisible(t.isPlayAlertSound());
                 registraNoRelatorioLojaUI.setValue(t.isRegistraNoRelatorioLoja());
                 groupComboBox.setValue(t.getGroups());
 
@@ -1617,6 +1721,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     dto.responseFieldLabel = sr.getResponseFieldLabel();
                     dto.responseIsCompact = sr.isResponseIsCompact();
                     dto.responseInputType = sr.getResponseInputType();
+                    dto.alertSound = sr.getAlertSound();
+                    dto.alertRoles = new HashSet<>(sr.getAlertRoles());
                     if (sr.getResponseOptions() != null) {
                         dto.responseOptions = sr.getResponseOptions().stream()
                                 .map(TaskFieldOption::getOptionLabel)
@@ -1639,6 +1745,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     dto.targetStepLabel = alert.getTargetStep().getLabel();
                     dto.timeoutMinutes = alert.getTimeoutMinutes();
                     dto.alertMessage = alert.getAlertMessage();
+                    dto.alertSound = alert.getAlertSound();
+                    dto.alertRoles = new HashSet<>(alert.getAlertRoles());
                     alerts.add(dto);
                 }
                 alertsGrid.getDataProvider().refreshAll();

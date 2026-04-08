@@ -1,10 +1,13 @@
 package com.xflprflx.neokioski.models.template;
 
 
+import com.xflprflx.neokioski.models.enums.Role;
 import jakarta.persistence.*;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.Objects;
 
 @Entity
@@ -67,6 +70,14 @@ public class TemplateStepRelation {
 
     @Column(columnDefinition = "TEXT")
     private String mentionPreviousActorMessage;
+
+    private String alertSound;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @Enumerated(EnumType.STRING)
+    @CollectionTable(name = "tb_template_step_relation_alert_roles", joinColumns = @JoinColumn(name = "relation_id"))
+    @Column(name = "role")
+    private Set<Role> alertRoles = new HashSet<>();
 
     public TemplateStepRelation() {
     }
@@ -213,6 +224,22 @@ public class TemplateStepRelation {
 
     public void setResponseOptions(List<TaskFieldOption> responseOptions) {
         this.responseOptions = responseOptions;
+    }
+
+    public String getAlertSound() {
+        return alertSound;
+    }
+
+    public void setAlertSound(String alertSound) {
+        this.alertSound = alertSound;
+    }
+
+    public Set<Role> getAlertRoles() {
+        return alertRoles;
+    }
+
+    public void setAlertRoles(Set<Role> alertRoles) {
+        this.alertRoles = alertRoles;
     }
 
     public void addResponseOption(TaskFieldOption option) {

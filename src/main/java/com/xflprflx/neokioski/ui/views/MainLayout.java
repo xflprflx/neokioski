@@ -231,41 +231,51 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
             this.currentUser = u;
             // Registrar listener de mensagens para alertas temporais, steps e chat comum
             this.chatMessageListener = message -> {
-                // Buscar usuário fresco para garantir preferências atuais
-                userService.findById(u.getId()).ifPresent(freshUser -> {
+                if (getUI().isEmpty()) return;
+                
+                System.out.println("[DEBUG-SOUND] Mensagem recebida por: " + u.getUsername() + " (ID: " + u.getId() + ")");
+
+                // Buscar usuário fresco para garantir preferências atuais (NotifyStoreOrder, etc)
+                userService.findById(u.getId()).ifPresentOrElse(freshUser -> {
                     
+                    System.out.println("[DEBUG-SOUND] Usuário: " + freshUser.getUsername() + 
+                                     " | Role: " + (freshUser.getRole() != null ? freshUser.getRole().name() : "NULL") +
+                                     " | Pedidos: " + freshUser.isNotifyStoreOrder() + 
+                                     " | Chat: " + freshUser.isNotifyChatSounds());
+
                     // Prioridade 1: Alertas operacionais (AlertSound preenchido)
                     if (message.getAlertSound() != null && !message.getAlertSound().isEmpty()) {
+                        System.out.println("[DEBUG-SOUND] Operacional: " + message.getAlertSound() + " | Roles: " + message.getAlertRoles());
+                        
                         boolean hasRoleAccess = true;
                         if (message.getAlertRoles() != null && !message.getAlertRoles().isEmpty()) {
                             hasRoleAccess = false;
                             String[] roles = message.getAlertRoles().split(",");
                             for (String rStr : roles) {
-                                if (freshUser.getRole() != null && freshUser.getRole().name().equals(rStr.trim())) {
+                                String userRole = (freshUser.getRole() != null) ? freshUser.getRole().name() : "NULL";
+                                String targetRole = rStr.trim();
+                                
+                                if (userRole.equalsIgnoreCase(targetRole)) {
                                     hasRoleAccess = true;
                                     break;
                                 }
                             }
                         }
                         
-                        System.out.println("[SOUND-SRV] Mensagem operacional recebida: " + message.getAlertSound() + 
-                                         " | RoleAccess=" + hasRoleAccess + " | NotifyStoreOrder=" + freshUser.isNotifyStoreOrder());
+                        System.out.println("[DEBUG-SOUND] hasRoleAccess: " + hasRoleAccess);
 
                         if (hasRoleAccess && freshUser.isNotifyStoreOrder()) {
                             getUI().ifPresent(ui -> ui.access(() -> {
-                                System.out.println("[SOUND-SRV] Tocar Operacional: " + message.getAlertSound());
+                                System.out.println("[DEBUG-SOUND] Tocar JS: " + message.getAlertSound());
                                 ui.getPage().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", message.getAlertSound());
                             }));
-                            return; // SE TOCOU OPERACIONAL, NUNCA TOCA CHAT
+                        } else {
+                            System.out.println("[DEBUG-SOUND] Bloqueado: Access=" + hasRoleAccess + ", Notify=" + freshUser.isNotifyStoreOrder());
                         }
-                        
-                        // Se era operacional mas esse usuário não tem acesso ou desativou, também NÃO toca chat
-                        if (!hasRoleAccess || !freshUser.isNotifyStoreOrder()) {
-                             return;
-                        }
+                        return;
                     }
                     
-                    // Prioridade 2: Sons de chat (apenas se for mensagem real de chat, não sistema com som)
+                    // Prioridade 2: Sons de chat
                     boolean isSystemMessageWithNoSound = (message.getUser() == null && (message.getAlertSound() == null || message.getAlertSound().isEmpty()));
                     
                     if (freshUser.isNotifyChatSounds() && !isSystemMessageWithNoSound) {
@@ -289,18 +299,33 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
                                 }
                                 
                                 if (soundToPlay != null) {
-                                    System.out.println("[SOUND-SRV] Tocar Chat: " + soundToPlay + " (Preference=" + freshUser.isNotifyChatSounds() + ")");
+                                    System.out.println("[DEBUG-SOUND] Tocar JS Chat: " + soundToPlay);
                                     ui.getPage().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", soundToPlay);
                                 }
                             }));
                         }
                     }
+                }, () -> {
+                    System.out.println("[DEBUG-SOUND] ERRO: Usuário ID " + u.getId() + " não encontrado pelo userService!");
                 });
             };
             
-            groupService.findActiveGroupsByUser(u).forEach(group -> {
-                chatService.register(group.getId(), chatMessageListener);
-            });
+            // Registrar canais de áudio
+            java.util.List<com.xflprflx.neokioski.models.Group> groups = groupService.findActiveGroupsByUser(u);
+            
+            // FALLBACK PARA ADMIN: Registrar em todos os grupos ativos se a lista estiver vazia
+            if (u.getRole() == com.xflprflx.neokioski.models.enums.Role.ADMIN && (groups == null || groups.isEmpty())) {
+                System.out.println("[DEBUG-SOUND] Admin sem grupos explícitos. Registrando fallback global.");
+                groups = groupService.findAll();
+            }
+
+            System.out.println("[DEBUG-SOUND] Usuário " + u.getUsername() + " registrando em " + (groups != null ? groups.size() : 0) + " grupos.");
+            
+            if (groups != null) {
+                groups.forEach(group -> {
+                    chatService.register(group.getId(), chatMessageListener);
+                });
+            }
         });
     }
 

@@ -46,35 +46,58 @@ public class ChatService {
     }
 
     @Transactional
+    public ChatMessage sendMessageWithTask(String content, User user, Group group, Task task, String alertSound, String alertRoles) {
+        ChatMessage message = new ChatMessage(content, user, group, null);
+        message.setAlertSound(alertSound);
+        message.setAlertRoles(alertRoles);
+        message.setTask(task);
+        message = repository.save(message);
+        broadcast(group.getId(), message);
+        return message;
+    }
+
+    @Transactional
     public ChatMessage sendSystemAlertForTask(String content, Task task) {
         return sendSystemAlertForTask(content, task, null, null);
     }
 
     @Transactional
     public ChatMessage sendSystemAlertForTask(String content, Task task, String alertSound, String alertRoles) {
-        // 1. Envia mensagem de alerta vinculada como 'resposta' à tarefa original
+        // Alerta efêmero: NÃO salvamos no banco de dados para evitar lixo e duplicidade de cards
         ChatMessage alertMsg = new ChatMessage(content, null, task.getGroup(), null);
         alertMsg.setAlertSound(alertSound);
         alertMsg.setAlertRoles(alertRoles);
         
-        // Em vez de vincular ao `.setTask` (que geraria um clone do card na UI),
-        // vinculamos ao `.setReplyTo` para que a UI renderize uma citação arrastável!
+        // Vínculo apenas lógico para broadcast
         List<ChatMessage> msgs = repository.findByTaskOrderByIdAsc(task);
         if (!msgs.isEmpty()) {
             alertMsg.setReplyTo(msgs.get(0));
         }
 
-        alertMsg = repository.save(alertMsg);
         broadcast(task.getGroup().getId(), alertMsg);
 
-        // 2. Re-broadcast do(s) card(s) original(is) da tarefa para atualizar o visual
+        // Re-broadcast das mensagens originais para atualizar a UI (status do card)
+        // ESSENCIAL: Limpar alertSound temporariamente para evitar "eco" sonoro (tocar criação de novo)
         for (ChatMessage msg : msgs) {
-            if (!msg.getId().equals(alertMsg.getId())) {
+            String originalSound = msg.getAlertSound();
+            msg.setAlertSound(null); // Silenciar para este broadcast
+            try {
                 broadcast(msg.getGroup().getId(), msg);
+            } finally {
+                msg.setAlertSound(originalSound); // Restaurar
             }
         }
 
         return alertMsg;
+    }
+
+    public void broadcastSoundOnly(String alertSound, String alertRoles, Group group) {
+        if (alertSound == null || alertSound.isEmpty()) return;
+        
+        ChatMessage ephemeral = new ChatMessage("(Alerta Sonoro)", null, group, null);
+        ephemeral.setAlertSound(alertSound);
+        ephemeral.setAlertRoles(alertRoles);
+        broadcast(group.getId(), ephemeral);
     }
 
     @Transactional

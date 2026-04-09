@@ -238,7 +238,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         });
 
         // Controles de áudio
-        notifyStoreOrderCheckbox = new com.vaadin.flow.component.checkbox.Checkbox("Alerta Pedidos");
+        notifyStoreOrderCheckbox = new com.vaadin.flow.component.checkbox.Checkbox("Alerta Pedidos", currentUser != null && currentUser.isNotifyStoreOrder());
         notifyStoreOrderCheckbox.addValueChangeListener(e -> {
             if (currentUser != null) {
                 userService.updateNotifyStoreOrder(currentUser.getId(), e.getValue());
@@ -247,7 +247,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             }
         });
 
-        notifyChatSoundsCheckbox = new com.vaadin.flow.component.checkbox.Checkbox("Sons Chat");
+        notifyChatSoundsCheckbox = new com.vaadin.flow.component.checkbox.Checkbox("Sons Chat", currentUser != null && currentUser.isNotifyChatSounds());
         notifyChatSoundsCheckbox.addValueChangeListener(e -> {
             if (currentUser != null) {
                 userService.updateNotifyChatSounds(currentUser.getId(), e.getValue());
@@ -549,8 +549,13 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             }
 
             Task task = taskService.createTask(template, fieldValues, currentUser, group);
-            ChatMessage msg = chatService.sendMessage("📋 Tarefa: " + template.getName(), currentUser, group);
-            chatService.linkTaskToMessage(msg.getId(), task);
+            
+            String alertSound = template.isPlayAlertSound() ? template.getAlertSound() : null;
+            String alertRoles = (template.getAlertRoles() != null && !template.getAlertRoles().isEmpty())
+                    ? template.getAlertRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.joining(","))
+                    : null;
+            
+            chatService.sendMessageWithTask("📋 Tarefa: " + template.getName(), currentUser, group, task, alertSound, alertRoles);
             
             Notification.show("Tarefa '" + template.getName() + "' criada!", 2000, Notification.Position.BOTTOM_END)
                     .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
@@ -1776,6 +1781,9 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         }
 
         listener = msg -> {
+            // Ignorar mensagens efêmeras (ID nulo) para a UI do Chat (são apenas para sinalização sonora)
+            if (msg.getId() == null) return;
+
             if (getUI().isPresent()) {
                 getUI().get().access(() -> {
                     boolean isNew = !messageWrappers.containsKey(msg.getId());

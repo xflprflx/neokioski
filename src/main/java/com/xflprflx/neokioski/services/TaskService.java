@@ -67,12 +67,7 @@ public class TaskService {
         Task saved = taskRepository.save(task);
         taskAlertService.scheduleAlertsForTask(saved);
 
-        String alertSound = template.isPlayAlertSound() ? template.getAlertSound() : null;
-        String alertRoles = (template.getAlertRoles() != null && !template.getAlertRoles().isEmpty())
-                ? template.getAlertRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.joining(","))
-                : null;
-
-        chatService.sendSystemAlertForTask("Uma nova tarefa de '" + template.getName() + "' foi criada.", saved, alertSound, alertRoles);
+        // chatService.sendSystemAlertForTask removido daqui (será enviado pelo ChatView com a mensagem do usuário)
         broadcast(group.getId(), saved);
         return saved;
     }

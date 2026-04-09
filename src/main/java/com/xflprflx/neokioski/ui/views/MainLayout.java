@@ -4,6 +4,7 @@ import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.applayout.DrawerToggle;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
@@ -29,7 +30,9 @@ import com.xflprflx.neokioski.services.ChatService;
 import com.xflprflx.neokioski.models.ChatMessage;
 import jakarta.annotation.security.PermitAll;
 
+import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -49,7 +52,6 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     private final VerticalLayout drawerContainer = new VerticalLayout();
     private User currentUser;
     private List<String> availableSounds = new ArrayList<>();
-    private Consumer<Task> globalTaskListener;
     private Consumer<ChatMessage> chatMessageListener;
 
     public MainLayout(AuthenticationContext authContext, GroupService groupService,
@@ -165,22 +167,43 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         }
     }
 
+    private String loadAudioAsBase64(String resourcePath) {
+        String path = resourcePath.startsWith("/") ? resourcePath : "/" + resourcePath;
+        try (InputStream is = getClass().getResourceAsStream(path)) {
+            if (is == null) return "";
+            byte[] bytes = is.readAllBytes();
+            return Base64.getEncoder().encodeToString(bytes);
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
     @Override
     protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
         super.onAttach(attachEvent);
         
-        // Injetar dados de áudio no cliente via URL
+        // Carregar sons fixos do chat
+        String newMessageB64 = loadAudioAsBase64("themes/neokioski/sounds/new-message.mp3");
+        String replyToMeB64 = loadAudioAsBase64("themes/neokioski/sounds/reply-to-me.mp3");
+        String mentionedB64 = loadAudioAsBase64("themes/neokioski/sounds/i-was-mentioned.mp3");
+        String removeOrEditB64 = loadAudioAsBase64("themes/neokioski/sounds/remove-or-edit.mp3");
+
+        // Injetar dados de áudio no cliente
         StringBuilder jsBuilder = new StringBuilder();
         jsBuilder.append("window.audioData = window.audioData || {};");
         
         // Mapear cada som disponível para sua URL estática
         for (String sound : availableSounds) {
             String url = "/sounds/" + sound.replace("#", "%23");
-            System.out.println("SOUND: Mapping " + sound + " to URL: " + url);
             jsBuilder.append(String.format("window.audioData['%s'] = '%s';", sound, url));
         }
         
-        // Fallback para o som antigo se não estiver na lista nova
+        // Injetar sons Base64
+        jsBuilder.append(String.format("window.audioData['new-message'] = 'data:audio/mp3;base64,%s';", newMessageB64));
+        jsBuilder.append(String.format("window.audioData['reply-to-me'] = 'data:audio/mp3;base64,%s';", replyToMeB64));
+        jsBuilder.append(String.format("window.audioData['i-was-mentioned'] = 'data:audio/mp3;base64,%s';", mentionedB64));
+        jsBuilder.append(String.format("window.audioData['remove-or-edit'] = 'data:audio/mp3;base64,%s';", removeOrEditB64));
+
         if (!availableSounds.contains("pedido-loja")) {
              jsBuilder.append("window.audioData['pedido-loja'] = '/sounds/pedido-loja';");
         }
@@ -189,7 +212,10 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
             "window.playAlertSound = function(soundName) {" +
             "  console.log('SOUND: Play Alert Sound triggered:', soundName);" +
             "  const url = window.audioData[soundName];" +
-            "  if(url) {" +
+            "  if(url && url.length > 50) {" +
+            "    const audio = new Audio(url);" +
+            "    audio.play().catch(e => console.error('Audio play failed (prob autoplay policy):', e));" +
+            "  } else if(url) {" +
             "    const audio = new Audio(url);" +
             "    audio.play().catch(e => console.error('Audio play failed:', e));" +
             "  } else { console.warn('SOUND: Audio URL missing for ', soundName); }" +
@@ -197,82 +223,114 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
             "window.playStoreOrderSound = function() { window.playAlertSound('pedido-loja'); };"
         );
         attachEvent.getUI().getPage().executeJs(jsBuilder.toString());
+        
+        showPermissionDialog();
 
         // Capturar usuário atual e ID para a closure
         securityService.getAuthenticatedInternalUser().ifPresent(u -> {
             this.currentUser = u;
-            final Long currentUserId = u.getId();
-
-            // Registrar listener global para som de pedido
-            this.globalTaskListener = task -> {
-                if (task.getTaskTemplate() != null && task.getTaskTemplate().isPlayAlertSound()) {
-                    boolean isNewTask = task.getCurrentStep() == null;
-                    
-                    if (isNewTask && currentUserId != null) {
-                        userService.findById(currentUserId).ifPresent(user -> {
-                            // Verificar Role se configurado
-                            boolean hasRoleAccess = true;
-                            if (task.getTaskTemplate().getAlertRoles() != null && !task.getTaskTemplate().getAlertRoles().isEmpty()) {
-                                hasRoleAccess = task.getTaskTemplate().getAlertRoles().contains(user.getRole());
-                            }
-
-                            if (user.isNotifyStoreOrder() && hasRoleAccess) {
-                                String sound = task.getTaskTemplate().getAlertSound();
-                                if (sound == null || sound.isEmpty()) sound = "pedido-loja";
-                                
-                                final String soundName = sound;
-                                getUI().ifPresent(ui -> ui.access(() -> {
-                                    System.out.println("DEBUG SOUND: Disparando JS playAlertSound para " + soundName);
-                                    ui.getPage().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", soundName);
-                                }));
-                            }
-                        });
-                    }
-                }
-            };
-            taskService.registerGlobal(globalTaskListener);
-
-            // Registrar listener de mensagens para alertas temporais e steps
+            // Registrar listener de mensagens para alertas temporais, steps e chat comum
             this.chatMessageListener = message -> {
-                System.out.println("DEBUG SOUND: Recebido no MainLayout para grupo. User=" + u.getUsername() + ", alertSound=" + message.getAlertSound() + ", roles=" + message.getAlertRoles());
-                if (message.getAlertSound() != null && !message.getAlertSound().isEmpty()) {
-                    // Verificar Role se configurado
-                    boolean hasRoleAccess = true;
-                    if (message.getAlertRoles() != null && !message.getAlertRoles().isEmpty()) {
-                        hasRoleAccess = false;
-                        String[] roles = message.getAlertRoles().split(",");
-                        for (String rStr : roles) {
-                            if (currentUser.getRole() != null && currentUser.getRole().name().equals(rStr.trim())) {
-                                hasRoleAccess = true;
-                                break;
+                // Buscar usuário fresco para garantir preferências atuais
+                userService.findById(u.getId()).ifPresent(freshUser -> {
+                    
+                    // Prioridade 1: Alertas operacionais (AlertSound preenchido)
+                    if (message.getAlertSound() != null && !message.getAlertSound().isEmpty()) {
+                        boolean hasRoleAccess = true;
+                        if (message.getAlertRoles() != null && !message.getAlertRoles().isEmpty()) {
+                            hasRoleAccess = false;
+                            String[] roles = message.getAlertRoles().split(",");
+                            for (String rStr : roles) {
+                                if (freshUser.getRole() != null && freshUser.getRole().name().equals(rStr.trim())) {
+                                    hasRoleAccess = true;
+                                    break;
+                                }
                             }
                         }
-                    }
-                    boolean notifyOrder = (currentUser != null && currentUser.isNotifyStoreOrder());
-                    System.out.println("DEBUG SOUND: hasRoleAccess=" + hasRoleAccess + ", notifyStoreOrder=" + notifyOrder);
+                        
+                        System.out.println("[SOUND-SRV] Mensagem operacional recebida: " + message.getAlertSound() + 
+                                         " | RoleAccess=" + hasRoleAccess + " | NotifyStoreOrder=" + freshUser.isNotifyStoreOrder());
 
-                    if (hasRoleAccess && notifyOrder) {
-                        getUI().ifPresent(ui -> ui.access(() -> {
-                            System.out.println("DEBUG SOUND: Disparando JS playAlertSound para " + message.getAlertSound());
-                            ui.getPage().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", message.getAlertSound());
-                        }));
+                        if (hasRoleAccess && freshUser.isNotifyStoreOrder()) {
+                            getUI().ifPresent(ui -> ui.access(() -> {
+                                System.out.println("[SOUND-SRV] Tocar Operacional: " + message.getAlertSound());
+                                ui.getPage().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", message.getAlertSound());
+                            }));
+                            return; // SE TOCOU OPERACIONAL, NUNCA TOCA CHAT
+                        }
+                        
+                        // Se era operacional mas esse usuário não tem acesso ou desativou, também NÃO toca chat
+                        if (!hasRoleAccess || !freshUser.isNotifyStoreOrder()) {
+                             return;
+                        }
                     }
-                }
+                    
+                    // Prioridade 2: Sons de chat (apenas se for mensagem real de chat, não sistema com som)
+                    boolean isSystemMessageWithNoSound = (message.getUser() == null && (message.getAlertSound() == null || message.getAlertSound().isEmpty()));
+                    
+                    if (freshUser.isNotifyChatSounds() && !isSystemMessageWithNoSound) {
+                        if (message.getUser() == null || !message.getUser().getId().equals(freshUser.getId())) {
+                            getUI().ifPresent(ui -> ui.access(() -> {
+                                String soundToPlay = null;
+                                
+                                boolean isReplyToMe = message.getReplyTo() != null && 
+                                                     message.getReplyTo().getUser() != null &&
+                                                     message.getReplyTo().getUser().getId().equals(freshUser.getId());
+                                
+                                boolean mentioned = message.getContent() != null && 
+                                                   message.getContent().contains("@" + freshUser.getUsername());
+
+                                if (isReplyToMe) {
+                                    soundToPlay = "reply-to-me";
+                                } else if (mentioned) {
+                                    soundToPlay = "i-was-mentioned";
+                                } else if (message.getAlertSound() == null || message.getAlertSound().isEmpty()) {
+                                    soundToPlay = "new-message";
+                                }
+                                
+                                if (soundToPlay != null) {
+                                    System.out.println("[SOUND-SRV] Tocar Chat: " + soundToPlay + " (Preference=" + freshUser.isNotifyChatSounds() + ")");
+                                    ui.getPage().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", soundToPlay);
+                                }
+                            }));
+                        }
+                    }
+                });
             };
             
-            // Ouvir mensagens de todos os grupos do usuário para tocar sons de alertas/steps
             groupService.findActiveGroupsByUser(u).forEach(group -> {
                 chatService.register(group.getId(), chatMessageListener);
             });
         });
     }
 
+    private void showPermissionDialog() {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Ativar Alertas Sonoros");
+        
+        com.vaadin.flow.component.html.Span text = new com.vaadin.flow.component.html.Span(
+            "Para ouvir os alertas de novos pedidos e mensagens, é necessário autorizar o áudio no navegador."
+        );
+        VerticalLayout layout = new VerticalLayout(text);
+        layout.setPadding(false);
+        dialog.add(layout);
+
+        Button confirmBtn = new Button("Autorizar Áudio", e -> {
+            dialog.close();
+            // O clique dispara o unlock global via JS injetado
+        });
+        confirmBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        confirmBtn.setWidthFull();
+        
+        dialog.getFooter().add(confirmBtn);
+        dialog.setCloseOnEsc(false);
+        dialog.setCloseOnOutsideClick(false);
+        dialog.open();
+    }
+
     @Override
     protected void onDetach(com.vaadin.flow.component.DetachEvent detachEvent) {
         super.onDetach(detachEvent);
-        if (globalTaskListener != null) {
-            taskService.unregisterGlobal(globalTaskListener);
-        }
         if (chatMessageListener != null && currentUser != null) {
             groupService.findActiveGroupsByUser(currentUser).forEach(group -> {
                 chatService.unregister(group.getId(), chatMessageListener);

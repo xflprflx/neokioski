@@ -66,7 +66,13 @@ public class TaskService {
 
         Task saved = taskRepository.save(task);
         taskAlertService.scheduleAlertsForTask(saved);
-        chatService.sendSystemAlertForTask("Uma nova tarefa de '" + template.getName() + "' foi criada.", saved, null, null);
+
+        String alertSound = template.isPlayAlertSound() ? template.getAlertSound() : null;
+        String alertRoles = (template.getAlertRoles() != null && !template.getAlertRoles().isEmpty())
+                ? template.getAlertRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.joining(","))
+                : null;
+
+        chatService.sendSystemAlertForTask("Uma nova tarefa de '" + template.getName() + "' foi criada.", saved, alertSound, alertRoles);
         broadcast(group.getId(), saved);
         return saved;
     }
@@ -428,6 +434,7 @@ public class TaskService {
                     l.accept(task);
                 } catch (Exception e) {
                     System.err.println("Erro ao notificar listener de Task no grupo " + groupId + ": " + e.getMessage());
+                    e.printStackTrace();
                 }
             }
         }

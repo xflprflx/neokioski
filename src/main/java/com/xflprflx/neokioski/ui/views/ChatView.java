@@ -542,6 +542,12 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                 String value = extractFieldValue(entry.getValue());
                 fieldValues.put(entry.getKey(), value);
                 
+                // Auto-copy para o clipboard (especialmente se for lista, o separador será \n)
+                String valueForClipboard = extractFieldValue(entry.getValue(), "\n");
+                if (!valueForClipboard.isBlank()) {
+                    copyToClipboard(valueForClipboard);
+                }
+                
                 // Limpar campo após envio
                 if (entry.getValue() instanceof com.vaadin.flow.component.HasValue<?, ?> hv) {
                     hv.clear();
@@ -1440,10 +1446,31 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     .set("font-size", "var(--lumo-font-size-s)");
             for (TaskFieldValue fv : task.getTaskFieldValues()) {
                 String fieldLabel = fv.getTaskFieldDefinition() != null ? fv.getTaskFieldDefinition().getLabel() : "Campo";
+                String valStr = fv.getValue();
+                
                 Div row = new Div();
+                row.getStyle().set("display", "flex").set("align-items", "center").set("gap", "4px");
+                
                 Span lbl = new Span(fieldLabel + ": ");
                 lbl.getStyle().set("font-weight", "bold");
-                row.add(lbl, new Span(fv.getValue()));
+                
+                Span val = new Span(valStr);
+                
+                // Botão de cópia discreto
+                Button copyBtn = new Button(VaadinIcon.COPY.create(), e -> {
+                    // Para cópia manual, também respeitamos o formato SAP se for lista
+                    // Como fv.getValue() já é uma string consolidada, se for uma lista separada por vírgula no DB,
+                    // talvez precisemos re-formatar. Mas geralmente o usuário quer o que está ali.
+                    // Se o valor contiver vírgulas e for suspeito de lista, poderíamos trocar por \n.
+                    // No entanto, para ser preciso, deveríamos usar o valor original se disponível.
+                    // Aqui fv.getValue() é a string salva.
+                    copyToClipboard(valStr.replace(", ", "\n"));
+                });
+                copyBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE, ButtonVariant.LUMO_SMALL);
+                copyBtn.getStyle().set("padding", "0").set("height", "auto").set("min-width", "auto");
+                copyBtn.setTooltipText("Copiar valor");
+
+                row.add(lbl, val, copyBtn);
                 fieldsDiv.add(row);
             }
             card.add(fieldsDiv);
@@ -1510,6 +1537,12 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     return;
                 } else if (comp instanceof com.vaadin.flow.component.HasValidation hv) {
                     hv.setInvalid(false);
+                }
+
+                // Auto-copy da resposta (especialmente se for lista para o SAP)
+                String responseForClipboard = extractFieldValue(comp, "\n");
+                if (!responseForClipboard.isBlank()) {
+                    copyToClipboard(responseForClipboard);
                 }
 
                 taskService.executeStep(task.getId(), step, currentUser, response);
@@ -1655,12 +1688,16 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     private String extractFieldValue(com.vaadin.flow.component.Component comp) {
+        return extractFieldValue(comp, ", ");
+    }
+
+    private String extractFieldValue(com.vaadin.flow.component.Component comp, String separator) {
         if (comp == null) return "";
         if (comp instanceof com.vaadin.flow.component.HasValue<?, ?> hv) {
             Object val = hv.getValue();
             if (val == null) return "";
             if (val instanceof java.util.Collection<?> col) {
-                return col.stream().map(Object::toString).collect(Collectors.joining(", "));
+                return col.stream().map(Object::toString).collect(Collectors.joining(separator));
             }
             if (val instanceof java.time.LocalDate ld) {
                 return ld.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE);
@@ -1671,6 +1708,25 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             return val.toString();
         }
         return "";
+    }
+
+    private void copyToClipboard(String text) {
+        if (text == null || text.isBlank()) return;
+        
+        getElement().executeJs(
+            "navigator.clipboard.writeText($0).then(() => {" +
+            "  console.log('Copiado para o clipboard');" +
+            "}).catch(err => {" +
+            "  console.error('Erro ao copiar: ', err);" +
+            "});",
+            text
+        );
+        
+        Notification n = new Notification("Copiado!");
+        n.setDuration(1500);
+        n.setPosition(Notification.Position.BOTTOM_END);
+        n.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+        n.open();
     }
 
     private void openTaskDetailsDialog(Task task) {
@@ -1714,7 +1770,18 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             content.add(fieldsTitle);
             for (TaskFieldValue fv : task.getTaskFieldValues()) {
                 String lbl = fv.getTaskFieldDefinition() != null ? fv.getTaskFieldDefinition().getLabel() : "Campo";
-                content.add(new Span("• " + lbl + ": " + fv.getValue()));
+                String valStr = fv.getValue();
+                
+                HorizontalLayout row = new HorizontalLayout(new Span("• " + lbl + ": " + valStr));
+                row.setSpacing(true);
+                row.setAlignItems(FlexComponent.Alignment.CENTER);
+                
+                Button copyBtn = new Button(VaadinIcon.COPY.create(), e -> copyToClipboard(valStr.replace(", ", "\n")));
+                copyBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE, ButtonVariant.LUMO_SMALL);
+                copyBtn.setTooltipText("Copiar");
+                
+                row.add(copyBtn);
+                content.add(row);
             }
         }
 
@@ -1729,9 +1796,19 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                 String line = "• " + who + " → " + step + " (" + when + ")";
                 content.add(new Span(line));
                 if (ev.getResponse() != null && !ev.getResponse().isBlank()) {
-                    Span resp = new Span("  Resp: " + ev.getResponse());
+                    String respStr = ev.getResponse();
+                    Span resp = new Span("  Resp: " + respStr);
                     resp.getStyle().set("font-style", "italic").set("color", "var(--lumo-secondary-text-color)").set("margin-left", "20px");
-                    content.add(resp);
+                    
+                    Button copyBtn = new Button(VaadinIcon.COPY.create(), e -> copyToClipboard(respStr.replace(", ", "\n")));
+                    copyBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE, ButtonVariant.LUMO_SMALL);
+                    copyBtn.getStyle().set("margin-left", "8px");
+                    copyBtn.setTooltipText("Copiar resposta");
+                    
+                    HorizontalLayout respRow = new HorizontalLayout(resp, copyBtn);
+                    respRow.setSpacing(false);
+                    respRow.setAlignItems(FlexComponent.Alignment.CENTER);
+                    content.add(respRow);
                 }
             }
         }

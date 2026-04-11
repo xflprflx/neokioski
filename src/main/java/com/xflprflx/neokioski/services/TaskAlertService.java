@@ -144,6 +144,15 @@ public class TaskAlertService {
             }
             return false;
         });
+
+        transactionTemplate.executeWithoutResult(status -> {
+            Task freshTask = taskRepository.findById(task.getId()).orElse(null);
+            if (freshTask != null && freshTask.isAlerted()) {
+                freshTask.setAlerted(false);
+                Task finalSaved = taskRepository.save(freshTask);
+                taskService.broadcast(finalSaved.getGroup().getId(), finalSaved);
+            }
+        });
     }
 
     private void cancelSingleAlert(Task task, TaskAlert alert) {

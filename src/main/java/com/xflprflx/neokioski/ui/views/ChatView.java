@@ -1626,13 +1626,26 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                 textList.setWidthFull();
                 textList.setRequiredIndicatorVisible(required);
                 textList.setAllowCustomValue(true);
+                
+                // Inicializar com opções se existirem
+                if (options != null && !options.isEmpty()) {
+                    textList.setItems(options);
+                }
+
                 textList.addCustomValueSetListener(e -> {
                     String customValue = e.getDetail();
-                    Set<String> items = new LinkedHashSet<>(textList.getGenericDataView().getItems().toList());
-                    items.add(customValue);
-                    textList.setItems(items);
-                    Set<String> currentValues = new HashSet<>(textList.getValue());
+                    if (customValue == null || customValue.isBlank()) return;
+
+                    // Capturar valores atuais ANTES de alterar os itens para evitar perda de seleção
+                    Set<String> currentValues = new LinkedHashSet<>(textList.getValue());
                     currentValues.add(customValue);
+
+                    // Atualizar lista de itens totais (DataView) para que o novo valor seja um item válido
+                    Set<String> allItems = new LinkedHashSet<>(textList.getListDataView().getItems().collect(Collectors.toList()));
+                    allItems.add(customValue);
+                    textList.setItems(allItems);
+
+                    // Definir a nova seleção completa, garantindo que os chips anteriores permaneçam
                     textList.setValue(currentValues);
                 });
                 fieldComponent = textList;

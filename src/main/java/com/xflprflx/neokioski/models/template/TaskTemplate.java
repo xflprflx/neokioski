@@ -31,6 +31,10 @@ public class TaskTemplate {
     private boolean registraNoRelatorioLoja = false;
     private String alertSound;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "default_responsible_role")
+    private Role defaultResponsibleRole;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @Enumerated(EnumType.STRING)
     @CollectionTable(name = "tb_task_template_alert_roles", joinColumns = @JoinColumn(name = "task_template_id"))
@@ -119,6 +123,14 @@ public class TaskTemplate {
         this.alertSound = alertSound;
     }
 
+    public Role getDefaultResponsibleRole() {
+        return defaultResponsibleRole;
+    }
+
+    public void setDefaultResponsibleRole(Role defaultResponsibleRole) {
+        this.defaultResponsibleRole = defaultResponsibleRole;
+    }
+
     public Set<Role> getAlertRoles() {
         return alertRoles;
     }
@@ -168,11 +180,11 @@ public class TaskTemplate {
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
         TaskTemplate that = (TaskTemplate) o;
-        return Objects.equals(id, that.id) && Objects.equals(name, that.name);
+        return Objects.equals(id, that.id) && Objects.equals(name, that.name) && defaultResponsibleRole == that.defaultResponsibleRole;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, name);
+        return Objects.hash(id, name, defaultResponsibleRole);
     }
 }

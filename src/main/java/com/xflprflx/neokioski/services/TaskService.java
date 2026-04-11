@@ -36,6 +36,15 @@ public class TaskService {
         this.taskAlertService = taskAlertService;
     }
 
+    public Optional<com.xflprflx.neokioski.models.enums.Role> getResponsibleRole(Task task) {
+        if (task.getCurrentStep() == null) {
+            return Optional.ofNullable(task.getTaskTemplate().getDefaultResponsibleRole());
+        }
+        return stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
+                task.getTaskTemplate().getId(), task.getCurrentStep().getId()
+        ).map(TemplateStepRelation::getResponsibleRole);
+    }
+
     @Transactional
     public Task createTask(TaskTemplate template,
                            Map<TaskFieldDefinition, String> fieldValues,

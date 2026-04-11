@@ -104,8 +104,10 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private boolean showTasksInChat = true;
     private String filterOwner = "todas";
     private String filterStatus = "todos";
+    private String filterSector = "todos";
     private ComboBox<String> ownerFilter;
     private ComboBox<String> statusFilter;
+    private ComboBox<String> sectorFilter;
     private com.vaadin.flow.component.datepicker.DatePicker startDatePicker;
     private com.vaadin.flow.component.datepicker.DatePicker endDatePicker;
     private com.vaadin.flow.component.checkbox.Checkbox showTasksInChatCheckbox;
@@ -320,7 +322,16 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             refreshTaskList();
         });
 
-        HorizontalLayout filters = new HorizontalLayout(ownerFilter, statusFilter);
+        sectorFilter = new ComboBox<>("Setor");
+        sectorFilter.setWidthFull();
+        sectorFilter.setClearButtonVisible(true);
+        sectorFilter.addValueChangeListener(e -> {
+            String val = e.getValue();
+            filterSector = (val == null || val.equals("Todos")) ? "todos" : val;
+            refreshTaskList();
+        });
+
+        HorizontalLayout filters = new HorizontalLayout(ownerFilter, sectorFilter, statusFilter);
         filters.setWidthFull();
 
         taskListArea.setWidthFull();
@@ -380,6 +391,16 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                         if (filterStatus.equals("Finalizadas")) return taskService.isTaskFinalized(t);
                         return t.getCurrentStep() != null && t.getCurrentStep().getLabel().equals(filterStatus);
                     })
+                    .collect(Collectors.toList());
+        }
+
+        // Filtrar por setor (Apenas se não for "Todos" e se a tarefa estiver pendente)
+        if (!filterSector.equals("todos")) {
+            tasks = tasks.stream()
+                    .filter(t -> !taskService.isTaskFinalized(t))
+                    .filter(t -> taskService.getResponsibleRole(t)
+                            .map(r -> r.getDescription().equals(filterSector))
+                            .orElse(false))
                     .collect(Collectors.toList());
         }
 
@@ -450,6 +471,15 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                 .forEach(stepOptions::add);
         statusFilter.setItems(stepOptions);
         statusFilter.setValue("Todos");
+
+        // Setor
+        List<String> sectorOptions = new ArrayList<>();
+        sectorOptions.add("Todos");
+        for (Role r : Role.values()) {
+            sectorOptions.add(r.getDescription());
+        }
+        sectorFilter.setItems(sectorOptions);
+        sectorFilter.setValue("Todos");
     }
 
     private void configureTemplateBar() {

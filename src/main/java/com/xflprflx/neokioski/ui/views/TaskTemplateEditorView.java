@@ -68,6 +68,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     private ComboBox<String> globalAlertSoundCombo = new ComboBox<>();
     private Button playGlobalSoundBtn = new Button(VaadinIcon.PLAY.create());
     private MultiSelectComboBox<Role> globalAlertRolesCombo = new MultiSelectComboBox<>("Perfis que ouvem (vazio = todos)");
+    private ComboBox<Role> defaultResponsibleRoleCombo = new ComboBox<>("Setor Responsável Inicial");
     private Checkbox registraNoRelatorioLojaUI = new Checkbox();
 
     // Tabs
@@ -123,6 +124,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         public List<String> responseOptions = new ArrayList<>();
         public String alertSound;
         public Set<Role> alertRoles = new HashSet<>();
+        public Role responsibleRole;
     }
 
     public static class AlertDTO {
@@ -417,7 +419,12 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         Span registraRelatorioText = new Span("Registra no relatório de loja?");
         registraRelatorioLayout.add(registraNoRelatorioLojaUI, registraRelatorioText);
 
-        secondRow.add(showSendBtnLayout, reqSignatureLayout, authorizingUsersCombo, playAlertSoundLayout, registraRelatorioLayout);
+        defaultResponsibleRoleCombo.setItems(Role.values());
+        defaultResponsibleRoleCombo.setItemLabelGenerator(Role::getDescription);
+        defaultResponsibleRoleCombo.setClearButtonVisible(true);
+        defaultResponsibleRoleCombo.setWidthFull();
+
+        secondRow.add(showSendBtnLayout, reqSignatureLayout, authorizingUsersCombo, playAlertSoundLayout, registraRelatorioLayout, defaultResponsibleRoleCombo);
 
         // Listeners para atualizar o preview
         nameField.addValueChangeListener(e -> updateCardsPreview());
@@ -925,14 +932,22 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         HorizontalLayout soundLayout = new HorizontalLayout(soundCombo, playBtn, rolesCombo);
         soundLayout.setWidthFull();
         soundLayout.setAlignItems(FlexComponent.Alignment.END);
-        
+
+        ComboBox<Role> responsibleRoleCombo = new ComboBox<>("Setor Responsável");
+        responsibleRoleCombo.setItems(Role.values());
+        responsibleRoleCombo.setItemLabelGenerator(Role::getDescription);
+        responsibleRoleCombo.setWidthFull();
+        responsibleRoleCombo.setClearButtonVisible(true);
+
         if (existingDto != null) {
             soundCombo.setValue(existingDto.alertSound);
             if (existingDto.alertRoles != null) rolesCombo.setValue(existingDto.alertRoles);
+            responsibleRoleCombo.setValue(existingDto.responsibleRole);
         }
 
         VerticalLayout layout = new VerticalLayout(
             labelField, colorCombo, globalCheck, finalizerCheck, shouldPulseCheck,
+            responsibleRoleCombo,
             mentionAuthorCheck, mentionMessageField,
             mentionPrevCheck, mentionPrevMessageField,
             hasResponseCheck, responseRequiredCheck, responseLabelField, responseInputTypeCombo, responseOptionsField, responseIsCompactCheck,
@@ -963,6 +978,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             dto.responseInputType = responseInputTypeCombo.getValue();
             dto.alertSound = soundCombo.getValue();
             dto.alertRoles = new HashSet<>(rolesCombo.getValue());
+            dto.responsibleRole = responsibleRoleCombo.getValue();
             if (responseOptionsField.isVisible() && !responseOptionsField.isEmpty()) {
                 dto.responseOptions = List.of(responseOptionsField.getValue().split("\\s*,\\s*"));
             } else {
@@ -1554,6 +1570,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         t.setAlertSound(globalAlertSoundCombo.getValue());
         t.getAlertRoles().clear();
         t.getAlertRoles().addAll(globalAlertRolesCombo.getValue());
+        t.setDefaultResponsibleRole(defaultResponsibleRoleCombo.getValue());
         t.setRegistraNoRelatorioLoja(registraNoRelatorioLojaUI.getValue());
         t.getGroups().clear();
         if (groupComboBox.getValue() != null) {
@@ -1622,6 +1639,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             rel.setResponseInputType(dto.responseInputType);
             rel.setAlertSound(dto.alertSound);
             if (dto.alertRoles != null) rel.getAlertRoles().addAll(dto.alertRoles);
+            rel.setResponsibleRole(dto.responsibleRole);
             
             if (dto.responseOptions != null && !dto.responseOptions.isEmpty()) {
                 for (String optStr : dto.responseOptions) {
@@ -1683,6 +1701,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 globalAlertSoundCombo.setVisible(t.isPlayAlertSound());
                 globalAlertRolesCombo.setVisible(t.isPlayAlertSound());
                 playGlobalSoundBtn.setVisible(t.isPlayAlertSound());
+                defaultResponsibleRoleCombo.setValue(t.getDefaultResponsibleRole());
                 registraNoRelatorioLojaUI.setValue(t.isRegistraNoRelatorioLoja());
                 groupComboBox.setValue(t.getGroups());
 
@@ -1723,6 +1742,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     dto.responseInputType = sr.getResponseInputType();
                     dto.alertSound = sr.getAlertSound();
                     dto.alertRoles = new HashSet<>(sr.getAlertRoles());
+                    dto.responsibleRole = sr.getResponsibleRole();
                     if (sr.getResponseOptions() != null) {
                         dto.responseOptions = sr.getResponseOptions().stream()
                                 .map(TaskFieldOption::getOptionLabel)

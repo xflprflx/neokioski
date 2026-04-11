@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS tb_template_step_relations
+CREATE TABLE IF NOT EXISTS public.tb_template_step_relations
 (
     has_response_field boolean NOT NULL,
     is_finalizer boolean NOT NULL,
@@ -17,14 +17,16 @@ CREATE TABLE IF NOT EXISTS tb_template_step_relations
     mention_previous_actor_message text COLLATE pg_catalog."default",
     response_field_label character varying(255) COLLATE pg_catalog."default",
     response_input_type character varying(255) COLLATE pg_catalog."default",
+    responsible_role character varying(255) COLLATE pg_catalog."default",
     CONSTRAINT tb_template_step_relations_pkey PRIMARY KEY (id),
     CONSTRAINT fk3pbg9hl8udut6vd45ne7qbat4 FOREIGN KEY (task_step_definition_id)
-    REFERENCES tb_task_step_definitions (id) MATCH SIMPLE
+    REFERENCES public.tb_task_step_definitions (id) MATCH SIMPLE
     ON UPDATE NO ACTION
     ON DELETE NO ACTION,
     CONSTRAINT fkamqg5e3lcbcusk01vtjihlpql FOREIGN KEY (task_template_id)
-    REFERENCES tb_task_templates (id) MATCH SIMPLE
+    REFERENCES public.tb_task_templates (id) MATCH SIMPLE
     ON UPDATE NO ACTION
     ON DELETE NO ACTION,
-    CONSTRAINT tb_template_step_relations_response_input_type_check CHECK (response_input_type::text = ANY (ARRAY['TEXT'::character varying, 'NUMBER'::character varying, 'RADIO'::character varying, 'CHECKBOX'::character varying, 'DATE'::character varying, 'TIME'::character varying, 'DROPDOWN'::character varying, 'TEXT_LIST'::character varying, 'MULTISELECT_DROPDOWN'::character varying]::text[]))
+    CONSTRAINT tb_template_step_relations_response_input_type_check CHECK (response_input_type::text = ANY (ARRAY['TEXT'::character varying, 'NUMBER'::character varying, 'RADIO'::character varying, 'CHECKBOX'::character varying, 'DATE'::character varying, 'TIME'::character varying, 'DROPDOWN'::character varying, 'TEXT_LIST'::character varying, 'MULTISELECT_DROPDOWN'::character varying]::text[])),
+    CONSTRAINT tb_template_step_relations_responsible_role_check CHECK (responsible_role::text = ANY (ARRAY['ADMIN'::character varying, 'SELLER'::character varying, 'LOGISTICS'::character varying]::text[]))
 );

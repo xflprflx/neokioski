@@ -70,8 +70,11 @@ public class TemplateStepRelation {
 
     @Column(columnDefinition = "TEXT")
     private String mentionPreviousActorMessage;
+    private String alertSound;
 
-    private String alertSound;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "responsible_role")
+    private Role responsibleRole;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @Enumerated(EnumType.STRING)
@@ -234,6 +237,14 @@ public class TemplateStepRelation {
         this.alertSound = alertSound;
     }
 
+    public Role getResponsibleRole() {
+        return responsibleRole;
+    }
+
+    public void setResponsibleRole(Role responsibleRole) {
+        this.responsibleRole = responsibleRole;
+    }
+
     public Set<Role> getAlertRoles() {
         return alertRoles;
     }
@@ -265,7 +276,8 @@ public class TemplateStepRelation {
                Objects.equals(taskStepDefinition, that.taskStepDefinition) &&
                responseInputType == that.responseInputType &&
                Objects.equals(responseOptions, that.responseOptions) &&
-               Objects.equals(responseFieldLabel, that.responseFieldLabel);
+               Objects.equals(responseFieldLabel, that.responseFieldLabel) &&
+               responsibleRole == that.responsibleRole;
     }
 
     @Override
@@ -275,6 +287,7 @@ public class TemplateStepRelation {
                             responseInputType, responseOptions,
                             mentionMessage, 
                             mentionPreviousActor, mentionPreviousActorMessage, 
-                            taskTemplate, taskStepDefinition, responseFieldLabel);
+                            taskTemplate, taskStepDefinition, responseFieldLabel, responsibleRole);
     }
+
 }

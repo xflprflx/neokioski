@@ -421,7 +421,7 @@ public class TaskService {
         return true;
     }
 
-    private void broadcast(Long groupId, Task task) {
+    public void broadcast(Long groupId, Task task) {
         List<Consumer<Task>> groupListeners = listeners.get(groupId);
         if (groupListeners != null) {
             for (Consumer<Task> l : groupListeners) {

@@ -2,23 +2,36 @@ package com.xflprflx.neokioski.services;
 
 import com.lowagie.text.*;
 import com.lowagie.text.Font;
+import com.lowagie.text.Rectangle;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
+import com.xflprflx.neokioski.models.StoreReportConfig;
+import com.xflprflx.neokioski.repositories.StoreReportConfigRepository;
 import org.springframework.stereotype.Service;
 
 import java.awt.*;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 @Service
 public class PdfService {
 
-    private final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM")
+    private final StoreReportConfigRepository configRepository;
+    private final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
             .withZone(ZoneId.systemDefault());
+
+    public PdfService(StoreReportConfigRepository configRepository) {
+        this.configRepository = configRepository;
+    }
 
     public ByteArrayInputStream generateStoreReportPdf(List<TaskService.StoreReportEntry> entries) {
         Document document = new Document(PageSize.A4, 36, 36, 36, 36);
@@ -34,78 +47,133 @@ public class PdfService {
             Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 8);
             Font fontSmall = FontFactory.getFont(FontFactory.HELVETICA, 7);
 
-            // Cabeçalho superior (Informações fixas)
-            PdfPTable headerTable = new PdfPTable(2);
-            headerTable.setWidthPercentage(100);
-            headerTable.setWidths(new float[]{1, 1});
+            // 1. Agrupar por data de coleta (LocalDate) usando TreeMap para manter a ordem cronológica
+            Map<LocalDate, List<TaskService.StoreReportEntry>> entriesByDate = entries.stream()
+                    .collect(Collectors.groupingBy(
+                            e -> e.collectedAt().atZone(ZoneId.systemDefault()).toLocalDate(),
+                            TreeMap::new,
+                            Collectors.toList()
+                    ));
 
-            headerTable.addCell(createCell("Loja/Unidade:", fontSmall));
-            headerTable.addCell(createCell("FRM-003921", fontSmall));
-            headerTable.addCell(createCell("Nome/Nome:", fontSmall));
-            headerTable.addCell(createCell("2", fontSmall)); // Revisão? Na imagem parece ser um campo
-            headerTable.addCell(createCell("Título/Title: Controle de Entrega Loja", fontSmall));
-            headerTable.addCell(createCell("", fontSmall));
-            headerTable.addCell(createCell("Responsável/Owner:", fontSmall));
-            headerTable.addCell(createCell("", fontSmall));
-            
-            document.add(headerTable);
+            boolean firstPage = true;
+            int pageNumber = 1;
+            int totalPages = entriesByDate.size();
 
-            // Espaçamento
-            document.add(new Paragraph("\n"));
+            for (Map.Entry<LocalDate, List<TaskService.StoreReportEntry>> group : entriesByDate.entrySet()) {
+                LocalDate date = group.getKey();
+                List<TaskService.StoreReportEntry> dateEntries = group.getValue();
 
-            // Título Principal
-            Paragraph title = new Paragraph("PEDIDOS RETIRA LOJA", fontHeader);
-            title.setAlignment(Element.ALIGN_CENTER);
-            document.add(title);
+                if (!firstPage) {
+                    document.newPage();
+                }
 
-            document.add(new Paragraph("\n"));
+                // Buscar configuração ativa para ESTA data específica
+                StoreReportConfig config = configRepository.findActiveConfig(date)
+                        .orElseGet(() -> {
+                            StoreReportConfig fallback = new StoreReportConfig();
+                            fallback.setIdentifier("FRM-003921");
+                            fallback.setRevision("2");
+                            fallback.setTitle("Controle de Entrega Loja");
+                            fallback.setOwner("Juliano Souza (U112006)");
+                            fallback.setTemplateCode("FRM-000922");
+                            return fallback;
+                        });
 
-            // Tabela de Dados
-            PdfPTable table = new PdfPTable(4);
-            table.setWidthPercentage(100);
-            table.setWidths(new float[]{1, 2, 4, 4});
+                // --- CABEÇALHO ---
+                PdfPTable headerTable = new PdfPTable(2);
+                headerTable.setWidthPercentage(100);
+                headerTable.setWidths(new float[]{3, 1});
 
-            // Headers da Tabela
-            table.addCell(createHeaderCell("SQ", fontTitle));
-            table.addCell(createHeaderCell("Data", fontTitle));
-            table.addCell(createHeaderCell("Número da Delivery", fontTitle));
-            table.addCell(createHeaderCell("Entregue para:", fontTitle));
+                PdfPTable identTable = new PdfPTable(2);
+                identTable.setWidthPercentage(100);
+                identTable.setWidths(new float[]{1, 2});
 
-            // Dados
-            int sq = 1;
-            for (TaskService.StoreReportEntry entry : entries) {
-                table.addCell(createDataCell(String.valueOf(sq++), fontNormal));
-                table.addCell(createDataCell(dateFormatter.format(entry.collectedAt()), fontNormal));
-                table.addCell(createDataCell(entry.deliveryNumber(), fontNormal));
-                table.addCell(createDataCell(entry.collectorName(), fontNormal));
+                identTable.addCell(createNoBorderCell("ID / Identificador:", fontSmall));
+                identTable.addCell(createNoBorderCell(config.getIdentifier(), fontSmall));
+                identTable.addCell(createNoBorderCell("Revisão / Revision:", fontSmall));
+                identTable.addCell(createNoBorderCell(config.getRevision(), fontSmall));
+                identTable.addCell(createNoBorderCell("Título / Title:", fontSmall));
+                identTable.addCell(createNoBorderCell(config.getTitle(), fontSmall));
+                identTable.addCell(createNoBorderCell("Responsável / Owner:", fontSmall));
+                identTable.addCell(createNoBorderCell(config.getOwner(), fontSmall));
+
+                PdfPCell leftCell = new PdfPCell();
+                leftCell.addElement(identTable);
+                leftCell.setBorder(Rectangle.NO_BORDER);
+
+                Paragraph langParagraph = new Paragraph("Este documento será escrito em / This document will be written in:", fontSmall);
+                langParagraph.setSpacingBefore(5);
+                leftCell.addElement(langParagraph);
+                leftCell.addElement(new Paragraph("[x] Português/Portuguese / [ ] Inglês/English / [ ] Português-Inglês/Portuguese-English", fontSmall));
+                
+                headerTable.addCell(leftCell);
+
+                PdfPCell rightCell = new PdfPCell(new Phrase("Template: " + config.getTemplateCode() + (config.getRevision() != null ? " rev. " + config.getRevision() : ""), fontSmall));
+                rightCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                rightCell.setBorder(Rectangle.NO_BORDER);
+                headerTable.addCell(rightCell);
+                
+                document.add(headerTable);
+                document.add(new Paragraph("\n"));
+
+                // --- TÍTULO ---
+                Paragraph title = new Paragraph("PEDIDOS RETIRA LOJA", fontHeader);
+                title.setAlignment(Element.ALIGN_CENTER);
+                document.add(title);
+                document.add(new Paragraph("\n"));
+
+                // --- TABELA DE DADOS ---
+                PdfPTable table = new PdfPTable(4);
+                table.setWidthPercentage(100);
+                table.setWidths(new float[]{1, 2, 4, 4});
+
+                table.addCell(createHeaderCell("SQ", fontTitle));
+                table.addCell(createHeaderCell("Data", fontTitle));
+                table.addCell(createHeaderCell("Número da Delivery", fontTitle));
+                table.addCell(createHeaderCell("Entregue para:", fontTitle));
+
+                int sq = 1;
+                for (TaskService.StoreReportEntry entry : dateEntries) {
+                    table.addCell(createDataCell(String.valueOf(sq++), fontNormal));
+                    table.addCell(createDataCell(dateFormatter.format(entry.collectedAt()), fontNormal));
+                    table.addCell(createDataCell(entry.deliveryNumber(), fontNormal));
+                    table.addCell(createDataCell(entry.collectorName(), fontNormal));
+                }
+
+                // Completar até 31 linhas para cada página/data conforme solicitado
+                for (int i = dateEntries.size(); i < 31; i++) {
+                    table.addCell(createDataCell(String.valueOf(sq++), fontNormal));
+                    table.addCell(createDataCell("", fontNormal));
+                    table.addCell(createDataCell("", fontNormal));
+                    table.addCell(createDataCell("", fontNormal));
+                }
+
+                document.add(table);
+                document.add(new Paragraph("\n"));
+
+                // --- RODAPÉ ---
+                PdfPTable footerTable = new PdfPTable(3);
+                footerTable.setWidthPercentage(100);
+                footerTable.setWidths(new float[]{1, 1, 1});
+                
+                PdfPCell footerLeft = new PdfPCell(new Phrase("©JGGC Indústria e Comércio\nde Materiais Dentários S.A.", fontSmall));
+                footerLeft.setBorder(Rectangle.NO_BORDER);
+                footerTable.addCell(footerLeft);
+
+                PdfPCell footerCenter = new PdfPCell(new Phrase("Template: " + config.getIdentifier() + (config.getRevision() != null ? ", revision " + config.getRevision() : ""), fontSmall));
+                footerCenter.setBorder(Rectangle.NO_BORDER);
+                footerCenter.setHorizontalAlignment(Element.ALIGN_CENTER);
+                footerTable.addCell(footerCenter);
+
+                PdfPCell footerRight = new PdfPCell(new Phrase("Page " + (pageNumber++) + "/" + totalPages, fontSmall));
+                footerRight.setBorder(Rectangle.NO_BORDER);
+                footerRight.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                footerTable.addCell(footerRight);
+
+                document.add(footerTable);
+
+                firstPage = false;
             }
-
-            // Completar linhas vazias até 31 (conforme a imagem)
-            for (int i = entries.size(); i < 31; i++) {
-                table.addCell(createDataCell(String.valueOf(sq++), fontNormal));
-                table.addCell(createDataCell("", fontNormal));
-                table.addCell(createDataCell("", fontNormal));
-                table.addCell(createDataCell("", fontNormal));
-            }
-
-            document.add(table);
-
-            // Rodapé
-            document.add(new Paragraph("\n"));
-            
-            PdfPTable footerTable = new PdfPTable(2);
-            footerTable.setWidthPercentage(100);
-            
-            PdfPCell footerLeft = new PdfPCell(new Phrase("©JGGC Indústria e Comércio\nde Materiais Dentários S.A.", fontSmall));
-            footerLeft.setBorder(com.lowagie.text.Rectangle.NO_BORDER);
-            footerTable.addCell(footerLeft);
-
-            PdfPCell footerRight = new PdfPCell(new Phrase("Template: FRM-003921, revision 2\nPage 1/1", fontSmall));
-            footerRight.setBorder(com.lowagie.text.Rectangle.NO_BORDER);
-            footerRight.setHorizontalAlignment(Element.ALIGN_RIGHT);
-            footerTable.addCell(footerRight);
-
-            document.add(footerTable);
 
             document.close();
         } catch (DocumentException e) {
@@ -136,6 +204,13 @@ public class PdfService {
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
         cell.setPadding(4);
         cell.setBorderWidth(0.5f);
+        return cell;
+    }
+
+    private PdfPCell createNoBorderCell(String text, Font font) {
+        PdfPCell cell = new PdfPCell(new Phrase(text, font));
+        cell.setBorder(com.lowagie.text.Rectangle.NO_BORDER);
+        cell.setPadding(2);
         return cell;
     }
 }

@@ -116,6 +116,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
             nav.addItem(new SideNavItem("Usuários", UserListView.class, VaadinIcon.USER_CARD.create()));
             nav.addItem(new SideNavItem("Templates", TaskTemplateListView.class, VaadinIcon.FILE_TEXT.create()));
             nav.addItem(new SideNavItem("Relatório Loja", StoreReportView.class, VaadinIcon.CHART.create()));
+            nav.addItem(new SideNavItem("Modelos de Relatório", StoreReportConfigListView.class, VaadinIcon.EDIT.create()));
         }
 
         drawerContainer.add(nav);

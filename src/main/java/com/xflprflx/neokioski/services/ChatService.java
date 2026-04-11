@@ -63,30 +63,20 @@ public class ChatService {
 
     @Transactional
     public ChatMessage sendSystemAlertForTask(String content, Task task, String alertSound, String alertRoles) {
-        // Alerta efêmero: NÃO salvamos no banco de dados para evitar lixo e duplicidade de cards
+        // Agora salvamos no banco para persistência, suporte a menções e ID válido na UI
         ChatMessage alertMsg = new ChatMessage(content, null, task.getGroup(), null);
         alertMsg.setAlertSound(alertSound);
         alertMsg.setAlertRoles(alertRoles);
         
-        // Vínculo apenas lógico para broadcast
+        // Responder à primeira mensagem da tarefa (geralmente o card original)
+        // Isso permite navegar de volta para a task clicando no link de resposta
         List<ChatMessage> msgs = repository.findByTaskOrderByIdAsc(task);
         if (!msgs.isEmpty()) {
             alertMsg.setReplyTo(msgs.get(0));
         }
 
+        alertMsg = repository.save(alertMsg);
         broadcast(task.getGroup().getId(), alertMsg);
-
-        // Re-broadcast das mensagens originais para atualizar a UI (status do card)
-        // ESSENCIAL: Limpar alertSound temporariamente para evitar "eco" sonoro (tocar criação de novo)
-        for (ChatMessage msg : msgs) {
-            String originalSound = msg.getAlertSound();
-            msg.setAlertSound(null); // Silenciar para este broadcast
-            try {
-                broadcast(msg.getGroup().getId(), msg);
-            } finally {
-                msg.setAlertSound(originalSound); // Restaurar
-            }
-        }
 
         return alertMsg;
     }

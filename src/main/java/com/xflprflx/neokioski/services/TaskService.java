@@ -452,6 +452,7 @@ public class TaskService {
                 .filter(t -> t.getCurrentStep() != null && t.getCurrentStep().getLabel().equalsIgnoreCase("COLETADO"))
                 .map(this::mapToStoreReportEntry)
                 .filter(Objects::nonNull)
+                .sorted(Comparator.comparing(StoreReportEntry::collectedAt))
                 .collect(Collectors.toList());
     }
 

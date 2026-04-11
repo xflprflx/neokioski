@@ -24,6 +24,9 @@ INSERT INTO tb_template_step_relations(step_order, is_finalizer, task_template_i
 INSERT INTO tb_task_templates_groups(task_template_id, group_id) VALUES (1, 1);
 INSERT INTO tb_task_templates_groups(task_template_id, group_id ) VALUES (1, 2);
 
+INSERT INTO tb_store_report_config (identifier, revision, title, owner, template_code, start_date) VALUES ('FRM-003921', '2', 'Controle de Entrega Loja', 'Juliano Souza (U112006)', 'FRM-000922', '2026-01-01');
+
+
 
 
 

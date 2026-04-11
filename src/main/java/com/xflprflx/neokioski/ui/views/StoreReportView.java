@@ -11,7 +11,10 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.server.StreamResource;
+import com.xflprflx.neokioski.repositories.StoreReportConfigRepository;
 import com.xflprflx.neokioski.services.PdfService;
 import com.xflprflx.neokioski.services.TaskService;
 import jakarta.annotation.security.PermitAll;
@@ -29,6 +32,7 @@ public class StoreReportView extends VerticalLayout {
 
     private final TaskService taskService;
     private final PdfService pdfService;
+    private final StoreReportConfigRepository configRepository;
     private final Grid<TaskService.StoreReportEntry> grid = new Grid<>(TaskService.StoreReportEntry.class, false);
     private final DatePicker startDatePicker = new DatePicker("Data Inicial");
     private final DatePicker endDatePicker = new DatePicker("Data Final");
@@ -36,9 +40,10 @@ public class StoreReportView extends VerticalLayout {
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
             .withZone(ZoneId.systemDefault());
 
-    public StoreReportView(TaskService taskService, PdfService pdfService) {
+    public StoreReportView(TaskService taskService, PdfService pdfService, StoreReportConfigRepository configRepository) {
         this.taskService = taskService;
         this.pdfService = pdfService;
+        this.configRepository = configRepository;
 
         setSizeFull();
         setPadding(true);
@@ -91,10 +96,34 @@ public class StoreReportView extends VerticalLayout {
     private void downloadPdf() {
         if (startDatePicker.getValue() == null || endDatePicker.getValue() == null) return;
 
-        Instant start = startDatePicker.getValue().atStartOfDay(ZoneId.systemDefault()).toInstant();
-        Instant end = endDatePicker.getValue().atTime(23, 59, 59, 999_000_000).atZone(ZoneId.systemDefault()).toInstant();
+        LocalDate startDay = startDatePicker.getValue();
+        LocalDate endDay = endDatePicker.getValue();
+
+        // Validar vigência para cada dia no intervalo
+        LocalDate current = startDay;
+        while (!current.isAfter(endDay)) {
+            if (configRepository.findActiveConfig(current).isEmpty()) {
+                Notification notification = Notification.show(
+                    "Não há modelo de relatório cadastrado para o dia " + 
+                    current.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + 
+                    ". Por favor, cadastre um modelo de vigência antes de gerar o relatório.",
+                    5000, Notification.Position.MIDDLE
+                );
+                notification.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                return;
+            }
+            current = current.plusDays(1);
+        }
+
+        Instant start = startDay.atStartOfDay(ZoneId.systemDefault()).toInstant();
+        Instant end = endDay.atTime(23, 59, 59, 999_000_000).atZone(ZoneId.systemDefault()).toInstant();
 
         List<TaskService.StoreReportEntry> data = taskService.getStoreReportData(start, end);
+
+        if (data.isEmpty()) {
+            Notification.show("Nenhum dado encontrado para o período selecionado.");
+            return;
+        }
 
         StreamResource resource = new StreamResource("Relatorio_Loja.pdf", 
             () -> pdfService.generateStoreReportPdf(data));

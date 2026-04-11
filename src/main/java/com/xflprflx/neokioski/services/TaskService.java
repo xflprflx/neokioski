@@ -146,7 +146,7 @@ public class TaskService {
                     message = message.replace("@resposta", response != null ? response : "");
                     
                     String rolesStr = relation.getAlertRoles() != null ? relation.getAlertRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.joining(",")) : null;
-                    chatService.sendMessage(message, user, task.getGroup(), originalMsg, soundPlayed ? null : stepSound, rolesStr);
+                    chatService.sendVolatileMessage(message, user, task.getGroup(), originalMsg, soundPlayed ? null : stepSound, rolesStr);
                     soundPlayed = true;
                 }
 
@@ -186,7 +186,7 @@ public class TaskService {
                             message = message.replace("@resposta", response != null ? response : "");
                             
                             String rolesStr = relation.getAlertRoles() != null ? relation.getAlertRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.joining(",")) : null;
-                            chatService.sendMessage(message, user, task.getGroup(), originalMsg, soundPlayed ? null : stepSound, rolesStr);
+                            chatService.sendVolatileMessage(message, user, task.getGroup(), originalMsg, soundPlayed ? null : stepSound, rolesStr);
                             soundPlayed = true;
                         }
                     }

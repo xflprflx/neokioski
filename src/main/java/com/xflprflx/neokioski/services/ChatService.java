@@ -46,6 +46,20 @@ public class ChatService {
     }
 
     @Transactional
+    public ChatMessage sendVolatileMessage(String content, User user, Group group, ChatMessage replyTo, String alertSound, String alertRoles) {
+        // Mensagem VOLÁTIL: Não salvamos no banco
+        ChatMessage message = new ChatMessage(content, user, group, replyTo);
+        message.setAlertSound(alertSound);
+        message.setAlertRoles(alertRoles);
+        
+        // Atribuir ID temporário negativo para que a UI aceite como mensagem válida mas temporária
+        message.setId(-1L * System.currentTimeMillis());
+        
+        broadcast(group.getId(), message);
+        return message;
+    }
+
+    @Transactional
     public ChatMessage sendMessageWithTask(String content, User user, Group group, Task task, String alertSound, String alertRoles) {
         ChatMessage message = new ChatMessage(content, user, group, null);
         message.setAlertSound(alertSound);
@@ -63,19 +77,22 @@ public class ChatService {
 
     @Transactional
     public ChatMessage sendSystemAlertForTask(String content, Task task, String alertSound, String alertRoles) {
-        // Agora salvamos no banco para persistência, suporte a menções e ID válido na UI
-        ChatMessage alertMsg = new ChatMessage(content, null, task.getGroup(), null);
+        // Alerta VOLÁTIL: Não salvamos no banco para economizar espaço
+        String finalContent = (content == null || content.isBlank()) ? "Alerta de tempo esgotado" : content;
+        
+        ChatMessage alertMsg = new ChatMessage(finalContent, null, task.getGroup(), null);
         alertMsg.setAlertSound(alertSound);
         alertMsg.setAlertRoles(alertRoles);
         
+        // Atribuir ID negativo para que a UI aceite como mensagem válida mas temporária
+        alertMsg.setId(-1L * System.currentTimeMillis());
+        
         // Responder à primeira mensagem da tarefa (geralmente o card original)
-        // Isso permite navegar de volta para a task clicando no link de resposta
         List<ChatMessage> msgs = repository.findByTaskOrderByIdAsc(task);
         if (!msgs.isEmpty()) {
             alertMsg.setReplyTo(msgs.get(0));
         }
 
-        alertMsg = repository.save(alertMsg);
         broadcast(task.getGroup().getId(), alertMsg);
 
         return alertMsg;

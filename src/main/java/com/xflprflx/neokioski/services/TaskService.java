@@ -66,8 +66,6 @@ public class TaskService {
 
         Task saved = taskRepository.save(task);
         taskAlertService.scheduleAlertsForTask(saved);
-
-        // chatService.sendSystemAlertForTask removido daqui (será enviado pelo ChatView com a mensagem do usuário)
         broadcast(group.getId(), saved);
         return saved;
     }
@@ -148,7 +146,7 @@ public class TaskService {
                     message = message.replace("@resposta", response != null ? response : "");
                     
                     String rolesStr = relation.getAlertRoles() != null ? relation.getAlertRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.joining(",")) : null;
-                    chatService.sendMessage(message, user, task.getGroup(), originalMsg, soundPlayed ? null : stepSound, rolesStr);
+                    chatService.sendVolatileMessage(message, user, task.getGroup(), originalMsg, soundPlayed ? null : stepSound, rolesStr);
                     soundPlayed = true;
                 }
 
@@ -188,16 +186,10 @@ public class TaskService {
                             message = message.replace("@resposta", response != null ? response : "");
                             
                             String rolesStr = relation.getAlertRoles() != null ? relation.getAlertRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.joining(",")) : null;
-                            chatService.sendMessage(message, user, task.getGroup(), originalMsg, soundPlayed ? null : stepSound, rolesStr);
+                            chatService.sendVolatileMessage(message, user, task.getGroup(), originalMsg, soundPlayed ? null : stepSound, rolesStr);
                             soundPlayed = true;
                         }
                     }
-                }
-                
-                // Se existe um som para a etapa mas nenhuma das menções foi enviada, dispara um alerta comum de sistema apenas para tocar o som
-                if (!soundPlayed && stepSound != null && !stepSound.isEmpty()) {
-                    String rolesStr = relation.getAlertRoles() != null ? relation.getAlertRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.joining(",")) : null;
-                    chatService.sendSystemAlertForTask("A tarefa avançou para a etapa: " + step.getLabel(), saved, stepSound, rolesStr);
                 }
             });
 

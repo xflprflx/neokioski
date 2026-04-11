@@ -1871,7 +1871,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         }
 
         listener = msg -> {
-            // Ignorar mensagens efêmeras (ID nulo) para a UI do Chat (são apenas para sinalização sonora)
+            // Ignorar mensagens sem ID (nulo) - as voláteis agora usam ID negativo
             if (msg.getId() == null) return;
 
             if (getUI().isPresent()) {

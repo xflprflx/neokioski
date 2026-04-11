@@ -46,6 +46,20 @@ public class ChatService {
     }
 
     @Transactional
+    public ChatMessage sendVolatileMessage(String content, User user, Group group, ChatMessage replyTo, String alertSound, String alertRoles) {
+        // Mensagem VOLÁTIL: Não salvamos no banco
+        ChatMessage message = new ChatMessage(content, user, group, replyTo);
+        message.setAlertSound(alertSound);
+        message.setAlertRoles(alertRoles);
+        
+        // Atribuir ID temporário negativo para que a UI aceite como mensagem válida mas temporária
+        message.setId(-1L * System.currentTimeMillis());
+        
+        broadcast(group.getId(), message);
+        return message;
+    }
+
+    @Transactional
     public ChatMessage sendMessageWithTask(String content, User user, Group group, Task task, String alertSound, String alertRoles) {
         ChatMessage message = new ChatMessage(content, user, group, null);
         message.setAlertSound(alertSound);
@@ -63,30 +77,23 @@ public class ChatService {
 
     @Transactional
     public ChatMessage sendSystemAlertForTask(String content, Task task, String alertSound, String alertRoles) {
-        // Alerta efêmero: NÃO salvamos no banco de dados para evitar lixo e duplicidade de cards
-        ChatMessage alertMsg = new ChatMessage(content, null, task.getGroup(), null);
+        // Alerta VOLÁTIL: Não salvamos no banco para economizar espaço
+        String finalContent = (content == null || content.isBlank()) ? "Alerta de tempo esgotado" : content;
+        
+        ChatMessage alertMsg = new ChatMessage(finalContent, null, task.getGroup(), null);
         alertMsg.setAlertSound(alertSound);
         alertMsg.setAlertRoles(alertRoles);
         
-        // Vínculo apenas lógico para broadcast
+        // Atribuir ID negativo para que a UI aceite como mensagem válida mas temporária
+        alertMsg.setId(-1L * System.currentTimeMillis());
+        
+        // Responder à primeira mensagem da tarefa (geralmente o card original)
         List<ChatMessage> msgs = repository.findByTaskOrderByIdAsc(task);
         if (!msgs.isEmpty()) {
             alertMsg.setReplyTo(msgs.get(0));
         }
 
         broadcast(task.getGroup().getId(), alertMsg);
-
-        // Re-broadcast das mensagens originais para atualizar a UI (status do card)
-        // ESSENCIAL: Limpar alertSound temporariamente para evitar "eco" sonoro (tocar criação de novo)
-        for (ChatMessage msg : msgs) {
-            String originalSound = msg.getAlertSound();
-            msg.setAlertSound(null); // Silenciar para este broadcast
-            try {
-                broadcast(msg.getGroup().getId(), msg);
-            } finally {
-                msg.setAlertSound(originalSound); // Restaurar
-            }
-        }
 
         return alertMsg;
     }

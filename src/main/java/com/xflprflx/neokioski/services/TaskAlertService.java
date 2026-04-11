@@ -23,6 +23,7 @@ public class TaskAlertService {
     private final TaskScheduler taskScheduler;
     private final TransactionTemplate transactionTemplate;
     private final com.xflprflx.neokioski.repositories.TaskTemplateRepository taskTemplateRepository;
+    private final TaskService taskService;
 
     // Chave no formato: "{taskId}_{alertId}"
     private final Map<String, ScheduledFuture<?>> scheduledAlerts = new ConcurrentHashMap<>();
@@ -31,12 +32,14 @@ public class TaskAlertService {
                             ChatService chatService, 
                             TaskScheduler taskScheduler, 
                             TransactionTemplate transactionTemplate,
-                            com.xflprflx.neokioski.repositories.TaskTemplateRepository taskTemplateRepository) {
+                            com.xflprflx.neokioski.repositories.TaskTemplateRepository taskTemplateRepository,
+                            @org.springframework.context.annotation.Lazy TaskService taskService) {
         this.taskRepository = taskRepository;
         this.chatService = chatService;
         this.taskScheduler = taskScheduler;
         this.transactionTemplate = transactionTemplate;
         this.taskTemplateRepository = taskTemplateRepository;
+        this.taskService = taskService;
     }
 
     public void scheduleAlertsForTask(Task task) {
@@ -117,6 +120,12 @@ public class TaskAlertService {
                     cancelSingleAlert(freshTask, alert);
                 }
             }
+
+            if (freshTask.isAlerted()) {
+                freshTask.setAlerted(false);
+                Task finalSaved = taskRepository.save(freshTask);
+                taskService.broadcast(finalSaved.getGroup().getId(), finalSaved);
+            }
         });
     }
 
@@ -134,6 +143,15 @@ public class TaskAlertService {
                 return true;
             }
             return false;
+        });
+
+        transactionTemplate.executeWithoutResult(status -> {
+            Task freshTask = taskRepository.findById(task.getId()).orElse(null);
+            if (freshTask != null && freshTask.isAlerted()) {
+                freshTask.setAlerted(false);
+                Task finalSaved = taskRepository.save(freshTask);
+                taskService.broadcast(finalSaved.getGroup().getId(), finalSaved);
+            }
         });
     }
 
@@ -191,7 +209,8 @@ public class TaskAlertService {
         
         task.setAlerted(true);
         task.getTriggeredAlertIds().add(alert.getId());
-        taskRepository.save(task);
+        Task saved = taskRepository.save(task);
+        taskService.broadcast(saved.getGroup().getId(), saved);
     }
 
     private String getCacheKey(Task task, TaskAlert alert) {

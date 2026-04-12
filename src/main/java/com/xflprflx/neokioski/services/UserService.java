@@ -70,4 +70,53 @@ public class UserService {
     public void updateLastSeen(Long id, java.time.LocalDateTime lastSeen) {
         repository.updateLastSeen(id, lastSeen);
     }
+
+    public boolean isPasswordValid(User user, String password) {
+        if (user == null || password == null || password.isEmpty()) {
+            return false;
+        }
+        return passwordEncoder.matches(password, user.getPassword());
+    }
+
+    public void changePassword(Long userId, String newPassword) {
+        repository.findById(userId).ifPresent(user -> {
+            user.setPassword(passwordEncoder.encode(newPassword));
+            repository.save(user);
+        });
+    }
+
+    public String generateTemporaryPassword(Long userId) {
+        String upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        String lower = "abcdefghijklmnopqrstuvwxyz";
+        String digits = "0123456789";
+        String special = "@$!%*?&";
+        String all = upper + lower + digits + special;
+        
+        StringBuilder sb = new StringBuilder();
+        java.security.SecureRandom rnd = new java.security.SecureRandom();
+        
+        // Garante pelo menos um de cada tipo exigido
+        sb.append(upper.charAt(rnd.nextInt(upper.length())));
+        sb.append(lower.charAt(rnd.nextInt(lower.length())));
+        sb.append(digits.charAt(rnd.nextInt(digits.length())));
+        sb.append(special.charAt(rnd.nextInt(special.length())));
+        
+        // Completa até 8 caracteres (mais seguro que 6 para garantir força)
+        for (int i = 0; i < 4; i++) {
+            sb.append(all.charAt(rnd.nextInt(all.length())));
+        }
+        
+        // Embaralha para que os tipos obrigatórios não fiquem sempre nas primeiras posições
+        char[] passwordArray = sb.toString().toCharArray();
+        for (int i = passwordArray.length - 1; i > 0; i--) {
+            int j = rnd.nextInt(i + 1);
+            char temp = passwordArray[i];
+            passwordArray[i] = passwordArray[j];
+            passwordArray[j] = temp;
+        }
+        
+        String tempPass = new String(passwordArray);
+        changePassword(userId, tempPass);
+        return tempPass;
+    }
 }

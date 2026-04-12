@@ -10,6 +10,12 @@ import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.html.H3;
+import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.services.UserService;
 import com.xflprflx.neokioski.services.PresenceService;
@@ -54,6 +60,7 @@ public class UserListView extends VerticalLayout {
         form.setWidth("25em");
         form.addSaveListener(this::saveUser);
         form.addDeleteListener(this::deleteUser);
+        form.addResetPasswordListener(this::resetPassword);
         form.addCloseListener(e -> closeEditor());
     }
 
@@ -67,6 +74,50 @@ public class UserListView extends VerticalLayout {
         service.delete(event.getUser());
         updateList();
         closeEditor();
+    }
+
+    private void resetPassword(UserForm.ResetPasswordEvent event) {
+        String tempPass = service.generateTemporaryPassword(event.getUser().getId());
+        
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Senha Temporária Gerada");
+        
+        Span text = new Span("A nova senha para o usuário ");
+        Span username = new Span(event.getUser().getUsername());
+        username.getStyle().set("font-weight", "bold");
+        Span suffix = new Span(" é:");
+        
+        H3 hash = new H3(tempPass);
+        hash.getStyle().set("color", "var(--lumo-primary-color)");
+        hash.getStyle().set("text-align", "center");
+        hash.getStyle().set("background", "var(--lumo-contrast-5pct)");
+        hash.getStyle().set("padding", "10px");
+        hash.getStyle().set("border-radius", "4px");
+        hash.getStyle().set("font-family", "monospace");
+        hash.getStyle().set("margin", "0");
+
+        Button copyBtn = new Button(VaadinIcon.COPY.create(), e -> {
+            getUI().ifPresent(ui -> {
+                ui.getPage().executeJs("navigator.clipboard.writeText($0)", tempPass);
+                Notification.show("Copiado para a área de transferência!");
+            });
+        });
+        copyBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
+        copyBtn.setTooltipText("Copiar senha");
+
+        HorizontalLayout hashLayout = new HorizontalLayout(hash, copyBtn);
+        hashLayout.setAlignItems(FlexComponent.Alignment.CENTER);
+        hashLayout.setSpacing(true);
+        
+        VerticalLayout layout = new VerticalLayout(new HorizontalLayout(text, username, suffix), hashLayout);
+        layout.setAlignItems(FlexComponent.Alignment.CENTER);
+        dialog.add(layout);
+        
+        Button closeBtn = new Button("Fechar", e -> dialog.close());
+        closeBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
+        dialog.getFooter().add(closeBtn);
+        
+        dialog.open();
     }
 
     private void configureGrid() {

@@ -1,7 +1,10 @@
 package com.xflprflx.neokioski.models;
 
+import com.xflprflx.neokioski.models.enums.ReportOrientation;
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "tb_store_report_config")
@@ -28,6 +31,14 @@ public class StoreReportConfig {
     private LocalDate startDate;
 
     private LocalDate endDate;
+
+    @Enumerated(EnumType.STRING)
+    private ReportOrientation orientation = ReportOrientation.PORTRAIT;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "tb_store_report_config_columns", joinColumns = @JoinColumn(name = "config_id"))
+    @OrderColumn(name = "order_index")
+    private List<ReportColumnConfig> columns = new ArrayList<>();
 
     public StoreReportConfig() {
     }
@@ -94,5 +105,21 @@ public class StoreReportConfig {
 
     public void setEndDate(LocalDate endDate) {
         this.endDate = endDate;
+    }
+
+    public ReportOrientation getOrientation() {
+        return orientation;
+    }
+
+    public void setOrientation(ReportOrientation orientation) {
+        this.orientation = orientation;
+    }
+
+    public List<ReportColumnConfig> getColumns() {
+        return columns;
+    }
+
+    public void setColumns(List<ReportColumnConfig> columns) {
+        this.columns = columns;
     }
 }

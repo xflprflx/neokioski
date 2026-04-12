@@ -15,8 +15,14 @@ import com.vaadin.flow.component.sidenav.SideNav;
 import com.vaadin.flow.component.sidenav.SideNavItem;
 import com.vaadin.flow.router.AfterNavigationEvent;
 import com.vaadin.flow.router.AfterNavigationObserver;
+import com.vaadin.flow.router.BeforeEnterEvent;
+import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.RouteConfiguration;
 import com.vaadin.flow.spring.security.AuthenticationContext;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.textfield.PasswordField;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 import com.xflprflx.neokioski.models.Group;
 import com.xflprflx.neokioski.models.Task;
@@ -42,7 +48,7 @@ import java.util.function.Consumer;
  * Todas as outras vistas (@Route) são renderizadas dentro deste layout.
  */
 @PermitAll
-public class MainLayout extends AppLayout implements AfterNavigationObserver {
+public class MainLayout extends AppLayout implements AfterNavigationObserver, BeforeEnterObserver {
 
     private final transient AuthenticationContext authContext;
     private final GroupService groupService;
@@ -78,6 +84,11 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         H1 logo = new H1("NeoKioski");
         logo.addClassNames(LumoUtility.FontSize.LARGE, LumoUtility.Margin.MEDIUM);
 
+        Button changePasswordBtn = new Button("Senha", VaadinIcon.KEY.create());
+        changePasswordBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        changePasswordBtn.addClickListener(e -> showChangePasswordDialog());
+        changePasswordBtn.getStyle().set("cursor", "pointer");
+
         Button logout = new Button("Sair");
         logout.addClickListener(event -> {
             if (currentUser != null) {
@@ -88,7 +99,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         logout.getStyle().set("cursor", "pointer");
         logout.getStyle().set("margin-right", "20px");
 
-        HorizontalLayout header = new HorizontalLayout(new DrawerToggle(), logo, logout);
+        HorizontalLayout header = new HorizontalLayout(new DrawerToggle(), logo, changePasswordBtn, logout);
         header.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
         header.expand(logo);
         header.setWidthFull();
@@ -157,6 +168,35 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     }
 
 
+
+    @Override
+    public void beforeEnter(BeforeEnterEvent event) {
+        securityService.getAuthenticatedInternalUser().ifPresent(u -> {
+            // Verificar no banco de dados se o usuário ainda está ativo
+            boolean active = userService.findById(u.getId())
+                    .map(User::isActive)
+                    .orElse(false);
+            
+            if (!active) {
+                System.out.println("[SECURITY] Usuário inativo detectado na navegação: " + u.getUsername());
+                
+                // Forçar logout e redirecionar
+                if (currentUser != null) {
+                    presenceService.forceOffline(currentUser.getId());
+                }
+                
+                // Notificar usuário (opcional, pode ser rápido demais para ver)
+                getUI().ifPresent(ui -> ui.access(() -> {
+                    Notification.show("Sua conta foi desativada. Entre em contato com o administrador.", 
+                            5000, Notification.Position.MIDDLE)
+                            .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                }));
+
+                authContext.logout();
+                event.forwardTo(LoginView.class);
+            }
+        });
+    }
 
     @Override
     public void afterNavigation(AfterNavigationEvent event) {
@@ -379,5 +419,75 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
                 chatService.unregister(group.getId(), chatMessageListener);
             });
         }
+    }
+
+    private void showChangePasswordDialog() {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Alterar Minha Senha");
+
+        PasswordField currentPassword = new PasswordField("Senha Atual");
+        PasswordField newPassword = new PasswordField("Nova Senha");
+        PasswordField confirmPassword = new PasswordField("Confirmar Nova Senha");
+
+        VerticalLayout dialogLayout = new VerticalLayout(currentPassword, newPassword, confirmPassword);
+        dialogLayout.setPadding(false);
+        dialogLayout.setSpacing(false);
+        dialogLayout.setAlignItems(FlexComponent.Alignment.STRETCH);
+        dialogLayout.getStyle().set("width", "300px").set("max-width", "100%");
+        
+        currentPassword.setWidthFull();
+        newPassword.setWidthFull();
+        confirmPassword.setWidthFull();
+
+        dialog.add(dialogLayout);
+
+        Button saveButton = new Button("Salvar", e -> {
+            if (currentUser == null) return;
+
+            String currentPass = currentPassword.getValue();
+            String newPass = newPassword.getValue();
+            String confirmPass = confirmPassword.getValue();
+
+            if (currentPass.isEmpty() || newPass.isEmpty() || confirmPass.isEmpty()) {
+                Notification.show("Por favor, preencha todos os campos", 3000, Notification.Position.MIDDLE)
+                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                return;
+            }
+
+            if (!userService.isPasswordValid(currentUser, currentPass)) {
+                Notification.show("Senha atual incorreta", 3000, Notification.Position.MIDDLE)
+                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                return;
+            }
+
+            if (!newPass.equals(confirmPass)) {
+                Notification.show("As novas senhas não coincidem", 3000, Notification.Position.MIDDLE)
+                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                return;
+            }
+
+            // Validar força da senha: min 6, [A-Z], [a-z], [0-9], [@$!%*?&]
+            if (!(newPass.length() >= 6 && 
+                  newPass.matches(".*[A-Z].*") && 
+                  newPass.matches(".*[a-z].*") && 
+                  newPass.matches(".*\\d.*") && 
+                  newPass.matches(".*[@$!%*?&].*"))) {
+                Notification.show("A senha deve conter ao menos 6 caracteres, incluindo maiúsculas, minúsculas, números e símbolos (@$!%*?&)", 
+                        5000, Notification.Position.MIDDLE)
+                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                return;
+            }
+
+            userService.changePassword(currentUser.getId(), newPass);
+            Notification.show("Senha alterada com sucesso!", 3000, Notification.Position.MIDDLE)
+                    .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            dialog.close();
+        });
+        saveButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        Button cancelButton = new Button("Cancelar", e -> dialog.close());
+        dialog.getFooter().add(cancelButton, saveButton);
+
+        dialog.open();
     }
 }

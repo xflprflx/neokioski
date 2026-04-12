@@ -29,6 +29,7 @@ public class UserForm extends FormLayout {
 
     Button save = new Button("Salvar");
     Button delete = new Button("Excluir");
+    Button resetPassword = new Button("Gerar Senha");
     Button close = new Button("Cancelar");
 
     Binder<User> binder = new BeanValidationBinder<>(User.class);
@@ -52,6 +53,15 @@ public class UserForm extends FormLayout {
                 }
                 return true;
             }, "A senha é obrigatória para novos usuários")
+            .withValidator(pass -> {
+                if (pass == null || pass.isEmpty()) return true;
+                // Critérios de senha forte: min 6, [A-Z], [a-z], [0-9], [@$!%*?&]
+                return pass.length() >= 6 && 
+                       pass.matches(".*[A-Z].*") && 
+                       pass.matches(".*[a-z].*") && 
+                       pass.matches(".*\\d.*") && 
+                       pass.matches(".*[@$!%*?&].*");
+            }, "A senha deve conter ao menos 6 caracteres, incluindo maiúsculas, minúsculas, números e símbolos (@$!%*?&)")
             .bind(user -> "", (user, pass) -> {
                 if (pass != null && !pass.isEmpty()) {
                     user.setPassword(pass);
@@ -78,11 +88,12 @@ public class UserForm extends FormLayout {
 
         save.addClickListener(event -> validateAndSave());
         delete.addClickListener(event -> fireEvent(new DeleteEvent(this, binder.getBean())));
+        resetPassword.addClickListener(event -> fireEvent(new ResetPasswordEvent(this, binder.getBean())));
         close.addClickListener(event -> fireEvent(new CloseEvent(this)));
 
         binder.addStatusChangeListener(e -> save.setEnabled(binder.isValid()));
 
-        return new HorizontalLayout(save, delete, close);
+        return new HorizontalLayout(save, delete, resetPassword, close);
     }
 
     private void validateAndSave() {
@@ -100,8 +111,10 @@ public class UserForm extends FormLayout {
         binder.setBean(user);
         if (user != null && user.getId() != null) {
             password.setPlaceholder("Deixe em branco para manter");
+            resetPassword.setVisible(true);
         } else {
             password.setPlaceholder("");
+            resetPassword.setVisible(false);
         }
     }
 
@@ -137,12 +150,22 @@ public class UserForm extends FormLayout {
         }
     }
 
+    public static class ResetPasswordEvent extends UserFormEvent {
+        ResetPasswordEvent(UserForm source, User user) {
+            super(source, user);
+        }
+    }
+
     public Registration addDeleteListener(ComponentEventListener<DeleteEvent> listener) {
         return addListener(DeleteEvent.class, listener);
     }
 
     public Registration addSaveListener(ComponentEventListener<SaveEvent> listener) {
         return addListener(SaveEvent.class, listener);
+    }
+
+    public Registration addResetPasswordListener(ComponentEventListener<ResetPasswordEvent> listener) {
+        return addListener(ResetPasswordEvent.class, listener);
     }
 
     public Registration addCloseListener(ComponentEventListener<CloseEvent> listener) {

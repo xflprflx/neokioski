@@ -6,7 +6,9 @@ import com.lowagie.text.Rectangle;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
+import com.xflprflx.neokioski.models.ReportColumnConfig;
 import com.xflprflx.neokioski.models.StoreReportConfig;
+import com.xflprflx.neokioski.models.enums.ReportOrientation;
 import com.xflprflx.neokioski.repositories.StoreReportConfigRepository;
 import org.springframework.stereotype.Service;
 
@@ -26,15 +28,36 @@ import java.util.stream.Collectors;
 public class PdfService {
 
     private final StoreReportConfigRepository configRepository;
+    private final TaskService taskService;
     private final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
             .withZone(ZoneId.systemDefault());
 
-    public PdfService(StoreReportConfigRepository configRepository) {
+    public PdfService(StoreReportConfigRepository configRepository, TaskService taskService) {
         this.configRepository = configRepository;
+        this.taskService = taskService;
     }
 
     public ByteArrayInputStream generateStoreReportPdf(List<TaskService.StoreReportEntry> entries) {
+        // 1. Agrupar por data de coleta (LocalDate) usando TreeMap para manter a ordem cronológica
+        Map<LocalDate, List<TaskService.StoreReportEntry>> entriesByDate = entries.stream()
+                .collect(Collectors.groupingBy(
+                        e -> e.collectedAt().atZone(ZoneId.systemDefault()).toLocalDate(),
+                        TreeMap::new,
+                        Collectors.toList()
+                ));
+
         Document document = new Document(PageSize.A4, 36, 36, 36, 36);
+        
+        // Definir orientação inicial baseada no primeiro grupo
+        if (!entriesByDate.isEmpty()) {
+            LocalDate firstDate = entriesByDate.keySet().iterator().next();
+            StoreReportConfig firstConfig = configRepository.findActiveConfig(firstDate)
+                    .orElse(null);
+            if (firstConfig != null && firstConfig.getOrientation() == ReportOrientation.LANDSCAPE) {
+                document.setPageSize(PageSize.A4.rotate());
+            }
+        }
+
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
         try {
@@ -47,14 +70,6 @@ public class PdfService {
             Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 8);
             Font fontSmall = FontFactory.getFont(FontFactory.HELVETICA, 7);
 
-            // 1. Agrupar por data de coleta (LocalDate) usando TreeMap para manter a ordem cronológica
-            Map<LocalDate, List<TaskService.StoreReportEntry>> entriesByDate = entries.stream()
-                    .collect(Collectors.groupingBy(
-                            e -> e.collectedAt().atZone(ZoneId.systemDefault()).toLocalDate(),
-                            TreeMap::new,
-                            Collectors.toList()
-                    ));
-
             boolean firstPage = true;
             int pageNumber = 1;
             int totalPages = entriesByDate.size();
@@ -62,11 +77,6 @@ public class PdfService {
             for (Map.Entry<LocalDate, List<TaskService.StoreReportEntry>> group : entriesByDate.entrySet()) {
                 LocalDate date = group.getKey();
                 List<TaskService.StoreReportEntry> dateEntries = group.getValue();
-
-                if (!firstPage) {
-                    document.newPage();
-                }
-
                 // Buscar configuração ativa para ESTA data específica
                 StoreReportConfig config = configRepository.findActiveConfig(date)
                         .orElseGet(() -> {
@@ -78,6 +88,21 @@ public class PdfService {
                             fallback.setTemplateCode("FRM-000922");
                             return fallback;
                         });
+
+                // Mudar orientação se necessário
+                Rectangle pageSize = config.getOrientation() == ReportOrientation.LANDSCAPE ? 
+                        PageSize.A4.rotate() : PageSize.A4;
+                document.setPageSize(pageSize);
+
+                if (firstPage) {
+                    // Na primeira página, o iText precisa do newPage após o open e setPageSize 
+                    // para aplicar a rotação se for diferente do padrão inicial (A4 Portrait).
+                    // No Lowagie, document.open() cria a primeira página. 
+                    // Se mudarmos o pageSize logo após o open, a primeira página assume o novo tamanho 
+                    // se nenhuma instrução de escrita tiver sido enviada ainda.
+                } else {
+                    document.newPage();
+                }
 
                 // --- CABEÇALHO ---
                 PdfPTable headerTable = new PdfPTable(2);
@@ -116,6 +141,9 @@ public class PdfService {
                 document.add(headerTable);
                 document.add(new Paragraph("\n"));
 
+                // Definir limite de linhas para caber o rodapé na mesma página
+                int maxLines = (config.getOrientation() == ReportOrientation.LANDSCAPE) ? 18 : 28;
+
                 // --- TÍTULO ---
                 Paragraph title = new Paragraph("PEDIDOS RETIRA LOJA", fontHeader);
                 title.setAlignment(Element.ALIGN_CENTER);
@@ -123,29 +151,60 @@ public class PdfService {
                 document.add(new Paragraph("\n"));
 
                 // --- TABELA DE DADOS ---
-                PdfPTable table = new PdfPTable(4);
-                table.setWidthPercentage(100);
-                table.setWidths(new float[]{1, 2, 4, 4});
+                List<ReportColumnConfig> columns = config.getColumns();
+                PdfPTable table;
+                if (columns.isEmpty()) {
+                    // Padrão antigo
+                    table = new PdfPTable(4);
+                    table.setWidthPercentage(100);
+                    table.setWidths(new float[]{1, 2, 4, 4});
 
-                table.addCell(createHeaderCell("SQ", fontTitle));
-                table.addCell(createHeaderCell("Data", fontTitle));
-                table.addCell(createHeaderCell("Número da Delivery", fontTitle));
-                table.addCell(createHeaderCell("Entregue para:", fontTitle));
+                    table.addCell(createHeaderCell("SQ", fontTitle));
+                    table.addCell(createHeaderCell("Data", fontTitle));
+                    table.addCell(createHeaderCell("Número da Delivery", fontTitle));
+                    table.addCell(createHeaderCell("Entregue para:", fontTitle));
 
-                int sq = 1;
-                for (TaskService.StoreReportEntry entry : dateEntries) {
-                    table.addCell(createDataCell(String.valueOf(sq++), fontNormal));
-                    table.addCell(createDataCell(dateFormatter.format(entry.collectedAt()), fontNormal));
-                    table.addCell(createDataCell(entry.deliveryNumber(), fontNormal));
-                    table.addCell(createDataCell(entry.collectorName(), fontNormal));
-                }
+                    int sq = 1;
+                    for (TaskService.StoreReportEntry entry : dateEntries) {
+                        table.addCell(createDataCell(String.valueOf(sq++), fontNormal));
+                        table.addCell(createDataCell(dateFormatter.format(entry.collectedAt()), fontNormal));
+                        table.addCell(createDataCell(entry.deliveryNumber(), fontNormal));
+                        table.addCell(createDataCell(entry.collectorName(), fontNormal));
+                    }
 
-                // Completar até 31 linhas para cada página/data conforme solicitado
-                for (int i = dateEntries.size(); i < 31; i++) {
-                    table.addCell(createDataCell(String.valueOf(sq++), fontNormal));
-                    table.addCell(createDataCell("", fontNormal));
-                    table.addCell(createDataCell("", fontNormal));
-                    table.addCell(createDataCell("", fontNormal));
+                    for (int i = dateEntries.size(); i < maxLines; i++) {
+                        table.addCell(createDataCell(String.valueOf(sq++), fontNormal));
+                        table.addCell(createDataCell("", fontNormal));
+                        table.addCell(createDataCell("", fontNormal));
+                        table.addCell(createDataCell("", fontNormal));
+                    }
+                } else {
+                    // Customizado
+                    int numCols = columns.size() + 1; // +1 para SQ
+                    table = new PdfPTable(numCols);
+                    table.setWidthPercentage(100);
+                    
+                    // Header
+                    table.addCell(createHeaderCell("SQ", fontTitle));
+                    for (ReportColumnConfig col : columns) {
+                        table.addCell(createHeaderCell(col.getLabel(), fontTitle));
+                    }
+
+                    int sq = 1;
+                    for (TaskService.StoreReportEntry entry : dateEntries) {
+                        table.addCell(createDataCell(String.valueOf(sq++), fontNormal));
+                        for (ReportColumnConfig col : columns) {
+                            String value = taskService.getTaskAttributeValue(entry.task(), col.getAttributeKey());
+                            table.addCell(createDataCell(value, fontNormal));
+                        }
+                    }
+
+                    for (int i = dateEntries.size(); i < maxLines; i++) {
+                        table.addCell(createDataCell(String.valueOf(sq++), fontNormal));
+                        for (int j = 0; j < columns.size(); j++) {
+                            table.addCell(createDataCell("", fontNormal));
+                        }
+                    }
                 }
 
                 document.add(table);

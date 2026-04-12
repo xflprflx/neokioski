@@ -73,6 +73,7 @@ public class StoreReportView extends VerticalLayout {
 
     private void configureGrid() {
         grid.setSizeFull();
+        grid.addColumn(TaskService.StoreReportEntry::taskId).setHeader("ID").setSortable(true).setWidth("80px").setFlexGrow(0);
         grid.addColumn(TaskService.StoreReportEntry::templateName).setHeader("Tarefa").setSortable(true);
         grid.addColumn(entry -> formatter.format(entry.createdAt())).setHeader("Criação").setSortable(true);
         grid.addColumn(entry -> formatter.format(entry.collectedAt())).setHeader("Coleta").setSortable(true);

@@ -2,6 +2,7 @@ package com.xflprflx.neokioski.ui.views;
 
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -11,6 +12,7 @@ import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.xflprflx.neokioski.models.StoreReportConfig;
 import com.xflprflx.neokioski.services.StoreReportConfigService;
+import com.xflprflx.neokioski.services.TaskService;
 import jakarta.annotation.security.RolesAllowed;
 
 @RolesAllowed("ADMIN")
@@ -19,10 +21,13 @@ import jakarta.annotation.security.RolesAllowed;
 public class StoreReportConfigListView extends VerticalLayout {
     Grid<StoreReportConfig> grid = new Grid<>(StoreReportConfig.class);
     StoreReportConfigForm form;
+    Dialog configDialog;
     StoreReportConfigService service;
+    TaskService taskService;
 
-    public StoreReportConfigListView(StoreReportConfigService service) {
+    public StoreReportConfigListView(StoreReportConfigService service, TaskService taskService) {
         this.service = service;
+        this.taskService = taskService;
         addClassName("store-report-config-list-view");
         setSizeFull();
         configureGrid();
@@ -34,20 +39,23 @@ public class StoreReportConfigListView extends VerticalLayout {
     }
 
     private Component getContent() {
-        HorizontalLayout content = new HorizontalLayout(grid, form);
-        content.setFlexGrow(2, grid);
-        content.setFlexGrow(1, form);
+        HorizontalLayout content = new HorizontalLayout(grid);
         content.addClassNames("content");
         content.setSizeFull();
         return content;
     }
 
     private void configureForm() {
-        form = new StoreReportConfigForm();
-        form.setWidth("25em");
+        form = new StoreReportConfigForm(taskService);
         form.addSaveListener(this::saveConfig);
         form.addDeleteListener(this::deleteConfig);
         form.addCloseListener(e -> closeEditor());
+
+        configDialog = new Dialog();
+        configDialog.setHeaderTitle("Modelo de Relatório");
+        configDialog.add(form);
+        configDialog.setWidth("800px");
+        configDialog.setHeight("90%");
     }
 
     private void saveConfig(StoreReportConfigForm.SaveEvent event) {
@@ -91,14 +99,14 @@ public class StoreReportConfigListView extends VerticalLayout {
             closeEditor();
         } else {
             form.setConfig(config);
-            form.setVisible(true);
+            configDialog.open();
             addClassName("editing");
         }
     }
 
     private void closeEditor() {
         form.setConfig(null);
-        form.setVisible(false);
+        configDialog.close();
         removeClassName("editing");
     }
 

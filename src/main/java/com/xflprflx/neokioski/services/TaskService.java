@@ -20,6 +20,10 @@ public class TaskService {
     private final ChatService chatService;
     private final ChatMessageRepository chatMessageRepository;
     private final TaskAlertService taskAlertService;
+    private final TaskTemplateRepository taskTemplateRepository;
+    private final TaskFieldDefinitionRepository taskFieldDefinitionRepository;
+    private final TaskStepDefinitionRepository taskStepDefinitionRepository;
+
     private final java.util.Map<Long, List<Consumer<Task>>> listeners =
             Collections.synchronizedMap(new java.util.HashMap<>());
     private final List<Consumer<Task>> globalListeners = new CopyOnWriteArrayList<>();
@@ -28,12 +32,18 @@ public class TaskService {
                        TemplateStepRelationRepository stepRelationRepository,
                        ChatService chatService,
                        ChatMessageRepository chatMessageRepository,
-                       TaskAlertService taskAlertService) {
+                       TaskAlertService taskAlertService,
+                       TaskTemplateRepository taskTemplateRepository,
+                       TaskFieldDefinitionRepository taskFieldDefinitionRepository,
+                       TaskStepDefinitionRepository taskStepDefinitionRepository) {
         this.taskRepository = taskRepository;
         this.stepRelationRepository = stepRelationRepository;
         this.chatService = chatService;
         this.chatMessageRepository = chatMessageRepository;
         this.taskAlertService = taskAlertService;
+        this.taskTemplateRepository = taskTemplateRepository;
+        this.taskFieldDefinitionRepository = taskFieldDefinitionRepository;
+        this.taskStepDefinitionRepository = taskStepDefinitionRepository;
     }
 
     public Optional<com.xflprflx.neokioski.models.enums.Role> getResponsibleRole(Task task) {
@@ -456,6 +466,98 @@ public class TaskService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<String> getAvailableReportAttributes() {
+        Set<String> attributes = new TreeSet<>();
+        
+        // Atributos base
+        attributes.add("ID");
+        attributes.add("TEMPLATE");
+        attributes.add("CREATED_AT");
+        attributes.add("COLLECTED_AT");
+        attributes.add("CREATOR");
+        attributes.add("COLLECTOR");
+
+        // Buscar templates que registram no relatório para sugerir seus campos e passos
+        List<TaskTemplate> templates = taskTemplateRepository.findAll().stream()
+                .filter(TaskTemplate::isRegistraNoRelatorioLoja)
+                .collect(Collectors.toList());
+
+        for (TaskTemplate template : templates) {
+            // Campos (Fields)
+            template.getTemplateFieldRelation().forEach(rel -> {
+                if (rel.getTaskFieldDefinition() != null) {
+                    attributes.add("FIELD:" + rel.getTaskFieldDefinition().getLabel());
+                }
+            });
+            // Passos (Steps)
+            template.getTemplateStepRelation().forEach(rel -> {
+                if (rel.getTaskStepDefinition() != null && rel.isHasResponseField()) {
+                    attributes.add("STEP:" + rel.getTaskStepDefinition().getLabel());
+                }
+            });
+        }
+        
+        // Adicionar todos os campos e passos ativos como fallback se a lista estiver pequena
+        if (attributes.size() <= 6) {
+            taskFieldDefinitionRepository.findAll().forEach(f -> attributes.add("FIELD:" + f.getLabel()));
+            taskStepDefinitionRepository.findAll().forEach(s -> attributes.add("STEP:" + s.getLabel()));
+        }
+
+        return new ArrayList<>(attributes);
+    }
+    
+    public String getTaskAttributeValue(Task task, String attributeKey) {
+        if (attributeKey == null || attributeKey.isBlank()) return "";
+
+        switch (attributeKey.toUpperCase()) {
+            case "ID": return String.valueOf(task.getId());
+            case "TEMPLATE": return task.getTaskTemplate().getName();
+            case "CREATED_AT": return formatInstant(task.getCreatedAt());
+            case "COLLECTED_AT": return formatInstant(getCollectedAt(task));
+            case "CREATOR": return task.getCreator() != null ? task.getCreator().getName() : "Sistema";
+            case "COLLECTOR": return getCollectorName(task);
+            default:
+                if (attributeKey.startsWith("FIELD:")) {
+                    String label = attributeKey.substring(6);
+                    return task.getTaskFieldValues().stream()
+                            .filter(fv -> fv.getTaskFieldDefinition() != null && 
+                                          fv.getTaskFieldDefinition().getLabel().equalsIgnoreCase(label))
+                            .map(TaskFieldValue::getValue)
+                            .findFirst().orElse("");
+                } else if (attributeKey.startsWith("STEP:")) {
+                    String label = attributeKey.substring(5);
+                    return task.getTaskEvents().stream()
+                            .filter(e -> e.getTaskStepDefinition() != null && 
+                                         e.getTaskStepDefinition().getLabel().equalsIgnoreCase(label))
+                            .map(TaskEvent::getResponse)
+                            .findFirst().orElse("");
+                }
+                return "";
+        }
+    }
+
+    private String formatInstant(Instant instant) {
+        if (instant == null) return "";
+        return java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
+                .withZone(java.time.ZoneId.systemDefault())
+                .format(instant);
+    }
+
+    private Instant getCollectedAt(Task task) {
+        return task.getTaskEvents().stream()
+                .filter(e -> e.getTaskStepDefinition() != null && e.getTaskStepDefinition().getLabel().equalsIgnoreCase("COLETADO"))
+                .map(TaskEvent::getTimestamp)
+                .findFirst().orElse(null);
+    }
+
+    private String getCollectorName(Task task) {
+        return task.getTaskEvents().stream()
+                .filter(e -> e.getTaskStepDefinition() != null && e.getTaskStepDefinition().getLabel().equalsIgnoreCase("COLETADO"))
+                .map(e -> e.getUser() != null ? e.getUser().getName() : "Sistema")
+                .findFirst().orElse("");
+    }
+
     private StoreReportEntry mapToStoreReportEntry(Task task) {
         String delivery = "";
         User collector = null;
@@ -504,7 +606,8 @@ public class TaskService {
                 collectedAt,
                 task.getCreator() != null ? task.getCreator().getName() : "Sistema",
                 collector.getName(),
-                delivery
+                delivery,
+                task
         );
     }
 
@@ -515,6 +618,7 @@ public class TaskService {
             Instant collectedAt,
             String creatorName,
             String collectorName,
-            String deliveryNumber
+            String deliveryNumber,
+            Task task
     ) {}
 }

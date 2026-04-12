@@ -3,6 +3,7 @@ package com.xflprflx.neokioski.models;
 import com.xflprflx.neokioski.models.enums.Role;
 import jakarta.persistence.*;
 
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -26,6 +27,7 @@ public class User {
     private Role role;
     private boolean notifyStoreOrder;
     private boolean notifyChatSounds = true;
+    private LocalDateTime lastSeen;
 
     @ManyToMany(mappedBy = "users")
     private Set<Group> groups = new HashSet<>();
@@ -103,6 +105,14 @@ public class User {
 
     public void setGroups(Set<Group> groups) {
         this.groups = groups;
+    }
+    
+    public LocalDateTime getLastSeen() {
+        return lastSeen;
+    }
+
+    public void setLastSeen(LocalDateTime lastSeen) {
+        this.lastSeen = lastSeen;
     }
 
     @Override

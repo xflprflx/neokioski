@@ -25,4 +25,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.data.jpa.repository.Query("UPDATE User u SET u.notifyChatSounds = :value WHERE u.id = :id")
     void updateNotifyChatSounds(@org.springframework.data.repository.query.Param("id") Long id, @org.springframework.data.repository.query.Param("value") boolean value);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("UPDATE User u SET u.lastSeen = :lastSeen WHERE u.id = :id")
+    void updateLastSeen(@org.springframework.data.repository.query.Param("id") Long id, @org.springframework.data.repository.query.Param("lastSeen") java.time.LocalDateTime lastSeen);
 }

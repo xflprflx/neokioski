@@ -16,9 +16,11 @@ import java.util.Optional;
 public class SecurityService {
 
     private final UserRepository userRepository;
+    private final com.xflprflx.neokioski.services.PresenceService presenceService;
 
-    public SecurityService(UserRepository userRepository) {
+    public SecurityService(UserRepository userRepository, com.xflprflx.neokioski.services.PresenceService presenceService) {
         this.userRepository = userRepository;
+        this.presenceService = presenceService;
     }
 
     public Optional<UserDetails> getAuthenticatedUser() {
@@ -36,6 +38,7 @@ public class SecurityService {
     }
 
     public void logout() {
+        getAuthenticatedInternalUser().ifPresent(u -> presenceService.forceOffline(u.getId()));
         UI.getCurrent().getPage().setLocation("/");
         SecurityContextLogoutHandler logoutHandler = new SecurityContextLogoutHandler();
         logoutHandler.logout(VaadinServletRequest.getCurrent().getHttpServletRequest(), null, null);

@@ -66,4 +66,8 @@ public class UserService {
     public void updateNotifyChatSounds(Long id, boolean value) {
         repository.updateNotifyChatSounds(id, value);
     }
+
+    public void updateLastSeen(Long id, java.time.LocalDateTime lastSeen) {
+        repository.updateLastSeen(id, lastSeen);
+    }
 }

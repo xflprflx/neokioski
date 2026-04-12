@@ -28,6 +28,7 @@ import com.xflprflx.neokioski.services.UserService;
 import com.xflprflx.neokioski.services.SoundService;
 import com.xflprflx.neokioski.services.ChatService;
 import com.xflprflx.neokioski.models.ChatMessage;
+import com.xflprflx.neokioski.services.PresenceService;
 import jakarta.annotation.security.PermitAll;
 
 import java.io.InputStream;
@@ -49,6 +50,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     private final TaskService taskService;
     private final UserService userService;
     private final ChatService chatService;
+    private final PresenceService presenceService;
     private final VerticalLayout drawerContainer = new VerticalLayout();
     private User currentUser;
     private List<String> availableSounds = new ArrayList<>();
@@ -56,13 +58,14 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
 
     public MainLayout(AuthenticationContext authContext, GroupService groupService,
                       SecurityService securityService, TaskService taskService, UserService userService, 
-                      SoundService soundService, ChatService chatService) {
+                      SoundService soundService, ChatService chatService, PresenceService presenceService) {
         this.authContext = authContext;
         this.groupService = groupService;
         this.securityService = securityService;
         this.taskService = taskService;
         this.userService = userService;
         this.chatService = chatService;
+        this.presenceService = presenceService;
         
         // Obter nomes de todos os sons disponíveis
         this.availableSounds = soundService.getAvailableAlertSounds();
@@ -76,7 +79,12 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         logo.addClassNames(LumoUtility.FontSize.LARGE, LumoUtility.Margin.MEDIUM);
 
         Button logout = new Button("Sair");
-        logout.addClickListener(event -> authContext.logout());
+        logout.addClickListener(event -> {
+            if (currentUser != null) {
+                presenceService.forceOffline(currentUser.getId());
+            }
+            authContext.logout();
+        });
         logout.getStyle().set("cursor", "pointer");
         logout.getStyle().set("margin-right", "20px");
 
@@ -182,6 +190,10 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     @Override
     protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
         super.onAttach(attachEvent);
+        
+        securityService.getAuthenticatedInternalUser().ifPresent(u -> {
+            presenceService.markOnline(u.getId());
+        });
         
         // Carregar sons fixos do chat
         String newMessageB64 = loadAudioAsBase64("themes/neokioski/sounds/new-message.mp3");
@@ -357,6 +369,11 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     @Override
     protected void onDetach(com.vaadin.flow.component.DetachEvent detachEvent) {
         super.onDetach(detachEvent);
+        
+        if (currentUser != null) {
+            presenceService.markOffline(currentUser.getId());
+        }
+
         if (chatMessageListener != null && currentUser != null) {
             groupService.findActiveGroupsByUser(currentUser).forEach(group -> {
                 chatService.unregister(group.getId(), chatMessageListener);

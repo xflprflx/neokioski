@@ -41,6 +41,7 @@ import com.xflprflx.neokioski.models.template.TemplateFieldRelation;
 import com.xflprflx.neokioski.models.template.TemplateStepRelation;
 import com.xflprflx.neokioski.models.template.TaskFieldOption;
 import com.xflprflx.neokioski.models.template.InputType;
+import com.xflprflx.neokioski.services.PresenceService;
 import com.xflprflx.neokioski.ui.utils.TaskUIUtils;
 import jakarta.annotation.security.PermitAll;
 
@@ -63,6 +64,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private final UserService userService;
     private final TaskTemplateService taskTemplateService;
     private final TaskService taskService;
+    private final PresenceService presenceService;
 
     private Group group;
     private User currentUser;
@@ -70,6 +72,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private final VerticalLayout messageContainer = new VerticalLayout();
     private final Scroller scroller = new Scroller(messageContainer);
     private final MessageInput messageInput = new MessageInput();
+    private final HorizontalLayout onlineUsersAvatars = new HorizontalLayout();
     private final H2 groupName = new H2();
     private final HorizontalLayout replyBar = new HorizontalLayout();
     private final HorizontalLayout templateBar = new HorizontalLayout();
@@ -110,19 +113,21 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     
     private Consumer<ChatMessage> listener;
     private Consumer<Task> taskListener;
+    private Consumer<PresenceService.PresenceEvent> presenceListener;
 
     private ChatMessage replyTo = null;
 
     private final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
             .withZone(ZoneId.systemDefault());
 
-    public ChatView(ChatService chatService, GroupService groupService, SecurityService securityService, UserService userService, TaskTemplateService taskTemplateService, TaskService taskService) {
+    public ChatView(ChatService chatService, GroupService groupService, SecurityService securityService, UserService userService, TaskTemplateService taskTemplateService, TaskService taskService, PresenceService presenceService) {
         this.chatService = chatService;
         this.groupService = groupService;
         this.securityService = securityService;
         this.userService = userService;
         this.taskTemplateService = taskTemplateService;
         this.taskService = taskService;
+        this.presenceService = presenceService;
 
         setSizeFull();
         setPadding(false);
@@ -273,7 +278,10 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         dateFilters.setAlignItems(FlexComponent.Alignment.CENTER);
         dateFilters.getStyle().set("margin-left", "var(--lumo-space-m)");
 
-        HorizontalLayout header = new HorizontalLayout(groupName, toggleButtons, showTasksInChatCheckbox, dateFilters, audioControls);
+        onlineUsersAvatars.setSpacing(false);
+        onlineUsersAvatars.getStyle().set("margin-left", "var(--lumo-space-s)");
+
+        HorizontalLayout header = new HorizontalLayout(groupName, onlineUsersAvatars, toggleButtons, showTasksInChatCheckbox, dateFilters, audioControls);
         header.setWidthFull();
         header.setAlignItems(FlexComponent.Alignment.CENTER);
         header.setPadding(true);
@@ -644,12 +652,26 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
     private void configureSuggestionList(ListBox<User> list) {
         list.setRenderer(new com.vaadin.flow.data.renderer.ComponentRenderer<>(user -> {
+            boolean online = user.getId() != null && presenceService.isOnline(user.getId());
+            com.vaadin.flow.component.html.Span dot = new com.vaadin.flow.component.html.Span();
+            dot.getStyle()
+                .set("width", "8px")
+                .set("height", "8px")
+                .set("border-radius", "50%")
+                .set("display", "inline-block")
+                .set("background-color", online ? "var(--lumo-success-color)" : "var(--lumo-contrast-20pct)")
+                .set("margin-right", "4px");
+
             Span name = new Span(user.getName());
             Span username = new Span("@" + user.getUsername());
             username.getStyle().set("font-size", "var(--lumo-font-size-xs)");
             username.getStyle().set("color", "var(--lumo-secondary-text-color)");
             username.getStyle().set("margin-left", "8px");
-            return new HorizontalLayout(name, username);
+            
+            HorizontalLayout row = new HorizontalLayout(dot, name, username);
+            row.setAlignItems(FlexComponent.Alignment.CENTER);
+            row.setSpacing(false);
+            return row;
         }));
 
         list.addValueChangeListener(event -> {
@@ -1072,10 +1094,26 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         name.getStyle().set("font-weight", "var(--lumo-font-weight-bold)");
         name.getStyle().set("font-size", "var(--lumo-font-size-s)");
         
-        HorizontalLayout header = new HorizontalLayout(name);
+        boolean isOnline = presenceService.isOnline(msg.getUser().getId());
+        Span statusDot = new Span();
+        statusDot.getStyle()
+            .set("width", "8px")
+            .set("height", "8px")
+            .set("border-radius", "50%")
+            .set("display", "inline-block")
+            .set("margin-left", "4px")
+            .set("background-color", isOnline ? "var(--lumo-success-color)" : "var(--lumo-contrast-30pct)");
+        
+        String statusText = isOnline ? "Online" : "Offline";
+        if (!isOnline && msg.getUser().getLastSeen() != null) {
+            statusText += " (Visto em: " + dateTimeFormatter.format(msg.getUser().getLastSeen()) + ")";
+        }
+        statusDot.getElement().setAttribute("title", statusText);
+        
+        HorizontalLayout header = new HorizontalLayout(name, statusDot);
         header.setSpacing(false);
         header.getStyle().set("margin-bottom", "var(--lumo-space-xs)");
-        header.setAlignItems(FlexComponent.Alignment.BASELINE);
+        header.setAlignItems(FlexComponent.Alignment.CENTER);
 
         // Citação (Reply)
         VerticalLayout quote = new VerticalLayout();
@@ -2142,16 +2180,56 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     @Override
     protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
         super.onAttach(attachEvent);
+        presenceListener = event -> {
+            getUI().ifPresent(ui -> ui.access(() -> {
+                // Ao mudar status, recarregar mensagens para atualizar indicadores visuais
+                loadMessages();
+                // E atualizar a lista de avatares
+                updateOnlineUserAvatars();
+            }));
+        };
+        presenceService.addListener(presenceListener);
+        updateOnlineUserAvatars();
     }
 
     @Override
     protected void onDetach(com.vaadin.flow.component.DetachEvent detachEvent) {
-        if (listener != null && group != null) {
+        if (group != null && listener != null) {
             chatService.unregister(group.getId(), listener);
         }
         if (taskListener != null && group != null) {
             taskService.unregister(group.getId(), taskListener);
         }
+        if (presenceListener != null) {
+            presenceService.removeListener(presenceListener);
+        }
+        
         super.onDetach(detachEvent);
+    }
+
+    private void updateOnlineUserAvatars() {
+        getUI().ifPresent(ui -> ui.access(() -> {
+            onlineUsersAvatars.removeAll();
+            Set<Long> onlineIds = presenceService.getOnlineUserIds();
+            
+            for (Long userId : onlineIds) {
+                userService.findById(userId).ifPresent(user -> {
+                    com.vaadin.flow.component.avatar.Avatar avatar = new com.vaadin.flow.component.avatar.Avatar(user.getName());
+                    avatar.getStyle()
+                        .set("width", "24px")
+                        .set("height", "24px")
+                        .set("border", "2px solid var(--lumo-success-color)")
+                        .set("border-radius", "50%")
+                        .set("margin-left", "-8px"); // Sobreposição para visual Google Docs
+                    
+                    if (onlineUsersAvatars.getComponentCount() == 0) {
+                        avatar.getStyle().set("margin-left", "0");
+                    }
+                    
+                    avatar.getElement().setAttribute("title", user.getName() + " (Online)");
+                    onlineUsersAvatars.add(avatar);
+                });
+            }
+        }));
     }
 }

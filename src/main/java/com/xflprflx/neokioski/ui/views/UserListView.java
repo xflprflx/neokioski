@@ -3,6 +3,7 @@ package com.xflprflx.neokioski.ui.views;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
@@ -11,6 +12,7 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.services.UserService;
+import com.xflprflx.neokioski.services.PresenceService;
 import jakarta.annotation.security.RolesAllowed;
 
 @RolesAllowed("ADMIN")
@@ -21,9 +23,13 @@ public class UserListView extends VerticalLayout {
     TextField filterText = new TextField();
     UserForm form;
     UserService service;
+    PresenceService presenceService;
+    private PresenceService.PresenceEvent lastEvent;
+    private java.util.function.Consumer<PresenceService.PresenceEvent> presenceListener;
 
-    public UserListView(UserService service) {
+    public UserListView(UserService service, PresenceService presenceService) {
         this.service = service;
+        this.presenceService = presenceService;
         addClassName("user-list-view");
         setSizeFull();
         configureGrid();
@@ -73,6 +79,26 @@ public class UserListView extends VerticalLayout {
         grid.addColumn(user -> user.isActive() ? "Sim" : "Não").setHeader("Ativo");
         grid.addColumn(user -> user.isNotifyStoreOrder() ? "Sim" : "Não").setHeader("Alerta Loja");
         
+        grid.addComponentColumn(user -> {
+            boolean online = presenceService.isOnline(user.getId());
+            com.vaadin.flow.component.html.Span dot = new com.vaadin.flow.component.html.Span();
+            dot.getStyle()
+                .set("width", "10px")
+                .set("height", "10px")
+                .set("border-radius", "50%")
+                .set("display", "inline-block")
+                .set("margin-right", "8px")
+                .set("background-color", online ? "var(--lumo-success-color)" : "var(--lumo-contrast-30pct)");
+            
+            com.vaadin.flow.component.html.Span text = new com.vaadin.flow.component.html.Span(online ? "Online" : "Offline");
+            text.getStyle().set("font-size", "var(--lumo-font-size-xs)");
+            
+            HorizontalLayout layout = new HorizontalLayout(dot, text);
+            layout.setAlignItems(FlexComponent.Alignment.CENTER);
+            layout.setSpacing(false);
+            return layout;
+        }).setHeader("Status").setSortable(true).setComparator(user -> presenceService.isOnline(user.getId()));
+
         grid.getColumns().forEach(col -> col.setAutoWidth(true));
 
         grid.asSingleSelect().addValueChangeListener(event ->
@@ -116,5 +142,24 @@ public class UserListView extends VerticalLayout {
 
     private void updateList() {
         grid.setItems(service.findAll(filterText.getValue()));
+    }
+
+    @Override
+    protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
+        super.onAttach(attachEvent);
+        presenceListener = event -> {
+            getUI().ifPresent(ui -> ui.access(() -> {
+                grid.getDataProvider().refreshAll();
+            }));
+        };
+        presenceService.addListener(presenceListener);
+    }
+
+    @Override
+    protected void onDetach(com.vaadin.flow.component.DetachEvent detachEvent) {
+        super.onDetach(detachEvent);
+        if (presenceListener != null) {
+            presenceService.removeListener(presenceListener);
+        }
     }
 }

@@ -57,12 +57,16 @@ public class TaskUIUtils {
     }
 
     public static void applyThemeStyles(Span span, String theme) {
+        applyThemeStyles((com.vaadin.flow.component.HasStyle) span, theme);
+    }
+
+    public static void applyThemeStyles(com.vaadin.flow.component.HasStyle component, String theme) {
         String[] colors = getThemeColors(theme);
-        span.getStyle().set("background-color", colors[1]); 
+        component.getStyle().set("background-color", colors[1]);
         if (theme != null && theme.equalsIgnoreCase("black")) {
-            span.getStyle().set("color", "#212121");
+            component.getStyle().set("color", "#212121");
         } else {
-            span.getStyle().set("color", "#ffffff");
+            component.getStyle().set("color", "#ffffff");
         }
     }
 }

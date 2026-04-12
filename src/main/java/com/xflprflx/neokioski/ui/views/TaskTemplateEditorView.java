@@ -1397,8 +1397,13 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             updateCardsPreview();
         });
         btn.addThemeVariants(ButtonVariant.LUMO_SMALL);
-        if (targetStep.isFinalizer) btn.addThemeVariants(ButtonVariant.LUMO_SUCCESS);
-        else btn.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
+        if (targetStep.colorTheme != null && !targetStep.colorTheme.equalsIgnoreCase("gray")) {
+            TaskUIUtils.applyThemeStyles(btn, targetStep.colorTheme);
+        } else if (targetStep.isFinalizer) {
+            btn.addThemeVariants(ButtonVariant.LUMO_SUCCESS);
+        } else {
+            btn.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
+        }
         return btn;
     }
 

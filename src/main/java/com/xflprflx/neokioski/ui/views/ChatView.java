@@ -1579,7 +1579,9 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             });
             stepBtn.setEnabled(!taskService.isTaskFinalized(task));
             stepBtn.addThemeVariants(ButtonVariant.LUMO_SMALL);
-            if (sr.isFinalizer()) {
+            if (step.getColorTheme() != null && !step.getColorTheme().equalsIgnoreCase("gray")) {
+                TaskUIUtils.applyThemeStyles(stepBtn, step.getColorTheme());
+            } else if (sr.isFinalizer()) {
                 stepBtn.addThemeVariants(ButtonVariant.LUMO_SUCCESS);
             } else {
                 stepBtn.addThemeVariants(ButtonVariant.LUMO_CONTRAST);

@@ -17,6 +17,7 @@ public class TaskTemplateService {
     private final TemplateStepRelationRepository templateStepRelationRepository;
     private final TaskFieldOptionRepository taskFieldOptionRepository;
     private final TaskAlertRepository taskAlertRepository;
+    private final TaskSlaConfigRepository taskSlaConfigRepository;
     @org.springframework.context.annotation.Lazy
     @org.springframework.beans.factory.annotation.Autowired
     private TaskRepository taskRepository;
@@ -31,7 +32,8 @@ public class TaskTemplateService {
                                TemplateFieldRelationRepository templateFieldRelationRepository,
                                TemplateStepRelationRepository templateStepRelationRepository,
                                TaskFieldOptionRepository taskFieldOptionRepository,
-                               TaskAlertRepository taskAlertRepository) {
+                               TaskAlertRepository taskAlertRepository,
+                               TaskSlaConfigRepository taskSlaConfigRepository) {
         this.taskTemplateRepository = taskTemplateRepository;
         this.taskFieldDefinitionRepository = taskFieldDefinitionRepository;
         this.taskStepDefinitionRepository = taskStepDefinitionRepository;
@@ -39,13 +41,15 @@ public class TaskTemplateService {
         this.templateStepRelationRepository = templateStepRelationRepository;
         this.taskFieldOptionRepository = taskFieldOptionRepository;
         this.taskAlertRepository = taskAlertRepository;
+        this.taskSlaConfigRepository = taskSlaConfigRepository;
     }
 
     @Transactional
     public TaskTemplate saveTemplate(TaskTemplate template, 
                                      List<TemplateFieldRelation> fieldRelations, 
                                      List<TemplateStepRelation> stepRelations,
-                                     List<TaskAlert> alerts) {
+                                     List<TaskAlert> alerts,
+                                     List<TaskSlaConfig> slas) {
         
         // Limpa apenas os alertas antigos da coleção que foram excluídos na interface (para orphanRemoval funcionar adequadamente),
         // preservando os que ficaram para não quebrar a identidade e trocar de ID
@@ -93,6 +97,31 @@ public class TaskTemplateService {
             }
         }
 
+        // Persistir SLAs através de Vigência (Imutabilidade para hitórico)
+        if (savedTemplate.getId() != null) {
+            // Buscamos as configurações que estão ATIVAS atualmente
+            List<TaskSlaConfig> activeSlas = taskSlaConfigRepository.findByTaskTemplateAndValidToIsNull(savedTemplate);
+            
+            // "Encerramos" a vigência das configurações atuais.
+            // Quando novas configurações forem salvas abaixo, elas serão as novas versões vigentes.
+            for (TaskSlaConfig activeSla : activeSlas) {
+                activeSla.setValidTo(java.time.Instant.now());
+                taskSlaConfigRepository.save(activeSla);
+            }
+        }
+
+        if (slas != null) {
+            for (TaskSlaConfig sla : slas) {
+                // Garantimos que cada entrada seja salva como um NOVO registro histórico
+                sla.setId(null); 
+                sla.setTaskTemplate(savedTemplate);
+                // validFrom já vem preenchido como now() do DTO, mas garantimos aqui se necessário
+                if (sla.getValidFrom() == null) sla.setValidFrom(java.time.Instant.now());
+                sla.setValidTo(null);
+                taskSlaConfigRepository.save(sla);
+            }
+        }
+
         // Tentar reajustar cronômetros das tarefas pendentes em memória (via Dynamic Scheduling)
         try {
             java.util.List<com.xflprflx.neokioski.models.Task> pendings = taskRepository.findAllPending();
@@ -135,5 +164,11 @@ public class TaskTemplateService {
         List<TaskAlert> alerts = taskAlertRepository.findByTaskTemplateId(id);
         taskAlertRepository.deleteAll(alerts);
         taskTemplateRepository.deleteById(id);
+    }
+
+    public List<TaskSlaConfig> getSlaConfigsByTemplateId(Long templateId) {
+        TaskTemplate template = taskTemplateRepository.findById(templateId).orElse(null);
+        if (template == null) return new java.util.ArrayList<>();
+        return taskSlaConfigRepository.findByTaskTemplateAndValidToIsNull(template);
     }
 }

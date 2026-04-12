@@ -24,14 +24,8 @@ import com.vaadin.flow.router.BeforeEvent;
 import com.vaadin.flow.router.HasUrlParameter;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
-import com.xflprflx.neokioski.models.ChatMessage;
-import com.xflprflx.neokioski.models.Group;
-import com.xflprflx.neokioski.models.MessageReaction;
-import com.xflprflx.neokioski.models.MessageEdit;
-import com.xflprflx.neokioski.models.Task;
-import com.xflprflx.neokioski.models.User;
+import com.xflprflx.neokioski.models.*;
 import com.xflprflx.neokioski.models.enums.Role;
-import com.xflprflx.neokioski.models.TaskFieldValue;
 import com.vaadin.flow.component.splitlayout.SplitLayout;
 import com.vaadin.flow.component.combobox.ComboBox;
 
@@ -1409,6 +1403,27 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     .set("font-size", "var(--lumo-font-size-xs)")
                     .set("font-weight", "bold");
             statusRow.add(statusLabel, pendenteBadge);
+        }
+
+        // Badges de SLA
+        if (task.getSlaResults() != null) {
+            for (TaskSlaResult result : task.getSlaResults()) {
+                String slaName = result.getSlaConfig() != null ? result.getSlaConfig().getName() : "SLA";
+                boolean onTime = result.getStatus() == com.xflprflx.neokioski.models.enums.SlaStatus.ON_TIME;
+                
+                Span slaBadge = new Span((onTime ? "✅ " : "🔴 ") + slaName);
+                slaBadge.getStyle()
+                        .set("padding", "2px 8px")
+                        .set("border-radius", "8px")
+                        .set("font-size", "10px")
+                        .set("font-weight", "bold")
+                        .set("background-color", onTime ? "var(--lumo-success-color-10pct)" : "var(--lumo-error-color-10pct)")
+                        .set("color", onTime ? "var(--lumo-success-text-color)" : "var(--lumo-error-text-color)")
+                        .set("border", "1px solid " + (onTime ? "var(--lumo-success-color-50pct)" : "var(--lumo-error-color-50pct)"));
+                
+                slaBadge.getElement().setAttribute("title", onTime ? "Dentro do prazo" : "Atrasado");
+                statusRow.add(slaBadge);
+            }
         }
 
         // Cronômetro

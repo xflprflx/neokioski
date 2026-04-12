@@ -23,6 +23,7 @@ public class TaskService {
     private final TaskTemplateRepository taskTemplateRepository;
     private final TaskFieldDefinitionRepository taskFieldDefinitionRepository;
     private final TaskStepDefinitionRepository taskStepDefinitionRepository;
+    private final TaskSlaService taskSlaService;
 
     private final java.util.Map<Long, List<Consumer<Task>>> listeners =
             Collections.synchronizedMap(new java.util.HashMap<>());
@@ -35,7 +36,8 @@ public class TaskService {
                        TaskAlertService taskAlertService,
                        TaskTemplateRepository taskTemplateRepository,
                        TaskFieldDefinitionRepository taskFieldDefinitionRepository,
-                       TaskStepDefinitionRepository taskStepDefinitionRepository) {
+                       TaskStepDefinitionRepository taskStepDefinitionRepository,
+                       TaskSlaService taskSlaService) {
         this.taskRepository = taskRepository;
         this.stepRelationRepository = stepRelationRepository;
         this.chatService = chatService;
@@ -44,6 +46,7 @@ public class TaskService {
         this.taskTemplateRepository = taskTemplateRepository;
         this.taskFieldDefinitionRepository = taskFieldDefinitionRepository;
         this.taskStepDefinitionRepository = taskStepDefinitionRepository;
+        this.taskSlaService = taskSlaService;
     }
 
     public Optional<com.xflprflx.neokioski.models.enums.Role> getResponsibleRole(Task task) {
@@ -124,7 +127,10 @@ public class TaskService {
 
             if (isFinalizerNow && task.getFinalizedAt() == null) {
                 task.setFinalizedAt(Instant.now());
+                taskSlaService.calculateFinalTaskSla(task);
             }
+
+            taskSlaService.calculateAndSaveSla(task, step);
 
             Task saved = taskRepository.save(task);
 

@@ -63,6 +63,10 @@ public class Task {
     @Column(name = "finalized_at")
     private Instant finalizedAt;
 
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
+    private Set<TaskSlaResult> slaResults = new LinkedHashSet<>();
+
     public Task() {
         this.createdAt = Instant.now();
     }
@@ -162,6 +166,14 @@ public class Task {
 
     public void setFinalizedAt(Instant finalizedAt) {
         this.finalizedAt = finalizedAt;
+    }
+
+    public Set<TaskSlaResult> getSlaResults() {
+        return slaResults;
+    }
+
+    public void setSlaResults(Set<TaskSlaResult> slaResults) {
+        this.slaResults = slaResults;
     }
 
     @Override

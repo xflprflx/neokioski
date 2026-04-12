@@ -1,6 +1,8 @@
 package com.xflprflx.neokioski.ui.views;
 
 import com.vaadin.flow.component.Component;
+import com.xflprflx.neokioski.models.enums.TaskSlaUnit;
+import com.xflprflx.neokioski.models.template.*;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.checkbox.Checkbox;
@@ -76,6 +78,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     private Tab formFieldsTab = new Tab("Campos do Formulário");
     private Tab workflowTab = new Tab("Fluxo de Trabalho");
     private Tab alertsTab = new Tab("Alertas");
+    private Tab slasTab = new Tab("SLA (Metas)");
     private VerticalLayout tabContent = new VerticalLayout();
     private VerticalLayout workflowPreview = new VerticalLayout();
     private VerticalLayout chatLayout = new VerticalLayout();
@@ -137,13 +140,25 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         public Set<Role> alertRoles = new HashSet<>();
     }
 
+    public static class SlaDTO {
+        public Long id;
+        public String name;
+        public String sourceStepLabel;
+        public String targetStepLabel;
+        public int targetValue;
+        public TaskSlaUnit unit = TaskSlaUnit.MINUTES;
+        public java.time.Instant validFrom = java.time.Instant.now();
+    }
     private List<FieldDTO> fields = new ArrayList<>();
     private List<StepDTO> steps = new ArrayList<>();
     private List<AlertDTO> alerts = new ArrayList<>();
+    private List<SlaDTO> slas = new ArrayList<>();
+
 
     private Grid<FieldDTO> fieldsGrid = new Grid<>(FieldDTO.class, false);
     private Grid<StepDTO> stepsGrid = new Grid<>(StepDTO.class, false);
     private Grid<AlertDTO> alertsGrid = new Grid<>(AlertDTO.class, false);
+    private Grid<SlaDTO> slasGrid = new Grid<>(SlaDTO.class, false);
 
     private FieldDTO draggedField;
     private StepDTO draggedStep;
@@ -437,18 +452,128 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     private Component createTabs() {
-        tabs.add(formFieldsTab, workflowTab, alertsTab);
+        tabs.add(formFieldsTab, workflowTab, alertsTab, slasTab);
         tabs.setWidthFull();
         tabs.addSelectedChangeListener(event -> {
             if (event.getSelectedTab().equals(formFieldsTab)) {
                 showFormFieldsTab();
             } else if (event.getSelectedTab().equals(workflowTab)) {
                 showWorkflowTab();
-            } else {
+            } else if (event.getSelectedTab().equals(alertsTab)) {
                 showAlertsTab();
+            } else {
+                showSlaTab();
             }
         });
         return tabs;
+    }
+
+    private void showSlaTab() {
+        tabContent.removeAll();
+        
+        Button addSlaBtn = new Button("Adicionar Nova Meta de SLA");
+        addSlaBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        addSlaBtn.addClickListener(e -> openSlaDialog());
+
+        if (slasGrid.getColumns().isEmpty()) {
+            slasGrid.addColumn(dto -> dto.name).setHeader("Nome da Meta");
+            slasGrid.addColumn(dto -> dto.sourceStepLabel != null && !dto.sourceStepLabel.isBlank() ? dto.sourceStepLabel : "Criação").setHeader("Início");
+            slasGrid.addColumn(dto -> dto.targetStepLabel != null && !dto.targetStepLabel.isBlank() ? dto.targetStepLabel : "Finalização").setHeader("Alvo");
+            slasGrid.addColumn(dto -> dto.targetValue + " " + dto.unit.getLabel()).setHeader("Meta");
+            slasGrid.addComponentColumn(item -> {
+                Button editBtn = new Button(VaadinIcon.EDIT.create());
+                editBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+                editBtn.addClickListener(e -> openSlaDialog(item));
+
+                Button deleteBtn = new Button(VaadinIcon.TRASH.create());
+                deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
+                deleteBtn.addClickListener(e -> {
+                    slas.remove(item);
+                    slasGrid.getDataProvider().refreshAll();
+                });
+                return new HorizontalLayout(editBtn, deleteBtn);
+            }).setHeader("Ações");
+            slasGrid.setItems(slas);
+        }
+
+        tabContent.add(addSlaBtn, slasGrid);
+    }
+
+    private void openSlaDialog() {
+        openSlaDialog(null);
+    }
+
+    private void openSlaDialog(SlaDTO existingDto) {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle(existingDto == null ? "Nova Meta de SLA" : "Editar Meta");
+
+        TextField nameField = new TextField("Nome da Meta (ex: Tempo de Atendimento)");
+        nameField.setWidthFull();
+
+        ComboBox<String> startStepCombo = new ComboBox<>("Etapa de Início (Opcional)");
+        startStepCombo.setItems(steps.stream().map(s -> s.label).collect(Collectors.toList()));
+        startStepCombo.setWidthFull();
+        startStepCombo.setClearButtonVisible(true);
+        startStepCombo.setHelperText("Se vazio, conta a partir da criação da solicitação.");
+
+        ComboBox<String> targetStepCombo = new ComboBox<>("Etapa Alvo (Opcional)");
+        targetStepCombo.setItems(steps.stream().map(s -> s.label).collect(Collectors.toList()));
+        targetStepCombo.setWidthFull();
+        targetStepCombo.setClearButtonVisible(true);
+        targetStepCombo.setHelperText("Se vazio, conta até o encerramento da tarefa.");
+
+        TextField timeoutField = new TextField("Meta de Tempo");
+        timeoutField.setWidth("120px");
+
+        ComboBox<TaskSlaUnit> unitCombo = new ComboBox<>("Unidade");
+        unitCombo.setItems(TaskSlaUnit.values());
+        unitCombo.setItemLabelGenerator(TaskSlaUnit::getLabel);
+        unitCombo.setWidth("150px");
+        unitCombo.setValue(TaskSlaUnit.MINUTES);
+
+        HorizontalLayout timeLayout = new HorizontalLayout(timeoutField, unitCombo);
+        timeLayout.setWidthFull();
+
+        if (existingDto != null) {
+            nameField.setValue(existingDto.name);
+            startStepCombo.setValue(existingDto.sourceStepLabel);
+            targetStepCombo.setValue(existingDto.targetStepLabel);
+            timeoutField.setValue(String.valueOf(existingDto.targetValue));
+            unitCombo.setValue(existingDto.unit);
+        }
+
+        VerticalLayout layout = new VerticalLayout(nameField, startStepCombo, targetStepCombo, timeLayout);
+        dialog.add(layout);
+
+        Button saveBtn = new Button("Salvar", e -> {
+            if (nameField.isEmpty() || timeoutField.isEmpty()) {
+                Notification.show("Nome e Meta são obrigatórios");
+                return;
+            }
+            try {
+                int timeout = Integer.parseInt(timeoutField.getValue());
+                SlaDTO dto = (existingDto != null) ? existingDto : new SlaDTO();
+                dto.name = nameField.getValue();
+                dto.sourceStepLabel = startStepCombo.getValue();
+                dto.targetStepLabel = targetStepCombo.getValue();
+                dto.targetValue = timeout;
+                dto.unit = unitCombo.getValue();
+                
+                if (existingDto == null) {
+                    slas.add(dto);
+                }
+                
+                slasGrid.getDataProvider().refreshAll();
+                dialog.close();
+            } catch (NumberFormatException ex) {
+                Notification.show("Tempo deve ser um número");
+            }
+        });
+        saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        Button cancelBtn = new Button("Cancelar", e -> dialog.close());
+
+        dialog.getFooter().add(cancelBtn, saveBtn);
+        dialog.open();
     }
 
     private void showAlertsTab() {
@@ -1684,7 +1809,24 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             }
         }
 
-        templateService.saveTemplate(t, fieldRelations, stepRelations, taskAlerts);
+
+        List<TaskSlaConfig> taskSlas = new ArrayList<>();
+        for (SlaDTO dto : slas) {
+            TaskSlaConfig config = new TaskSlaConfig();
+            config.setName(dto.name);
+            if (dto.sourceStepLabel != null && !dto.sourceStepLabel.isBlank()) {
+                config.setSourceStep(defMap.get(dto.sourceStepLabel));
+            }
+            if (dto.targetStepLabel != null && !dto.targetStepLabel.isBlank()) {
+                config.setTargetStep(defMap.get(dto.targetStepLabel));
+            }
+            config.setTargetValue(dto.targetValue);
+            config.setUnit(dto.unit);
+            config.setValidFrom(dto.validFrom);
+            taskSlas.add(config);
+        }
+
+        templateService.saveTemplate(t, fieldRelations, stepRelations, taskAlerts, taskSlas);
         Notification.show("Template Salvo com Sucesso!");
         getUI().ifPresent(ui -> ui.navigate(TaskTemplateListView.class));
     }
@@ -1775,7 +1917,20 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     alerts.add(dto);
                 }
                 alertsGrid.getDataProvider().refreshAll();
-
+                
+                slas.clear();
+                for (TaskSlaConfig sla : templateService.getSlaConfigsByTemplateId(parameter)) {
+                    SlaDTO dto = new SlaDTO();
+                    dto.name = sla.getName();
+                    if (sla.getSourceStep() != null) dto.sourceStepLabel = sla.getSourceStep().getLabel();
+                    if (sla.getTargetStep() != null) dto.targetStepLabel = sla.getTargetStep().getLabel();
+                    dto.targetValue = sla.getTargetValue();
+                    dto.unit = sla.getUnit();
+                    dto.validFrom = sla.getValidFrom();
+                    slas.add(dto);
+                }
+                slasGrid.getDataProvider().refreshAll();
+                
                 updateCardsPreview();
             }
         }

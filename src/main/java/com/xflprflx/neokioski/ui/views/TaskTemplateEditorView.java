@@ -29,6 +29,7 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.tabs.Tab;
 import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.HasUrlParameter;
@@ -72,6 +73,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     private MultiSelectComboBox<Role> globalAlertRolesCombo = new MultiSelectComboBox<>("Perfis que ouvem (vazio = todos)");
     private ComboBox<Role> defaultResponsibleRoleCombo = new ComboBox<>("Setor Responsável Inicial");
     private Checkbox registraNoRelatorioLojaUI = new Checkbox();
+    private IntegerField sortOrderField = new IntegerField("Ordem de Exibição");
 
     // Tabs
     private Tabs tabs = new Tabs();
@@ -377,7 +379,10 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         groupComboBox.setItems(groupService.findAll(""));
         groupComboBox.setItemLabelGenerator(Group::getName);
 
-        firstRow.add(nameField, groupComboBox);
+        sortOrderField.setWidth("150px");
+        sortOrderField.setTooltipText("Define a ordem de exibição (menor para maior)");
+
+        firstRow.add(nameField, groupComboBox, sortOrderField);
 
         VerticalLayout secondRow = new VerticalLayout();
         secondRow.setPadding(false);
@@ -1656,6 +1661,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         t.setName(nameField.getValue());
         t.setShowSendButton(showSendButton.getValue());
         t.setRequiresSignature(requireSignature.getValue());
+        t.setSortOrder(sortOrderField.getValue() != null ? sortOrderField.getValue() : 0);
         
         if (t.isRequiresSignature()) {
             if (authorizingUsersCombo.getValue().isEmpty()) {
@@ -1850,6 +1856,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 playGlobalSoundBtn.setVisible(t.isPlayAlertSound());
                 defaultResponsibleRoleCombo.setValue(t.getDefaultResponsibleRole());
                 registraNoRelatorioLojaUI.setValue(t.isRegistraNoRelatorioLoja());
+                sortOrderField.setValue(t.getSortOrder());
                 groupComboBox.setValue(t.getGroups());
 
                 fields.clear();

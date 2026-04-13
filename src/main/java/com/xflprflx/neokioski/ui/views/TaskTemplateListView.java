@@ -38,6 +38,7 @@ public class TaskTemplateListView extends VerticalLayout {
 
     private void configureGrid() {
         grid.addColumn(TaskTemplate::getName).setHeader("Nome do Template");
+        grid.addColumn(TaskTemplate::getSortOrder).setHeader("Ordem").setWidth("100px").setFlexGrow(0);
         grid.addColumn(t -> t.isShowSendButton() ? "Sim" : "Não").setHeader("Botão Enviar");
         grid.addColumn(t -> t.isRequiresSignature() ? "Sim" : "Não").setHeader("Requer Assinatura");
 

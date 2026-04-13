@@ -2,6 +2,7 @@ package com.xflprflx.neokioski.services;
 
 import com.xflprflx.neokioski.models.template.*;
 import com.xflprflx.neokioski.repositories.*;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -138,7 +139,7 @@ public class TaskTemplateService {
     }
 
     public List<TaskTemplate> findAll() {
-        return taskTemplateRepository.findAll();
+        return taskTemplateRepository.findAll(Sort.by(Sort.Direction.ASC, "sortOrder", "name"));
     }
 
     public TaskTemplate getTemplateById(Long id) {

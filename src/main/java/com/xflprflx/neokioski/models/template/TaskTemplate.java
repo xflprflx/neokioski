@@ -35,6 +35,9 @@ public class TaskTemplate {
     @Column(name = "default_responsible_role")
     private Role defaultResponsibleRole;
 
+    @Column(nullable = false)
+    private Integer sortOrder = 0;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @Enumerated(EnumType.STRING)
     @CollectionTable(name = "tb_task_template_alert_roles", joinColumns = @JoinColumn(name = "task_template_id"))
@@ -165,6 +168,14 @@ public class TaskTemplate {
 
     public List<TaskAlert> getAlerts() {
         return alerts;
+    }
+
+    public Integer getSortOrder() {
+        return sortOrder;
+    }
+
+    public void setSortOrder(Integer sortOrder) {
+        this.sortOrder = sortOrder;
     }
 
     public void setAlerts(List<TaskAlert> alerts) {

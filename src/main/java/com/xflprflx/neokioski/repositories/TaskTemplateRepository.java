@@ -15,6 +15,6 @@ public interface TaskTemplateRepository extends JpaRepository<TaskTemplate, Long
     @Query("SELECT t FROM TaskTemplate t LEFT JOIN FETCH t.alerts WHERE t.id = :id")
     Optional<TaskTemplate> findByIdWithGroups(@Param("id") Long id);
 
-    @Query("SELECT t FROM TaskTemplate t JOIN t.groups g WHERE g.id = :groupId")
+    @Query("SELECT t FROM TaskTemplate t JOIN t.groups g WHERE g.id = :groupId ORDER BY t.sortOrder ASC, t.name ASC")
     List<TaskTemplate> findByGroupId(@Param("groupId") Long groupId);
 }

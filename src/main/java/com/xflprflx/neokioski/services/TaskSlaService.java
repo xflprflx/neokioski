@@ -87,6 +87,9 @@ public class TaskSlaService {
         result.setCompletedAt(endTime);
 
         resultRepository.save(result);
+        if (task.getSlaResults() != null) {
+            task.getSlaResults().add(result);
+        }
     }
 
     private Instant getStartTime(Task task, TaskSlaConfig config) {

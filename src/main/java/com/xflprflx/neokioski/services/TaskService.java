@@ -249,6 +249,53 @@ public class TaskService {
         return taskRepository.findPendingByGroup(group);
     }
 
+    public long countActiveTasks() {
+        return taskRepository.countAllPending();
+    }
+
+    public long countActiveTasksByGroup(Group group) {
+        return taskRepository.countPendingByGroup(group);
+    }
+
+    public long countActiveTasksByGroups(List<Group> groups) {
+        if (groups == null || groups.isEmpty()) return 0;
+        return taskRepository.countPendingByGroups(groups);
+    }
+
+    public Map<String, Long> getTaskDistributionByGroup(User user, GroupService groupService) {
+        List<Object[]> results;
+        if (user.getRole() == com.xflprflx.neokioski.models.enums.Role.ADMIN) {
+            results = taskRepository.countTasksByGroup();
+        } else {
+            List<Group> userGroups = groupService.findActiveGroupsByUser(user);
+            if (userGroups.isEmpty()) return Collections.emptyMap();
+            results = taskRepository.countTasksByGroupIn(userGroups);
+        }
+        return results.stream().collect(Collectors.toMap(
+                r -> (String) r[0],
+                r -> (Long) r[1]
+        ));
+    }
+
+    public Map<String, Long> getTaskActivityLast7Days(User user, GroupService groupService) {
+        java.time.Instant start = java.time.Instant.now().minus(7, java.time.temporal.ChronoUnit.DAYS);
+        List<Object[]> results;
+        if (user.getRole() == com.xflprflx.neokioski.models.enums.Role.ADMIN) {
+            results = taskRepository.countTasksByDay(start);
+        } else {
+            List<Group> userGroups = groupService.findActiveGroupsByUser(user);
+            if (userGroups.isEmpty()) return Collections.emptyMap();
+            results = taskRepository.countTasksByDayAndGroups(start, userGroups);
+        }
+        
+        return results.stream().collect(Collectors.toMap(
+                r -> r[0].toString(),
+                r -> (Long) r[1],
+                (v1, v2) -> v1,
+                TreeMap::new
+        ));
+    }
+
     public List<TaskStepDefinition> getAllowedNextSteps(Task task) {
         if (isTaskFinalized(task)) return Collections.emptyList();
 

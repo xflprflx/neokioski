@@ -1,23 +1,151 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
-
-html {
-    --lumo-font-family: 'Inter', sans-serif;
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes finalized-pulse-ring {
-    0% {
-        box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.7);
-    }
-    70% {
-        box-shadow: 0 0 0 10px rgba(46, 125, 50, 0);
-    }
-    100% {
-        box-shadow: 0 0 0 0 rgba(46, 125, 50, 0);
-    }
+.animate-in {
+    animation: fadeInUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    opacity: 0;
 }
 
-.finalized-task-pulse {
-    animation: finalized-pulse-ring 2s infinite !important;
-    border: 2px solid #2e7d32 !important;
-    border-left: 6px solid #2e7d32 !important;
+[theme~="dark"] {
+    --dash-bg: #0f172a;
+    --dash-card-bg: #1e293b;
+    --dash-border: rgba(255, 255, 255, 0.1);
+    --dash-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    --dash-text: #f8fafc;
+    --dash-text-sec: #94a3b8;
 }
+
+.dashboard-view-container {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    grid-auto-rows: min-content;
+    gap: 20px;
+    padding: 24px;
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--dash-bg);
+    min-height: 100vh;
+}
+
+.stat-card {
+    background: var(--dash-card-bg);
+    padding: 16px 36px; /* Aumentado padding horizontal para afastar da esquerda */
+    border-radius: 32px;
+    box-shadow: var(--lumo-box-shadow-m);
+    border: 1px solid var(--dash-border);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    height: 110px;
+    max-width: 260px;
+    margin: 0 auto;
+    transition: all 0.2s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+}
+
+.stat-value {
+    font-size: 2.4rem; /* Tamanho maior do número */
+    font-weight: 800;
+    color: var(--dash-text);
+    margin: 0;
+    z-index: 10;
+    position: relative;
+    letter-spacing: -0.04em;
+    line-height: 1.1;
+}
+
+.stat-label {
+    font-size: 0.75rem; /* Reduzido para caber numa linha */
+    white-space: nowrap; /* Não quebrar a linha */
+    font-weight: 700;
+    color: var(--dash-text-sec);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    z-index: 10;
+    position: relative;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Reticências se ainda for maior que o card */
+}
+
+.stat-icon {
+    position: absolute;
+    right: 15px;
+    top: 15px;
+    font-size: 1.8rem;
+    color: var(--dash-text-sec);
+    opacity: 0.15;
+    z-index: 1;
+}
+
+.sparkline-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    z-index: 1;
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+.chart-container {
+    background: var(--dash-card-bg);
+    padding: 24px;
+    border-radius: 12px;
+    box-shadow: var(--dash-shadow);
+    border: 1px solid var(--dash-border);
+    width: 100%;
+    min-height: 400px;
+}
+
+.chart-title {
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: var(--dash-text);
+    margin-bottom: 24px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    opacity: 0.8;
+}
+
+.filter-section {
+    background: var(--dash-card-bg);
+    padding: 12px 24px;
+    border-radius: 12px;
+    box-shadow: var(--dash-shadow);
+    border: 1px solid var(--dash-border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    width: 100%;
+}
+
+.kpi-container {
+    grid-column: span 12;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 24px;
+    justify-content: center;
+}
+
+.chart-main { grid-column: span 8; }
+.chart-side { grid-column: span 4; }
+.chart-full { grid-column: span 12; }
+
+@media (max-width: 1100px) {
+    .chart-main, .chart-side { grid-column: span 12; }
+}
+
+.stat-card {
+    border-left: 6px solid var(--card-border-color, var(--lumo-contrast-20pct)) !important;
+}
+
+

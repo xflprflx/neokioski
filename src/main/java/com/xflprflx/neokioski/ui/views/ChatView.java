@@ -4,6 +4,7 @@ package com.xflprflx.neokioski.ui.views;
 import com.vaadin.flow.component.avatar.Avatar;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.contextmenu.ContextMenu;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.Div;
@@ -14,11 +15,8 @@ import com.vaadin.flow.component.listbox.ListBox;
 import com.vaadin.flow.component.messages.MessageInput;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
-import com.vaadin.flow.component.orderedlayout.FlexComponent;
-import com.vaadin.flow.component.orderedlayout.FlexLayout;
-import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
-import com.vaadin.flow.component.orderedlayout.Scroller;
-import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.orderedlayout.*;
+import com.vaadin.flow.component.splitlayout.SplitLayout;
 import com.vaadin.flow.dom.Element;
 import com.vaadin.flow.router.BeforeEvent;
 import com.vaadin.flow.router.HasUrlParameter;
@@ -26,26 +24,13 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.xflprflx.neokioski.models.*;
 import com.xflprflx.neokioski.models.enums.Role;
-import com.vaadin.flow.component.splitlayout.SplitLayout;
-import com.vaadin.flow.component.combobox.ComboBox;
-
-import com.xflprflx.neokioski.models.template.TaskStepDefinition;
+import com.xflprflx.neokioski.models.template.*;
 import com.xflprflx.neokioski.security.SecurityService;
-import com.xflprflx.neokioski.services.ChatService;
-import com.xflprflx.neokioski.services.GroupService;
-import com.xflprflx.neokioski.services.TaskService;
-import com.xflprflx.neokioski.services.UserService;
-import com.xflprflx.neokioski.services.TaskTemplateService;
-import com.xflprflx.neokioski.models.template.TaskTemplate;
-import com.xflprflx.neokioski.models.template.TemplateFieldRelation;
-import com.xflprflx.neokioski.models.template.TemplateStepRelation;
-import com.xflprflx.neokioski.models.template.TaskFieldOption;
-import com.xflprflx.neokioski.models.template.InputType;
-import com.xflprflx.neokioski.services.PresenceService;
+import com.xflprflx.neokioski.services.*;
+import com.xflprflx.neokioski.ui.components.TaskDetailsDialog;
 import com.xflprflx.neokioski.ui.utils.TaskUIUtils;
 import jakarta.annotation.security.PermitAll;
 
-import java.io.InputStream;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -1643,7 +1628,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         }
 
         // Botão Ver Detalhes
-        Button detailsBtn = new Button("Ver Detalhes", ev -> openTaskDetailsDialog(task));
+        Button detailsBtn = new Button("Ver Detalhes", ev -> new TaskDetailsDialog(task).open());
         detailsBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
         actions.add(detailsBtn);
 
@@ -1814,96 +1799,6 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         n.open();
     }
 
-    private void openTaskDetailsDialog(Task task) {
-        Dialog dialog = new Dialog();
-        dialog.setWidth("500px");
-        dialog.setHeaderTitle("Detalhes da Tarefa");
-
-        VerticalLayout content = new VerticalLayout();
-        content.setPadding(false);
-        content.setSpacing(true);
-
-        String tName = task.getTaskTemplate() != null ? task.getTaskTemplate().getName() : "";
-        Span title = new Span(TaskUIUtils.resolveTemplateEmoji(tName) + " " + (tName.isEmpty() ? "Tarefa" : tName));
-        title.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-l)");
-        content.add(title);
-
-        if (task.getCurrentStep() != null) {
-            String stepLabel = task.getCurrentStep().getLabel();
-            String colorTheme = task.getCurrentStep().getColorTheme();
-            Span stepBadge = new Span(stepLabel);
-            stepBadge.getStyle()
-                    .set("padding", "2px 10px")
-                    .set("border-radius", "12px")
-                    .set("font-size", "var(--lumo-font-size-xs)")
-                    .set("font-weight", "bold");
-            
-            TaskUIUtils.applyThemeStyles(stepBadge, colorTheme);
-            
-            HorizontalLayout statusRow = new HorizontalLayout(new Span("Status: "), stepBadge);
-            statusRow.setAlignItems(FlexComponent.Alignment.CENTER);
-            content.add(statusRow);
-        }
-
-        if (task.getCreator() != null) {
-            content.add(new Span("Criado por: @" + task.getCreator().getUsername()));
-        }
-
-        if (!task.getTaskFieldValues().isEmpty()) {
-            Span fieldsTitle = new Span("Campos:");
-            fieldsTitle.getStyle().set("font-weight", "bold");
-            content.add(fieldsTitle);
-            for (TaskFieldValue fv : task.getTaskFieldValues()) {
-                String lbl = fv.getTaskFieldDefinition() != null ? fv.getTaskFieldDefinition().getLabel() : "Campo";
-                String valStr = fv.getValue();
-                
-                HorizontalLayout row = new HorizontalLayout(new Span("• " + lbl + ": " + valStr));
-                row.setSpacing(true);
-                row.setAlignItems(FlexComponent.Alignment.CENTER);
-                
-                Button copyBtn = new Button(VaadinIcon.COPY.create(), e -> copyToClipboard(valStr.replace(", ", "\n")));
-                copyBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE, ButtonVariant.LUMO_SMALL);
-                copyBtn.setTooltipText("Copiar");
-                
-                row.add(copyBtn);
-                content.add(row);
-            }
-        }
-
-        if (!task.getTaskEvents().isEmpty()) {
-            Span histTitle = new Span("Histórico:");
-            histTitle.getStyle().set("font-weight", "bold");
-            content.add(histTitle);
-            for (com.xflprflx.neokioski.models.TaskEvent ev : task.getTaskEvents()) {
-                String who = ev.getUser() != null ? "@" + ev.getUser().getUsername() : "sistema";
-                String when = ev.getTimestamp() != null ? dateTimeFormatter.format(ev.getTimestamp()) : "";
-                String step = ev.getTaskStepDefinition() != null ? ev.getTaskStepDefinition().getLabel() : "";
-                String line = "• " + who + " → " + step + " (" + when + ")";
-                content.add(new Span(line));
-                if (ev.getResponse() != null && !ev.getResponse().isBlank()) {
-                    String respStr = ev.getResponse();
-                    Span resp = new Span("  Resp: " + respStr);
-                    resp.getStyle().set("font-style", "italic").set("color", "var(--lumo-secondary-text-color)").set("margin-left", "20px");
-                    
-                    Button copyBtn = new Button(VaadinIcon.COPY.create(), e -> copyToClipboard(respStr.replace(", ", "\n")));
-                    copyBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE, ButtonVariant.LUMO_SMALL);
-                    copyBtn.getStyle().set("margin-left", "8px");
-                    copyBtn.setTooltipText("Copiar resposta");
-                    
-                    HorizontalLayout respRow = new HorizontalLayout(resp, copyBtn);
-                    respRow.setSpacing(false);
-                    respRow.setAlignItems(FlexComponent.Alignment.CENTER);
-                    content.add(respRow);
-                }
-            }
-        }
-
-        Scroller scroller2 = new Scroller(content);
-        scroller2.setMaxHeight("400px");
-        dialog.add(scroller2);
-        dialog.getFooter().add(new Button("Fechar", ev -> dialog.close()));
-        dialog.open();
-    }
 
     private Div renderMessageContent(String content) {
         Div container = new Div();

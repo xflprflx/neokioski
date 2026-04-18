@@ -8,6 +8,7 @@ import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
 import com.xflprflx.neokioski.models.ReportColumnConfig;
 import com.xflprflx.neokioski.models.StoreReportConfig;
+import com.xflprflx.neokioski.models.Task;
 import com.xflprflx.neokioski.models.enums.ReportOrientation;
 import com.xflprflx.neokioski.repositories.StoreReportConfigRepository;
 import org.springframework.stereotype.Service;
@@ -226,6 +227,52 @@ public class PdfService {
                 firstPage = false;
             }
 
+            document.close();
+        } catch (DocumentException e) {
+            e.printStackTrace();
+        }
+
+        return new ByteArrayInputStream(out.toByteArray());
+    }
+
+    public ByteArrayInputStream generateGeneralTaskReportPdf(List<Task> tasks) {
+        Document document = new Document(PageSize.A4.rotate(), 36, 36, 36, 36);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        try {
+            PdfWriter.getInstance(document, out);
+            document.open();
+
+            Font fontHeader = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14);
+            Font fontTitle = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
+            Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 8);
+
+            Paragraph title = new Paragraph("Relatório Geral de Tarefas", fontHeader);
+            title.setAlignment(Element.ALIGN_CENTER);
+            document.add(title);
+            document.add(new Paragraph("Gerado em: " + dateFormatter.format(java.time.Instant.now()) + "\n\n", fontNormal));
+
+            PdfPTable table = new PdfPTable(6);
+            table.setWidthPercentage(100);
+            table.setWidths(new float[]{1, 3, 3, 3, 3, 2});
+
+            table.addCell(createHeaderCell("ID", fontTitle));
+            table.addCell(createHeaderCell("Data", fontTitle));
+            table.addCell(createHeaderCell("Tipo", fontTitle));
+            table.addCell(createHeaderCell("Grupo", fontTitle));
+            table.addCell(createHeaderCell("Criador", fontTitle));
+            table.addCell(createHeaderCell("Status", fontTitle));
+
+            for (Task task : tasks) {
+                table.addCell(createDataCell(String.valueOf(task.getId()), fontNormal));
+                table.addCell(createDataCell(dateFormatter.format(task.getCreatedAt()), fontNormal));
+                table.addCell(createDataCell(task.getTaskTemplate() != null ? task.getTaskTemplate().getName() : "-", fontNormal));
+                table.addCell(createDataCell(task.getGroup() != null ? task.getGroup().getName() : "-", fontNormal));
+                table.addCell(createDataCell(task.getCreator() != null ? task.getCreator().getName() : "Sistema", fontNormal));
+                table.addCell(createDataCell(task.getCurrentStep() != null ? task.getCurrentStep().getLabel() : "Pendente", fontNormal));
+            }
+
+            document.add(table);
             document.close();
         } catch (DocumentException e) {
             e.printStackTrace();

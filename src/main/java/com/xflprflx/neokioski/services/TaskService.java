@@ -6,6 +6,8 @@ import com.xflprflx.neokioski.repositories.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.*;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -634,6 +636,45 @@ public class TaskService {
                 delivery,
                 task
         );
+    }
+
+    public List<Task> findTasksWithFilters(Instant start, Instant end, User creator, TaskTemplate template, Group group, String search) {
+        Specification<Task> spec = Specification.where((root, query, cb) -> cb.conjunction());
+
+        if (start != null && end != null) {
+            spec = spec.and((root, query, cb) -> cb.between(root.get("createdAt"), start, end));
+        }
+
+        if (creator != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("creator"), creator));
+        }
+
+        if (template != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("taskTemplate"), template));
+        }
+
+        if (group != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("group"), group));
+        }
+
+        if (search != null && !search.isBlank()) {
+            final String searchPattern = "%" + search.toLowerCase() + "%";
+            spec = spec.and((root, query, cb) -> {
+                query.distinct(true); // Evitar duplicatas por causa dos joins
+                
+                // Join com TaskFieldValue
+                Join<Task, TaskFieldValue> fieldJoin = root.join("taskFieldValues", JoinType.LEFT);
+                Predicate fieldPredicate = cb.like(cb.lower(fieldJoin.get("value")), searchPattern);
+                
+                // Join com TaskEvent
+                Join<Task, TaskEvent> eventJoin = root.join("taskEvents", JoinType.LEFT);
+                Predicate eventPredicate = cb.like(cb.lower(eventJoin.get("response")), searchPattern);
+                
+                return cb.or(fieldPredicate, eventPredicate);
+            });
+        }
+
+        return taskRepository.findAll(spec, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
     }
 
     public record StoreReportEntry(

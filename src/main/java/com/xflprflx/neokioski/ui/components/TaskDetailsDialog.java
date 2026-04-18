@@ -24,7 +24,8 @@ public class TaskDetailsDialog extends Dialog {
             .withZone(ZoneId.systemDefault());
 
     public TaskDetailsDialog(Task task) {
-        setWidth("500px");
+        setWidth("700px");
+        setMaxWidth("90vw");
         setHeaderTitle("Detalhes da Tarefa");
 
         VerticalLayout content = new VerticalLayout();
@@ -140,7 +141,7 @@ public class TaskDetailsDialog extends Dialog {
         }
 
         Scroller scroller = new Scroller(content);
-        scroller.setMaxHeight("400px");
+        scroller.setMaxHeight("75vh");
         add(scroller);
         getFooter().add(new Button("Fechar", ev -> close()));
     }

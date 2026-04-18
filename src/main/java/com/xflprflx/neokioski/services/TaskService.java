@@ -134,7 +134,7 @@ public class TaskService {
 
             Task saved = taskRepository.save(task);
 
-            // Verificar se deve mencionar o autor ou o autor anterior e disparar sons
+            // Verificar se deve processar menções e disparar sons
             stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
                     task.getTaskTemplate().getId(), step.getId()
             ).ifPresent(relation -> {
@@ -142,18 +142,18 @@ public class TaskService {
                 List<ChatMessage> msgs = chatMessageRepository.findByTaskOrderByIdAsc(task);
                 ChatMessage originalMsg = msgs.isEmpty() ? null : msgs.get(0);
                 
-                boolean soundPlayed = false;
                 String stepSound = relation.getAlertSound();
 
-                // Menção ao Autor da Tarefa (Criador)
-                if (relation.isMentionAuthor() && relation.getMentionMessage() != null && !relation.getMentionMessage().isEmpty()) {
-                    String message = relation.getMentionMessage();
+                if (relation.isSendNotification() && relation.getNotificationMessage() != null && !relation.getNotificationMessage().isEmpty()) {
+                    String message = relation.getNotificationMessage();
+
+                    // 1. Processar @criador
                     if (task.getCreator() != null) {
                         String creatorMention = "@" + task.getCreator().getUsername();
                         message = message.replace("@criador", creatorMention);
                     }
 
-                    // Processar @autorizadores se estiver na mensagem
+                    // 2. Processar @autorizadores
                     List<User> authorizers = task.getTaskTemplate().getAuthorizingUsers();
                     if (authorizers != null && !authorizers.isEmpty()) {
                         String authorizersMention = authorizers.stream()
@@ -162,43 +162,15 @@ public class TaskService {
                         message = message.replace("@autorizadores", authorizersMention);
                     }
 
-                    // Processar @usuario (quem está executando a ação agora)
+                    // 3. Processar @usuario (quem está executando a ação agora)
                     if (user != null) {
                         message = message.replace("@usuario", "@" + user.getUsername());
                     }
 
-                    // Adicionar variável @resposta
+                    // 4. Processar @resposta
                     message = message.replace("@resposta", response != null ? response : "");
-                    
-                    String rolesStr = relation.getAlertRoles() != null ? relation.getAlertRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.joining(",")) : null;
-                    chatService.sendVolatileMessage(message, user, task.getGroup(), originalMsg, soundPlayed ? null : stepSound, rolesStr);
-                    soundPlayed = true;
-                }
 
-                // Menção ao Autor Anterior
-                if (relation.isMentionPreviousActor() && relation.getMentionPreviousActorMessage() != null && !relation.getMentionPreviousActorMessage().isEmpty()) {
-                    String message = relation.getMentionPreviousActorMessage();
-                    
-                    // Processar @autorizadores se estiver na mensagem
-                    List<User> authorizers = task.getTaskTemplate().getAuthorizingUsers();
-                    if (authorizers != null && !authorizers.isEmpty()) {
-                        String authorizersMention = authorizers.stream()
-                            .map(u -> "@" + u.getUsername())
-                            .collect(java.util.stream.Collectors.joining(" "));
-                        message = message.replace("@autorizadores", authorizersMention);
-                    }
-
-                    // Processar @criador / @autor se estiver na mensagem
-                    if (task.getCreator() != null) {
-                        String creatorMention = "@" + task.getCreator().getUsername();
-                        message = message.replace("@criador", creatorMention);
-                    }
-
-                    // Processar @usuario (quem está executando a ação agora)
-                    if (user != null) {
-                        message = message.replace("@usuario", "@" + user.getUsername());
-                    }
-
+                    // 5. Processar @autor_anterior
                     List<TaskEvent> events = task.getTaskEvents().stream()
                             .sorted(java.util.Comparator.comparing(TaskEvent::getTimestamp))
                             .toList();
@@ -207,14 +179,14 @@ public class TaskService {
                         User previousAuthor = events.get(events.size() - 2).getUser();
                         if (previousAuthor != null) {
                             message = message.replace("@autor_anterior", "@" + previousAuthor.getUsername());
-                            // Adicionar variável @resposta
-                            message = message.replace("@resposta", response != null ? response : "");
-                            
-                            String rolesStr = relation.getAlertRoles() != null ? relation.getAlertRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.joining(",")) : null;
-                            chatService.sendVolatileMessage(message, user, task.getGroup(), originalMsg, soundPlayed ? null : stepSound, rolesStr);
-                            soundPlayed = true;
                         }
+                    } else {
+                        // Se não há autor anterior, remove a tag para não ficar visível
+                        message = message.replace("@autor_anterior", "");
                     }
+                    
+                    String rolesStr = relation.getAlertRoles() != null ? relation.getAlertRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.joining(",")) : null;
+                    chatService.sendVolatileMessage(message, user, task.getGroup(), originalMsg, stepSound, rolesStr);
                 }
             });
 

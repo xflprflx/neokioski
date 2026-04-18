@@ -20,12 +20,12 @@ public class TemplateStepRelation {
     private int order;
     @Column(nullable = false)
     private boolean isFinalizer;
-    @Column(nullable = false)
-    private boolean mentionAuthor;
+    @Column(nullable = false, name = "send_notification")
+    private boolean sendNotification;
     @Column(nullable = false)
     private boolean shouldPulse;
-    @Column(columnDefinition = "TEXT")
-    private String mentionMessage;
+    @Column(columnDefinition = "TEXT", name = "notification_message")
+    private String notificationMessage;
     @Column(nullable = false)
     private boolean isGlobal = false;
     @Column(nullable = false)
@@ -65,12 +65,7 @@ public class TemplateStepRelation {
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
     private List<TaskStepDefinition> allowedNextSteps = new ArrayList<>();
 
-    @Column(nullable = false)
-    private boolean mentionPreviousActor;
-
-    @Column(columnDefinition = "TEXT")
-    private String mentionPreviousActorMessage;
-    private String alertSound;
+    private String alertSound;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "responsible_role")
@@ -109,20 +104,20 @@ public class TemplateStepRelation {
         isFinalizer = finalizer;
     }
 
-    public boolean isMentionAuthor() {
-        return mentionAuthor;
+    public boolean isSendNotification() {
+        return sendNotification;
     }
 
-    public void setMentionAuthor(boolean mentionAuthor) {
-        this.mentionAuthor = mentionAuthor;
+    public void setSendNotification(boolean sendNotification) {
+        this.sendNotification = sendNotification;
     }
 
-    public String getMentionMessage() {
-        return mentionMessage;
+    public String getNotificationMessage() {
+        return notificationMessage;
     }
 
-    public void setMentionMessage(String mentionMessage) {
-        this.mentionMessage = mentionMessage;
+    public void setNotificationMessage(String notificationMessage) {
+        this.notificationMessage = notificationMessage;
     }
 
     public TaskTemplate getTaskTemplate() {
@@ -149,21 +144,6 @@ public class TemplateStepRelation {
         this.allowedNextSteps = allowedNextSteps;
     }
 
-    public boolean isMentionPreviousActor() {
-        return mentionPreviousActor;
-    }
-
-    public void setMentionPreviousActor(boolean mentionPreviousActor) {
-        this.mentionPreviousActor = mentionPreviousActor;
-    }
-
-    public String getMentionPreviousActorMessage() {
-        return mentionPreviousActorMessage;
-    }
-
-    public void setMentionPreviousActorMessage(String mentionPreviousActorMessage) {
-        this.mentionPreviousActorMessage = mentionPreviousActorMessage;
-    }
 
     public boolean isShouldPulse() {
         return shouldPulse;
@@ -262,16 +242,14 @@ public class TemplateStepRelation {
         if (o == null || getClass() != o.getClass()) return false;
         TemplateStepRelation that = (TemplateStepRelation) o;
         return order == that.order && isFinalizer == that.isFinalizer && 
-               mentionAuthor == that.mentionAuthor && 
+               sendNotification == that.sendNotification && 
                shouldPulse == that.shouldPulse &&
                isGlobal == that.isGlobal &&
                hasResponseField == that.hasResponseField &&
                isResponseRequired == that.isResponseRequired &&
                responseIsCompact == that.responseIsCompact &&
-               mentionPreviousActor == that.mentionPreviousActor && 
                Objects.equals(id, that.id) && 
-               Objects.equals(mentionMessage, that.mentionMessage) && 
-               Objects.equals(mentionPreviousActorMessage, that.mentionPreviousActorMessage) && 
+               Objects.equals(notificationMessage, that.notificationMessage) && 
                Objects.equals(taskTemplate, that.taskTemplate) && 
                Objects.equals(taskStepDefinition, that.taskStepDefinition) &&
                responseInputType == that.responseInputType &&
@@ -282,11 +260,9 @@ public class TemplateStepRelation {
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, order, isFinalizer, mentionAuthor, shouldPulse, isGlobal, 
+        return Objects.hash(id, order, isFinalizer, sendNotification, shouldPulse, isGlobal, 
                             hasResponseField, isResponseRequired, responseIsCompact,
-                            responseInputType, responseOptions,
-                            mentionMessage, 
-                            mentionPreviousActor, mentionPreviousActorMessage, 
+                            getNotificationMessage(), 
                             taskTemplate, taskStepDefinition, responseFieldLabel, responsibleRole);
     }
 

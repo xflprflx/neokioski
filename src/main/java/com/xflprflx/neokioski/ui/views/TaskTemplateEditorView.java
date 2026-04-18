@@ -114,11 +114,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         public String label;
         public String colorTheme;
         public boolean isFinalizer;
-        public boolean mentionAuthor;
-        public String mentionMessage;
+        public boolean sendNotification;
+        public String notificationMessage;
         public List<String> allowedNextStepLabels = new ArrayList<>();
-        public boolean mentionPreviousActor;
-        public String mentionPreviousActorMessage;
         public boolean isGlobal;
         public boolean shouldPulse;
         public boolean hasResponseField;
@@ -634,7 +632,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
 
         com.vaadin.flow.component.textfield.TextArea messageField = new com.vaadin.flow.component.textfield.TextArea("Mensagem de Alerta");
         messageField.setWidthFull();
-        messageField.setPlaceholder("Use @autor para mencionar o dono da tarefa.");
+        messageField.setPlaceholder("Use @criador para mencionar o dono da tarefa.");
         messageField.getElement().setAttribute("mention-id", "alert-message-input");
         setupMentionLogic(messageField.getElement(), "alert-message-input");
 
@@ -921,10 +919,10 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         Checkbox globalCheck = new Checkbox("É Global?");
         Checkbox shouldPulseCheck = new Checkbox("Deve pulsar?");
         
-        Checkbox mentionAuthorCheck = new Checkbox("Mencionar autor");
-        com.vaadin.flow.component.textfield.TextArea mentionMessageField = new com.vaadin.flow.component.textfield.TextArea("Mensagem da menção");
+        Checkbox mentionAuthorCheck = new Checkbox("Disparar Mensagem de Notificação / Menções");
+        com.vaadin.flow.component.textfield.TextArea mentionMessageField = new com.vaadin.flow.component.textfield.TextArea("Corpo da Mensagem");
         mentionMessageField.setWidthFull();
-        mentionMessageField.setPlaceholder("Ex: Olá @autor, favor verificar...");
+        mentionMessageField.setPlaceholder("Use @criador, @autor_anterior, @usuario, @resposta...");
         mentionMessageField.setVisible(false);
         mentionMessageField.getElement().setAttribute("mention-id", "mention-message-input");
 
@@ -984,9 +982,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             finalizerCheck.setValue(existingDto.isFinalizer);
             globalCheck.setValue(existingDto.isGlobal);
             shouldPulseCheck.setValue(existingDto.shouldPulse);
-            mentionAuthorCheck.setValue(existingDto.mentionAuthor);
-            mentionMessageField.setValue(existingDto.mentionMessage != null ? existingDto.mentionMessage : "");
-            mentionMessageField.setVisible(existingDto.mentionAuthor);
+            mentionAuthorCheck.setValue(existingDto.sendNotification);
+            mentionMessageField.setValue(existingDto.notificationMessage != null ? existingDto.notificationMessage : "");
+            mentionMessageField.setVisible(existingDto.sendNotification);
             
             hasResponseCheck.setValue(existingDto.hasResponseField);
             responseRequiredCheck.setValue(existingDto.isResponseRequired);
@@ -1012,23 +1010,6 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             mentionMessageField.setVisible(ev.getValue());
         });
 
-        Checkbox mentionPrevCheck = new Checkbox("Mencionar autor anterior");
-        com.vaadin.flow.component.textfield.TextArea mentionPrevMessageField = new com.vaadin.flow.component.textfield.TextArea("Mensagem da menção anterior");
-        mentionPrevMessageField.setWidthFull();
-        mentionPrevMessageField.setPlaceholder("Ex: Olá @autor_anterior, favor verificar...");
-        mentionPrevMessageField.setVisible(false);
-        mentionPrevMessageField.getElement().setAttribute("mention-id", "mention-prev-message-input");
-
-        mentionPrevCheck.addValueChangeListener(ev -> {
-            mentionPrevMessageField.setVisible(ev.getValue());
-        });
-
-        if (existingDto != null) {
-            mentionPrevCheck.setValue(existingDto.mentionPreviousActor);
-            mentionPrevMessageField.setValue(existingDto.mentionPreviousActorMessage != null ? existingDto.mentionPreviousActorMessage : "");
-            mentionPrevMessageField.setVisible(existingDto.mentionPreviousActor);
-        }
-
         MultiSelectComboBox<String> nextStepsCombo = new MultiSelectComboBox<>("Próximas Etapas Permitidas");
         nextStepsCombo.setItems(steps.stream().map(s -> s.label).collect(Collectors.toList()));
         
@@ -1039,7 +1020,6 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         nextStepsCombo.setHelperText("Se vazio, todas as etapas serão permitidas.");
 
         setupMentionLogic(mentionMessageField.getElement(), "mention-message-input");
-        setupMentionLogic(mentionPrevMessageField.getElement(), "mention-prev-message-input");
 
         ComboBox<String> soundCombo = new ComboBox<>("Som ao entrar nesta etapa");
         soundCombo.setItems(soundService.getAvailableAlertSounds());
@@ -1079,7 +1059,6 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             labelField, colorCombo, globalCheck, finalizerCheck, shouldPulseCheck,
             responsibleRoleCombo,
             mentionAuthorCheck, mentionMessageField,
-            mentionPrevCheck, mentionPrevMessageField,
             hasResponseCheck, responseRequiredCheck, responseLabelField, responseInputTypeCombo, responseOptionsField, responseIsCompactCheck,
             soundLayout,
             nextStepsCombo, suggestionWrapper
@@ -1097,10 +1076,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             dto.isFinalizer = finalizerCheck.getValue();
             dto.isGlobal = globalCheck.getValue();
             dto.shouldPulse = shouldPulseCheck.getValue();
-            dto.mentionAuthor = mentionAuthorCheck.getValue();
-            dto.mentionMessage = mentionMessageField.getValue();
-            dto.mentionPreviousActor = mentionPrevCheck.getValue();
-            dto.mentionPreviousActorMessage = mentionPrevMessageField.getValue();
+            dto.sendNotification = mentionAuthorCheck.getValue();
+            dto.notificationMessage = mentionMessageField.getValue();
             dto.hasResponseField = hasResponseCheck.getValue();
             dto.isResponseRequired = responseRequiredCheck.getValue();
             dto.responseFieldLabel = responseLabelField.getValue();
@@ -1519,9 +1496,14 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             simulatedCurrentStepLabel = targetStep.label;
             isSimulatedFinalized = targetStep.isFinalizer;
             
-            // Mensagem de menção da etapa
-            if (targetStep.mentionAuthor && targetStep.mentionMessage != null && !targetStep.mentionMessage.isBlank()) {
-                simulatedLog.add(targetStep.mentionMessage);
+            // Mensagem de menção da etapa (Unificada)
+            if (targetStep.sendNotification && targetStep.notificationMessage != null && !targetStep.notificationMessage.isBlank()) {
+                String message = targetStep.notificationMessage;
+                // Simulação básica de tags para o preview
+                message = message.replace("@criador", "@criador");
+                message = message.replace("@autor_anterior", "@autor_anterior");
+                message = message.replace("@usuario", "@usuario");
+                simulatedLog.add(message);
             }
             
             updateCardsPreview();
@@ -1764,10 +1746,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             rel.setFinalizer(dto.isFinalizer);
             rel.setGlobal(dto.isGlobal);
             rel.setShouldPulse(dto.shouldPulse);
-            rel.setMentionAuthor(dto.mentionAuthor);
-            rel.setMentionMessage(dto.mentionMessage);
-            rel.setMentionPreviousActor(dto.mentionPreviousActor);
-            rel.setMentionPreviousActorMessage(dto.mentionPreviousActorMessage);
+            rel.setSendNotification(dto.sendNotification);
+            rel.setNotificationMessage(dto.notificationMessage);
             rel.setHasResponseField(dto.hasResponseField);
             rel.setResponseRequired(dto.isResponseRequired);
             rel.setResponseFieldLabel(dto.responseFieldLabel);
@@ -1885,10 +1865,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     dto.isFinalizer = sr.isFinalizer();
                     dto.isGlobal = sr.isGlobal();
                     dto.shouldPulse = sr.isShouldPulse();
-                    dto.mentionAuthor = sr.isMentionAuthor();
-                    dto.mentionMessage = sr.getMentionMessage();
-                    dto.mentionPreviousActor = sr.isMentionPreviousActor();
-                    dto.mentionPreviousActorMessage = sr.getMentionPreviousActorMessage();
+                    dto.sendNotification = sr.isSendNotification();
+                    dto.notificationMessage = sr.getNotificationMessage();
                     dto.hasResponseField = sr.isHasResponseField();
                     dto.isResponseRequired = sr.isResponseRequired();
                     dto.responseFieldLabel = sr.getResponseFieldLabel();

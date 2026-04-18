@@ -49,4 +49,19 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     List<ChatMessage> findByGroupOrderByTimestampAsc(@Param("group") Group group);
 
     java.util.List<ChatMessage> findByTaskOrderByIdAsc(com.xflprflx.neokioski.models.Task task);
+
+    @Query("""
+           SELECT DISTINCT m FROM ChatMessage m
+           LEFT JOIN m.task t
+           LEFT JOIN t.taskFieldValues fv
+           LEFT JOIN t.taskEvents ev
+           WHERE m.group = :group
+             AND (
+               LOWER(m.content) LIKE LOWER(CONCAT('%', :query, '%'))
+               OR LOWER(fv.value) LIKE LOWER(CONCAT('%', :query, '%'))
+               OR LOWER(ev.response) LIKE LOWER(CONCAT('%', :query, '%'))
+             )
+           ORDER BY m.timestamp DESC
+           """)
+    List<ChatMessage> searchMessages(@Param("group") Group group, @Param("query") String query, org.springframework.data.domain.Pageable pageable);
 }

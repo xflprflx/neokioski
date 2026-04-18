@@ -102,6 +102,13 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
     private ChatMessage replyTo = null;
 
+    // Busca
+    private int searchPage = 0;
+    private String lastSearchQuery = "";
+    private final Dialog searchDialog = new Dialog();
+    private final VerticalLayout searchResultsContainer = new VerticalLayout();
+    private final Button showMoreSearchBtn = new Button("Mostrar Mais");
+
     private final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
             .withZone(ZoneId.systemDefault());
 
@@ -266,7 +273,31 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         onlineUsersAvatars.setSpacing(false);
         onlineUsersAvatars.getStyle().set("margin-left", "var(--lumo-space-s)");
 
-        HorizontalLayout header = new HorizontalLayout(groupName, onlineUsersAvatars, toggleButtons, showTasksInChatCheckbox, dateFilters, audioControls);
+        // Busca no Header
+        com.vaadin.flow.component.textfield.TextField searchField = new com.vaadin.flow.component.textfield.TextField();
+        searchField.setPlaceholder("Buscar no chat...");
+        searchField.setPrefixComponent(VaadinIcon.SEARCH.create());
+        searchField.setClearButtonVisible(true);
+        searchField.setWidth("250px");
+        searchField.addKeyDownListener(com.vaadin.flow.component.Key.ENTER, e -> {
+            if (searchField.getValue() != null && !searchField.getValue().isBlank()) {
+                openSearchDialog(searchField.getValue());
+            }
+        });
+
+        Button searchBtn = new Button(VaadinIcon.SEARCH.create(), e -> {
+            if (searchField.getValue() != null && !searchField.getValue().isBlank()) {
+                openSearchDialog(searchField.getValue());
+            }
+        });
+        searchBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        HorizontalLayout searchLayout = new HorizontalLayout(searchField, searchBtn);
+        searchLayout.setSpacing(false);
+        searchLayout.setAlignItems(FlexComponent.Alignment.CENTER);
+        searchLayout.getStyle().set("margin-left", "var(--lumo-space-m)");
+
+        HorizontalLayout header = new HorizontalLayout(groupName, onlineUsersAvatars, searchLayout, toggleButtons, showTasksInChatCheckbox, dateFilters, audioControls);
         header.setWidthFull();
         header.setAlignItems(FlexComponent.Alignment.CENTER);
         header.setPadding(true);
@@ -2100,6 +2131,174 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         }
         
         super.onDetach(detachEvent);
+    }
+
+    private void openSearchDialog(String query) {
+        this.lastSearchQuery = query;
+        this.searchPage = 0;
+        
+        searchDialog.setHeaderTitle("Resultados da Busca: " + query);
+        searchDialog.setWidth("500px");
+        searchDialog.setHeight("600px");
+        
+        searchResultsContainer.removeAll();
+        searchResultsContainer.setPadding(false);
+        searchResultsContainer.setSpacing(true);
+        
+        Scroller searchScroller = new Scroller(searchResultsContainer);
+        searchScroller.setSizeFull();
+        
+        showMoreSearchBtn.setWidthFull();
+        showMoreSearchBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        showMoreSearchBtn.addClickListener(e -> {
+            searchPage++;
+            performSearch(lastSearchQuery, true);
+        });
+        
+        VerticalLayout content = new VerticalLayout(searchScroller, showMoreSearchBtn);
+        content.setSizeFull();
+        content.setPadding(true);
+        content.setSpacing(true);
+        
+        searchDialog.removeAll();
+        searchDialog.add(content);
+        
+        performSearch(query, false);
+        searchDialog.open();
+    }
+
+    private void performSearch(String query, boolean append) {
+        if (group == null) return;
+        
+        List<ChatMessage> results = chatService.searchMessages(group, query, searchPage, 20);
+        
+        if (!append) {
+            searchResultsContainer.removeAll();
+        }
+        
+        if (results.isEmpty()) {
+            if (!append) {
+                Span noResults = new Span("Nenhum resultado encontrado.");
+                noResults.getStyle().set("color", "var(--lumo-secondary-text-color)");
+                noResults.getStyle().set("padding", "var(--lumo-space-m)");
+                searchResultsContainer.add(noResults);
+            }
+            showMoreSearchBtn.setVisible(false);
+        } else {
+            for (ChatMessage msg : results) {
+                searchResultsContainer.add(createSearchResultItem(msg));
+            }
+            showMoreSearchBtn.setVisible(results.size() >= 20);
+        }
+    }
+
+    private com.vaadin.flow.component.Component createSearchResultItem(ChatMessage msg) {
+        HorizontalLayout item = new HorizontalLayout();
+        item.setWidthFull();
+        item.setPadding(true);
+        item.setSpacing(true);
+        item.getStyle().set("border-bottom", "1px solid var(--lumo-contrast-10pct)");
+        item.getStyle().set("cursor", "pointer");
+        item.getStyle().set("transition", "background 0.2s");
+        item.getElement().addEventListener("mouseenter", e -> item.getStyle().set("background", "var(--lumo-contrast-5pct)"));
+        item.getElement().addEventListener("mouseleave", e -> item.getStyle().set("background", "transparent"));
+        
+        Avatar avatar = new Avatar(msg.getUser() != null ? msg.getUser().getName() : "S");
+        avatar.addThemeVariants(com.vaadin.flow.component.avatar.AvatarVariant.LUMO_XSMALL);
+        
+        VerticalLayout info = new VerticalLayout();
+        info.setPadding(false);
+        info.setSpacing(false);
+        
+        HorizontalLayout topRow = new HorizontalLayout();
+        topRow.setSpacing(true);
+        
+        Span name = new Span(msg.getUser() != null ? msg.getUser().getName() : "Sistema");
+        name.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-xs)");
+        
+        Span date = new Span(dateTimeFormatter.format(msg.getTimestamp()));
+        date.getStyle().set("color", "var(--lumo-secondary-text-color)").set("font-size", "var(--lumo-font-size-xxs)");
+        
+        topRow.add(name, date);
+        
+        String contentText;
+        String icon = "";
+        if (msg.getTask() != null) {
+            icon = "📋 ";
+            // Concatenar valores de campos e respostas para o preview se a query bateu neles
+            StringBuilder sb = new StringBuilder();
+            sb.append(msg.getTask().getTaskTemplate().getName());
+            for (TaskFieldValue fv : msg.getTask().getTaskFieldValues()) {
+                if (fv.getValue().toLowerCase().contains(lastSearchQuery.toLowerCase())) {
+                    sb.append(" | ").append(fv.getValue());
+                }
+            }
+            for (TaskEvent ev : msg.getTask().getTaskEvents()) {
+                if (ev.getResponse() != null && ev.getResponse().toLowerCase().contains(lastSearchQuery.toLowerCase())) {
+                    sb.append(" | ").append(ev.getResponse());
+                }
+            }
+            contentText = sb.toString();
+        } else {
+            contentText = msg.getContent();
+        }
+        
+        if (contentText.length() > 100) {
+            contentText = contentText.substring(0, 97) + "...";
+        }
+        
+        Span text = new Span(icon + contentText);
+        text.getStyle().set("font-size", "var(--lumo-font-size-s)");
+        
+        info.add(topRow, text);
+        item.add(avatar, info);
+        item.setFlexGrow(1, info);
+        
+        item.addClickListener(e -> {
+            searchDialog.close();
+            navigateToMessage(msg);
+        });
+        
+        return item;
+    }
+
+    private void navigateToMessage(ChatMessage msg) {
+        java.time.LocalDate msgDate = msg.getTimestamp().atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+        
+        // Se a data estiver fora do range, ajustar
+        boolean rangeChanged = false;
+        if (msgDate.isBefore(startDatePicker.getValue())) {
+            startDatePicker.setValue(msgDate);
+            rangeChanged = true;
+        }
+        if (msgDate.isAfter(endDatePicker.getValue())) {
+            endDatePicker.setValue(msgDate);
+            rangeChanged = true;
+        }
+        
+        if (rangeChanged) {
+            // loadMessages será chamado pelos listeners de data, então aguardamos um pouco
+            // Ou chamamos manualmente e depois scrollamos
+            loadMessages();
+        }
+
+        // Scroll e Highlight
+        getElement().executeJs(
+            "setTimeout(() => {" +
+            "  const el = document.getElementById('msg-" + msg.getId() + "');" +
+            "  if(el) {" +
+            "    el.scrollIntoView({behavior: 'smooth', block: 'center'});" +
+            "    el.style.transition = 'box-shadow 0.5s, background 0.5s';" +
+            "    const oldBg = el.style.background;" +
+            "    el.style.boxShadow = '0 0 0 4px var(--lumo-primary-color-50pct)';" +
+            "    el.style.background = 'var(--lumo-primary-color-10pct)';" +
+            "    setTimeout(() => { " +
+            "      el.style.boxShadow = 'none'; " +
+            "      el.style.background = oldBg;" +
+            "    }, 2000);" +
+            "  }" +
+            "}, 300);"
+        );
     }
 
     private void updateOnlineUserAvatars() {

@@ -143,6 +143,10 @@ public class ChatService {
                 .toList();
     }
 
+    public List<ChatMessage> searchMessages(Group group, String query, int page, int size) {
+        return repository.searchMessages(group, query, org.springframework.data.domain.PageRequest.of(page, size));
+    }
+
     @Transactional
     public void toggleReaction(Long messageId, User user, String emoji) {
         repository.findById(messageId).ifPresent(message -> {

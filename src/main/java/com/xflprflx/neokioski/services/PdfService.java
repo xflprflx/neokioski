@@ -79,15 +79,7 @@ public class PdfService {
                 List<TaskService.StoreReportEntry> dateEntries = group.getValue();
                 // Buscar configuração ativa para ESTA data específica
                 StoreReportConfig config = configRepository.findActiveConfig(date)
-                        .orElseGet(() -> {
-                            StoreReportConfig fallback = new StoreReportConfig();
-                            fallback.setIdentifier("FRM-003921");
-                            fallback.setRevision("2");
-                            fallback.setTitle("Controle de Entrega Loja");
-                            fallback.setOwner("Juliano Souza (U112006)");
-                            fallback.setTemplateCode("FRM-000922");
-                            return fallback;
-                        });
+                        .orElseThrow(() -> new RuntimeException("Não foi encontrada uma configuração de relatório ativa para a data: " + date));
 
                 // Mudar orientação se necessário
                 Rectangle pageSize = config.getOrientation() == ReportOrientation.LANDSCAPE ? 

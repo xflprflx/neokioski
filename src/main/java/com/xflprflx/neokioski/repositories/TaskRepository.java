@@ -70,6 +70,16 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
     @Query("SELECT DISTINCT t FROM Task t WHERE t.group = :group AND t.createdAt BETWEEN :start AND :end ORDER BY t.createdAt DESC")
     List<Task> findByGroupAndCreatedAtBetweenOrderByCreatedAtDesc(@Param("group") Group group, @Param("start") java.time.Instant start, @Param("end") java.time.Instant end);
 
+    @Query("""
+           SELECT t FROM Task t
+           JOIN FETCH t.taskTemplate
+           LEFT JOIN FETCH t.creator
+           LEFT JOIN FETCH t.group
+           LEFT JOIN FETCH t.currentStep
+           WHERE t.createdAt BETWEEN :start AND :end
+           """)
+    List<Task> findAllByCreatedAtBetweenWithAssociations(@Param("start") java.time.Instant start, @Param("end") java.time.Instant end);
+
     List<Task> findAllByCreatedAtBetween(java.time.Instant start, java.time.Instant end);
 
     @Query("SELECT t.group.name, COUNT(t) FROM Task t GROUP BY t.group.name")

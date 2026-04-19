@@ -13,8 +13,13 @@ public class SoundService {
 
     private static final String SOUNDS_PATH = "classpath*:static/sounds/#alert_*";
     private static final String SOUNDS_PATH_FALLBACK = "classpath*:static/sounds/#alert_*";
+    private List<String> cachedSounds = null;
 
     public List<String> getAvailableAlertSounds() {
+        if (cachedSounds != null) {
+            return cachedSounds;
+        }
+        
         List<String> sounds = new ArrayList<>();
         PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
         try {
@@ -30,7 +35,8 @@ public class SoundService {
             System.err.println("SOUND ERROR: Failed to scan sounds: " + e.getMessage());
             e.printStackTrace();
         }
-        System.out.println("SOUND: Available sounds: " + sounds);
+        System.out.println("SOUND: Cached " + sounds.size() + " sounds.");
+        this.cachedSounds = sounds;
         return sounds;
     }
 

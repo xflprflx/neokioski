@@ -4,6 +4,7 @@ import com.xflprflx.neokioski.models.Group;
 import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.models.enums.Role;
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -42,6 +43,7 @@ public class TaskTemplate {
     @Enumerated(EnumType.STRING)
     @CollectionTable(name = "tb_task_template_alert_roles", joinColumns = @JoinColumn(name = "task_template_id"))
     @Column(name = "role")
+    @BatchSize(size = 20)
     private Set<Role> alertRoles = new HashSet<>();
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
@@ -56,6 +58,7 @@ public class TaskTemplate {
     @OneToMany(mappedBy = "taskTemplate")
     private List<TemplateFieldRelation> templateFieldRelation = new ArrayList<>();
     @OneToMany(mappedBy = "taskTemplate", cascade = CascadeType.ALL, orphanRemoval = true)
+    @BatchSize(size = 20)
     private List<TaskAlert> alerts = new ArrayList<>();
 
     @ManyToMany(fetch = FetchType.EAGER)

@@ -3,9 +3,9 @@ package com.xflprflx.neokioski.services;
 import com.xflprflx.neokioski.models.Group;
 import com.xflprflx.neokioski.models.Task;
 import com.xflprflx.neokioski.models.TaskEvent;
-import com.xflprflx.neokioski.models.TaskSlaResult;
 import com.xflprflx.neokioski.models.enums.SlaStatus;
 import com.xflprflx.neokioski.models.template.TaskTemplate;
+import com.xflprflx.neokioski.models.template.TemplateStepRelation;
 import com.xflprflx.neokioski.repositories.TaskRepository;
 import com.xflprflx.neokioski.repositories.TaskSlaResultRepository;
 import com.xflprflx.neokioski.repositories.TaskTemplateRepository;
@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -38,8 +37,19 @@ public class DashboardService {
     }
 
     public DashboardData getDashboardData(Instant start, Instant end, Group group, TaskTemplate type, String creatorNameFilter, String finalizerNameFilter, String dateFilterStr) {
-        // Buscar todas as tasks no período base de dados limitados pelas DatePickers
-        List<Task> tasks = taskRepository.findAllByCreatedAtBetween(start, end);
+        // Buscar todas as tasks no período base de dados limitados pelas DatePickers com JOIN FETCH (Otimização Fase 2)
+        List<Task> tasks = taskRepository.findAllByCreatedAtBetweenWithAssociations(start, end);
+
+        // Pré-carregar todas as relações de etapas com JOIN FETCH (Otimização Fase 2)
+        List<TemplateStepRelation> allRelations = stepRelationRepository.findAllWithAssociations();
+        Map<String, Boolean> deliveryStepsMap = allRelations.stream()
+                .filter(r -> r.isHasResponseField() && r.getResponseFieldLabel() != null && 
+                            r.getResponseFieldLabel().toUpperCase().contains("DELIVERY"))
+                .collect(Collectors.toMap(
+                    r -> r.getTaskTemplate().getId() + ":" + r.getTaskStepDefinition().getId(),
+                    r -> true,
+                    (v1, v2) -> v1
+                ));
 
         // 1. Filtros Globais Rígidos (Data Boundary e Grupo afetam absolutamente TUDO)
         List<Task> globalBaseTasks = tasks.stream()
@@ -49,7 +59,7 @@ public class DashboardService {
         // 2. Ranking Base (Menu de Criadores) -> Afetado por Tipo, Concluidor e Data Clique. Ignora clique em Criador.
         List<Task> rankingBaseTasks = globalBaseTasks.stream()
                 .filter(t -> type == null || type.equals(t.getTaskTemplate()))
-                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t), finalizerNameFilter))
+                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t, deliveryStepsMap), finalizerNameFilter))
                 .filter(t -> dateFilterStr == null || formatDate(t.getCreatedAt()).equals(dateFilterStr))
                 .collect(Collectors.toList());
 
@@ -70,7 +80,7 @@ public class DashboardService {
                 .collect(Collectors.toList());
 
         List<ChartDataPoint> finalizerRanking = finalizerBaseTasks.stream()
-                .map(this::getTaskFinalizerName)
+                .map(t -> getTaskFinalizerName(t, deliveryStepsMap))
                 .filter(Objects::nonNull)
                 .collect(Collectors.groupingBy(name -> name, Collectors.counting()))
                 .entrySet().stream()
@@ -82,7 +92,7 @@ public class DashboardService {
         // 3. TMA Base (Menu de Tipos) -> Afetado por Criador, Concluidor e Data Clique. Ignora clique em Tipo.
         List<Task> tmaBaseTasks = globalBaseTasks.stream()
                 .filter(t -> creatorNameFilter == null || (t.getCreator() != null && t.getCreator().getName().equals(creatorNameFilter)))
-                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t), finalizerNameFilter))
+                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t, deliveryStepsMap), finalizerNameFilter))
                 .filter(t -> dateFilterStr == null || formatDate(t.getCreatedAt()).equals(dateFilterStr))
                 .collect(Collectors.toList());
 
@@ -90,14 +100,14 @@ public class DashboardService {
         List<Task> historyBaseTasks = globalBaseTasks.stream()
                 .filter(t -> type == null || type.equals(t.getTaskTemplate()))
                 .filter(t -> creatorNameFilter == null || (t.getCreator() != null && t.getCreator().getName().equals(creatorNameFilter)))
-                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t), finalizerNameFilter))
+                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t, deliveryStepsMap), finalizerNameFilter))
                 .collect(Collectors.toList());
 
         // 5. Strict Base (Variáveis centrais da tela KPIs, afetado por TODOS OS SELETORES EM CADEIA)
         List<Task> strictFilteredTasks = globalBaseTasks.stream()
                 .filter(t -> type == null || type.equals(t.getTaskTemplate()))
                 .filter(t -> creatorNameFilter == null || (t.getCreator() != null && t.getCreator().getName().equals(creatorNameFilter)))
-                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t), finalizerNameFilter))
+                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t, deliveryStepsMap), finalizerNameFilter))
                 .filter(t -> dateFilterStr == null || formatDate(t.getCreatedAt()).equals(dateFilterStr))
                 .collect(Collectors.toList());
 
@@ -203,21 +213,15 @@ public class DashboardService {
         return new DashboardData(stats, userRanking, finalizerRanking, history, tmaPerStep);
     }
 
-    private String getTaskFinalizerName(Task t) {
+    private String getTaskFinalizerName(Task t, Map<String, Boolean> deliveryStepsMap) {
         if (t.getTaskEvents() == null || t.getTaskEvents().isEmpty()) return null;
         
         // Buscar o evento que preencheu o campo de Delivery
-        // No NeoKioski, isso é identificado via TemplateStepRelation que tenha hasResponseField=true e label contendo 'DELIVERY'
         for (TaskEvent event : t.getTaskEvents()) {
             if (event.getTaskStepDefinition() == null) continue;
             
-            var relOpt = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
-                t.getTaskTemplate().getId(), event.getTaskStepDefinition().getId());
-                
-            if (relOpt.isPresent() && relOpt.get().isHasResponseField() && 
-                relOpt.get().getResponseFieldLabel() != null && 
-                relOpt.get().getResponseFieldLabel().toUpperCase().contains("DELIVERY")) {
-                
+            String key = t.getTaskTemplate().getId() + ":" + event.getTaskStepDefinition().getId();
+            if (deliveryStepsMap.getOrDefault(key, false)) {
                 return event.getUser() != null ? event.getUser().getName() : null;
             }
         }

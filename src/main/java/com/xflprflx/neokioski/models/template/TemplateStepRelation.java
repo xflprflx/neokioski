@@ -3,6 +3,7 @@ package com.xflprflx.neokioski.models.template;
 
 import com.xflprflx.neokioski.models.enums.Role;
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -75,6 +76,7 @@ public class TemplateStepRelation {
     @Enumerated(EnumType.STRING)
     @CollectionTable(name = "tb_template_step_relation_alert_roles", joinColumns = @JoinColumn(name = "relation_id"))
     @Column(name = "role")
+    @BatchSize(size = 20)
     private Set<Role> alertRoles = new HashSet<>();
 
     public TemplateStepRelation() {

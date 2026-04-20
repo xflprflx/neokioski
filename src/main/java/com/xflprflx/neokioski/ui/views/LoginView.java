@@ -56,12 +56,21 @@ public class LoginView extends VerticalLayout implements BeforeEnterObserver {
         // Isso fará com que o formulário realize um POST para /login
         login.setAction("login");
 
+        /*
+         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
+         */
         add(new H1("NeoKioski"), login);
     }
 
     @Override
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public void beforeEnter(BeforeEnterEvent beforeEnterEvent) {
         // Se houver erro na URL (como ?error), habilita o estado de erro no formulário
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (beforeEnterEvent.getLocation()
                 .getQueryParameters()
                 .getParameters()

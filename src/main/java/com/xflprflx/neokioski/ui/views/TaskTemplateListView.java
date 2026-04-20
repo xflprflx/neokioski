@@ -15,6 +15,9 @@ import jakarta.annotation.security.RolesAllowed;
 @PageTitle("Templates de Tarefas")
 @Route(value = "task-templates", layout = MainLayout.class)
 @RolesAllowed("ADMIN")
+/**
+ * View de listagem que apresenta os templates de tarefas criados, permitindo o gerenciamento e acesso ao editor.
+ */
 public class TaskTemplateListView extends VerticalLayout {
 
     private final TaskTemplateService service;
@@ -31,11 +34,17 @@ public class TaskTemplateListView extends VerticalLayout {
 
         configureGrid();
 
+        /*
+         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
+         */
         add(createBtn, grid);
         
         updateList();
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void configureGrid() {
         grid.addColumn(TaskTemplate::getName).setHeader("Nome do Template");
         grid.addColumn(TaskTemplate::getSortOrder).setHeader("Ordem").setWidth("100px").setFlexGrow(0);
@@ -53,10 +62,16 @@ public class TaskTemplateListView extends VerticalLayout {
                 updateList();
             });
 
+            /*
+             * Retorna o componente renderizado ou o valor da operação atual.
+             */
             return new HorizontalLayout(editBtn, deleteBtn);
         }).setHeader("Ações");
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void updateList() {
         grid.setItems(service.findAll());
     }

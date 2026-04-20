@@ -57,6 +57,9 @@ import java.util.stream.Collectors;
 @RolesAllowed("ADMIN")
 @Route(value = "task-template-editor", layout = MainLayout.class)
 @PageTitle("Editor de Template de Tarefa | NeoKioski")
+/**
+ * View avançada de edição em formulário utilizada para criar e configurar detalhadamente os templates das tarefas.
+ */
 public class TaskTemplateEditorView extends VerticalLayout implements HasUrlParameter<Long> {
 
     private Long editingTemplateId = null;
@@ -195,12 +198,18 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         mainContent.setFlexGrow(3, leftSide);
         mainContent.setFlexGrow(1, workflowPreview);
 
+        /*
+         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
+         */
         add(title, mainContent);
 
         configureSuggestions();
         showFormFieldsTab(); // Inicia com aba de campos
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void configureSuggestions() {
         suggestionList = new ListBox<>();
         suggestionList.setRenderer(new com.vaadin.flow.data.renderer.ComponentRenderer<>(user -> {
@@ -209,10 +218,16 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             username.getStyle().set("font-size", "var(--lumo-font-size-xs)");
             username.getStyle().set("color", "var(--lumo-secondary-text-color)");
             username.getStyle().set("margin-left", "8px");
+            /*
+             * Retorna o componente renderizado ou o valor da operação atual.
+             */
             return new HorizontalLayout(name, username);
         }));
 
         suggestionList.addValueChangeListener(event -> {
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (event.getValue() != null) {
                 applyMention(event.getValue());
                 suggestionList.setValue(null);
@@ -241,6 +256,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     @com.vaadin.flow.component.ClientCallable
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public void showSuggestions(String query) {
         List<User> suggestions = userService.findAll().stream()
                 .filter(u -> u.getUsername().toLowerCase().contains(query.toLowerCase()) || 
@@ -248,6 +266,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 .collect(Collectors.toList());
 
         // Adicionar sugestão virtual para o Criador da Tarefa
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if ("criador".contains(query.toLowerCase()) || "@criador".contains(query.toLowerCase())) {
             User virtualCreator = new User();
             virtualCreator.setName("Criador da Tarefa (Original)");
@@ -256,6 +277,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         }
         
         // Adicionar sugestão virtual para os Autorizadores
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if ("autorizadores".contains(query.toLowerCase()) || "@autorizadores".contains(query.toLowerCase())) {
             User virtualAuts = new User();
             virtualAuts.setName("Usuários Autorizadores");
@@ -264,6 +288,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         }
 
         // Adicionar sugestão virtual para o Usuário Atual (Executante)
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if ("usuario".contains(query.toLowerCase()) || "@usuario".contains(query.toLowerCase())) {
             User virtualUser = new User();
             virtualUser.setName("Usuário Atual (Executante)");
@@ -272,6 +299,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         }
         
         // Adicionar sugestão virtual para o Autor Anterior
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if ("autor_anterior".contains(query.toLowerCase()) || "@autor_anterior".contains(query.toLowerCase())) {
             User virtualPrev = new User();
             virtualPrev.setName("Autor Anterior");
@@ -279,6 +309,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             suggestions.add(suggestions.size() > 1 ? 2 : suggestions.size(), virtualPrev);
         }
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (suggestions.isEmpty()) {
             suggestionWrapper.setVisible(false);
         } else {
@@ -292,15 +325,24 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     @com.vaadin.flow.component.ClientCallable
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public void hideSuggestions() {
         suggestionWrapper.setVisible(false);
     }
 
     @com.vaadin.flow.component.ClientCallable
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public void setActiveTargetById(String mentionId) {
         this.activeMentionId = mentionId;
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void applyMention(User user) {
         String mention = "@" + user.getUsername() + " ";
         getElement().executeJs(
@@ -333,6 +375,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         hideSuggestions();
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void setupMentionLogic(com.vaadin.flow.dom.Element element, String mentionId) {
         element.executeJs(
             "const mentionId = $0;\n" +
@@ -368,6 +413,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         );
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private Component createTopConfiguration() {
         HorizontalLayout firstRow = new HorizontalLayout();
         firstRow.setWidthFull();
@@ -425,6 +473,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         });
 
         playGlobalSoundBtn.addClickListener(e -> {
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (globalAlertSoundCombo.getValue() != null) {
                 getElement().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", globalAlertSoundCombo.getValue());
             }
@@ -451,13 +502,22 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
 
         VerticalLayout configLayout = new VerticalLayout(firstRow, secondRow);
         configLayout.setPadding(false);
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return configLayout;
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private Component createTabs() {
         tabs.add(formFieldsTab, workflowTab, alertsTab, slasTab);
         tabs.setWidthFull();
         tabs.addSelectedChangeListener(event -> {
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (event.getSelectedTab().equals(formFieldsTab)) {
                 showFormFieldsTab();
             } else if (event.getSelectedTab().equals(workflowTab)) {
@@ -468,9 +528,15 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 showSlaTab();
             }
         });
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return tabs;
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void showSlaTab() {
         tabContent.removeAll();
         
@@ -478,6 +544,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         addSlaBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         addSlaBtn.addClickListener(e -> openSlaDialog());
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (slasGrid.getColumns().isEmpty()) {
             slasGrid.addColumn(dto -> dto.name).setHeader("Nome da Meta");
             slasGrid.addColumn(dto -> dto.sourceStepLabel != null && !dto.sourceStepLabel.isBlank() ? dto.sourceStepLabel : "Criação").setHeader("Início");
@@ -494,6 +563,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     slas.remove(item);
                     slasGrid.getDataProvider().refreshAll();
                 });
+                /*
+                 * Retorna o componente renderizado ou o valor da operação atual.
+                 */
                 return new HorizontalLayout(editBtn, deleteBtn);
             }).setHeader("Ações");
             slasGrid.setItems(slas);
@@ -502,10 +574,16 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         tabContent.add(addSlaBtn, slasGrid);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void openSlaDialog() {
         openSlaDialog(null);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void openSlaDialog(SlaDTO existingDto) {
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle(existingDto == null ? "Nova Meta de SLA" : "Editar Meta");
@@ -537,6 +615,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         HorizontalLayout timeLayout = new HorizontalLayout(timeoutField, unitCombo);
         timeLayout.setWidthFull();
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (existingDto != null) {
             nameField.setValue(existingDto.name);
             startStepCombo.setValue(existingDto.sourceStepLabel);
@@ -549,10 +630,16 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         dialog.add(layout);
 
         Button saveBtn = new Button("Salvar", e -> {
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (nameField.isEmpty() || timeoutField.isEmpty()) {
                 Notification.show("Nome e Meta são obrigatórios");
                 return;
             }
+            /*
+             * Inicia um bloco try-catch para evitar que erros internos quebrem a renderização da interface.
+             */
             try {
                 int timeout = Integer.parseInt(timeoutField.getValue());
                 SlaDTO dto = (existingDto != null) ? existingDto : new SlaDTO();
@@ -562,6 +649,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 dto.targetValue = timeout;
                 dto.unit = unitCombo.getValue();
                 
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (existingDto == null) {
                     slas.add(dto);
                 }
@@ -579,6 +669,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         dialog.open();
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void showAlertsTab() {
         tabContent.removeAll();
         
@@ -586,6 +679,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         addAlertBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         addAlertBtn.addClickListener(e -> openAlertDialog());
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (alertsGrid.getColumns().isEmpty()) {
             alertsGrid.addColumn(dto -> dto.targetStepLabel).setHeader("Step Alvo");
             alertsGrid.addColumn(dto -> dto.timeoutMinutes).setHeader("Tempo (m)");
@@ -601,6 +697,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     alerts.remove(item);
                     alertsGrid.getDataProvider().refreshAll();
                 });
+                /*
+                 * Retorna o componente renderizado ou o valor da operação atual.
+                 */
                 return new HorizontalLayout(editBtn, deleteBtn);
             }).setHeader("Ações");
             alertsGrid.setItems(alerts);
@@ -609,10 +708,16 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         tabContent.add(addAlertBtn, alertsGrid);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void openAlertDialog() {
         openAlertDialog(null);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void openAlertDialog(AlertDTO existingDto) {
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle(existingDto == null ? "Novo Alerta Temporal" : "Editar Alerta");
@@ -643,6 +748,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         soundCombo.setPlaceholder("Sem som");
 
         Button playBtn = new Button(VaadinIcon.PLAY.create(), e -> {
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (soundCombo.getValue() != null) {
                 getElement().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", soundCombo.getValue());
             }
@@ -658,12 +766,18 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         soundLayout.setWidthFull();
         soundLayout.setAlignItems(FlexComponent.Alignment.END);
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (existingDto != null) {
             startStepCombo.setValue(existingDto.startStepLabel);
             stepCombo.setValue(existingDto.targetStepLabel);
             timeoutField.setValue(String.valueOf(existingDto.timeoutMinutes));
             messageField.setValue(existingDto.alertMessage != null ? existingDto.alertMessage : "");
             soundCombo.setValue(existingDto.alertSound);
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (existingDto.alertRoles != null) rolesCombo.setValue(existingDto.alertRoles);
         }
 
@@ -671,10 +785,16 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         dialog.add(layout);
 
         Button saveBtn = new Button("Salvar", e -> {
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (stepCombo.isEmpty() || timeoutField.isEmpty()) {
                 Notification.show("Etapa Alvo e Tempo são obrigatórios");
                 return;
             }
+            /*
+             * Inicia um bloco try-catch para evitar que erros internos quebrem a renderização da interface.
+             */
             try {
                 int timeout = Integer.parseInt(timeoutField.getValue());
                 AlertDTO dto = (existingDto != null) ? existingDto : new AlertDTO();
@@ -685,6 +805,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 dto.alertSound = soundCombo.getValue();
                 dto.alertRoles = new HashSet<>(rolesCombo.getValue());
                 
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (existingDto == null) {
                     alerts.add(dto);
                 }
@@ -704,6 +827,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         dialog.open();
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void showFormFieldsTab() {
         tabContent.removeAll();
         
@@ -711,10 +837,16 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         addFieldBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         addFieldBtn.addClickListener(e -> openFieldDialog());
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (fieldsGrid.getColumns().isEmpty()) {
             fieldsGrid.addComponentColumn(item -> {
                 Span icon = new Span(VaadinIcon.MENU.create());
                 icon.getStyle().set("cursor", "move");
+                /*
+                 * Retorna o componente renderizado ou o valor da operação atual.
+                 */
                 return icon;
             }).setHeader("Reordenar").setFlexGrow(0).setWidth("100px");
             fieldsGrid.addColumn(dto -> dto.label).setHeader("Rótulo do Campo");
@@ -723,6 +855,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 Checkbox cb = new Checkbox();
                 cb.setValue(dto.isRequired);
                 cb.setReadOnly(true);
+                /*
+                 * Retorna o componente renderizado ou o valor da operação atual.
+                 */
                 return cb;
             }).setHeader("Obrigatório");
             fieldsGrid.addColumn(dto -> dto.description).setHeader("Descrição");
@@ -737,6 +872,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     fields.remove(item);
                     fieldsGrid.getDataProvider().refreshAll();
                 });
+                /*
+                 * Retorna o componente renderizado ou o valor da operação atual.
+                 */
                 return new HorizontalLayout(editBtn, deleteBtn);
             }).setHeader("Ações");
             fieldsGrid.setItems(fields);
@@ -751,9 +889,15 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 FieldDTO targetField = e.getDropTargetItem().orElse(null);
                 GridDropLocation dropLocation = e.getDropLocation();
 
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (draggedField != null && targetField != null && !draggedField.equals(targetField)) {
                     fields.remove(draggedField);
                     int targetIndex = fields.indexOf(targetField);
+                    /*
+                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                     */
                     if (dropLocation == GridDropLocation.BELOW) {
                         targetIndex++;
                     }
@@ -770,10 +914,16 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         tabContent.add(addFieldBtn, fieldsGrid);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void openFieldDialog() {
         openFieldDialog(null);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void openFieldDialog(FieldDTO existingDto) {
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle(existingDto == null ? "Novo Campo" : "Editar Campo");
@@ -794,11 +944,17 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             optionsField.setVisible(needsOptions);
         });
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (existingDto != null) {
             labelField.setValue(existingDto.label != null ? existingDto.label : "");
             typeCombo.setValue(existingDto.inputType);
             requiredCheck.setValue(existingDto.isRequired);
             descField.setValue(existingDto.description != null ? existingDto.description : "");
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (existingDto.options != null && !existingDto.options.isEmpty()) {
                 optionsField.setValue(String.join(", ", existingDto.options));
             }
@@ -808,6 +964,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         dialog.add(layout);
 
         Button saveBtn = new Button("Salvar", e -> {
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (labelField.isEmpty() || typeCombo.isEmpty()) {
                 Notification.show("Rótulo e Tipo são obrigatórios");
                 return;
@@ -817,12 +976,18 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             dto.inputType = typeCombo.getValue();
             dto.isRequired = requiredCheck.getValue();
             dto.description = descField.getValue();
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (optionsField.isVisible() && !optionsField.isEmpty()) {
                 dto.options = List.of(optionsField.getValue().split("\\s*,\\s*"));
             } else {
                 dto.options = new ArrayList<>();
             }
             
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (existingDto == null) {
                 fields.add(dto);
             }
@@ -839,6 +1004,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         dialog.open();
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void showWorkflowTab() {
         tabContent.removeAll();
         
@@ -846,10 +1014,16 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         addStepBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         addStepBtn.addClickListener(e -> openStepDialog());
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (stepsGrid.getColumns().isEmpty()) {
             stepsGrid.addComponentColumn(item -> {
                 Span icon = new Span(VaadinIcon.MENU.create());
                 icon.getStyle().set("cursor", "move");
+                /*
+                 * Retorna o componente renderizado ou o valor da operação atual.
+                 */
                 return icon;
             }).setHeader("Reordenar").setFlexGrow(0).setWidth("100px");
             stepsGrid.addColumn(dto -> dto.label).setHeader("Rótulo da Etapa");
@@ -858,6 +1032,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 Checkbox cb = new Checkbox();
                 cb.setValue(dto.isFinalizer);
                 cb.setReadOnly(true);
+                /*
+                 * Retorna o componente renderizado ou o valor da operação atual.
+                 */
                 return cb;
             }).setHeader("Finalizador");
             stepsGrid.addComponentColumn(item -> {
@@ -872,6 +1049,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     stepsGrid.getDataProvider().refreshAll();
                     updateCardsPreview();
                 });
+                /*
+                 * Retorna o componente renderizado ou o valor da operação atual.
+                 */
                 return new HorizontalLayout(editBtn, deleteBtn);
             }).setHeader("Ações");
             stepsGrid.setItems(steps);
@@ -886,9 +1066,15 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 StepDTO targetStep = e.getDropTargetItem().orElse(null);
                 GridDropLocation dropLocation = e.getDropLocation();
 
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (draggedStep != null && targetStep != null && !draggedStep.equals(targetStep)) {
                     steps.remove(draggedStep);
                     int targetIndex = steps.indexOf(targetStep);
+                    /*
+                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                     */
                     if (dropLocation == GridDropLocation.BELOW) {
                         targetIndex++;
                     }
@@ -905,10 +1091,16 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         tabContent.add(addStepBtn, stepsGrid);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void openStepDialog() {
         openStepDialog(null);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void openStepDialog(StepDTO existingDto) {
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle(existingDto == null ? "Nova Etapa" : "Editar Etapa");
@@ -962,6 +1154,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             responseInputTypeCombo.setVisible(visible);
             responseIsCompactCheck.setVisible(visible && responseInputTypeCombo.getValue() == InputType.TEXT);
             
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (visible) {
                 InputType t = responseInputTypeCombo.getValue();
                 boolean needsOptions = t == InputType.RADIO || t == InputType.CHECKBOX || t == InputType.DROPDOWN || t == InputType.MULTISELECT_DROPDOWN;
@@ -976,6 +1171,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             responseIsCompactCheck.setVisible(hasResponseCheck.getValue() && ev.getValue() == InputType.TEXT);
         });
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (existingDto != null) {
             labelField.setValue(existingDto.label);
             colorCombo.setValue(existingDto.colorTheme);
@@ -991,6 +1189,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             responseLabelField.setValue(existingDto.responseFieldLabel != null ? existingDto.responseFieldLabel : "Resposta / Comentário");
             responseIsCompactCheck.setValue(existingDto.responseIsCompact);
             responseInputTypeCombo.setValue(existingDto.responseInputType != null ? existingDto.responseInputType : InputType.TEXT);
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (existingDto.responseOptions != null && !existingDto.responseOptions.isEmpty()) {
                 responseOptionsField.setValue(String.join(", ", existingDto.responseOptions));
             }
@@ -1013,6 +1214,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         MultiSelectComboBox<String> nextStepsCombo = new MultiSelectComboBox<>("Próximas Etapas Permitidas");
         nextStepsCombo.setItems(steps.stream().map(s -> s.label).collect(Collectors.toList()));
         
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (existingDto != null && existingDto.allowedNextStepLabels != null) {
             nextStepsCombo.setValue(new HashSet<>(existingDto.allowedNextStepLabels));
         }
@@ -1028,6 +1232,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         soundCombo.setPlaceholder("Sem som");
 
         Button playBtn = new Button(VaadinIcon.PLAY.create(), e -> {
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (soundCombo.getValue() != null) {
                 getElement().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", soundCombo.getValue());
             }
@@ -1049,8 +1256,14 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         responsibleRoleCombo.setWidthFull();
         responsibleRoleCombo.setClearButtonVisible(true);
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (existingDto != null) {
             soundCombo.setValue(existingDto.alertSound);
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (existingDto.alertRoles != null) rolesCombo.setValue(existingDto.alertRoles);
             responsibleRoleCombo.setValue(existingDto.responsibleRole);
         }
@@ -1066,6 +1279,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         dialog.add(layout);
 
         Button saveBtn = new Button("Salvar", e -> {
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (labelField.isEmpty() || colorCombo.isEmpty()) {
                 Notification.show("Rótulo e Tema são obrigatórios");
                 return;
@@ -1086,6 +1302,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             dto.alertSound = soundCombo.getValue();
             dto.alertRoles = new HashSet<>(rolesCombo.getValue());
             dto.responsibleRole = responsibleRoleCombo.getValue();
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (responseOptionsField.isVisible() && !responseOptionsField.isEmpty()) {
                 dto.responseOptions = List.of(responseOptionsField.getValue().split("\\s*,\\s*"));
             } else {
@@ -1093,6 +1312,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             }
             dto.allowedNextStepLabels = new ArrayList<>(nextStepsCombo.getValue());
             
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (existingDto == null) {
                 steps.add(dto);
             }
@@ -1107,6 +1329,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         dialog.open();
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void setupWorkflowPreviewLayout() {
         workflowPreview.setWidth("450px");
         workflowPreview.getStyle().set("border", "1px solid var(--lumo-contrast-20pct)");
@@ -1150,16 +1375,25 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         workflowPreview.add(headerPreview, chatScroller);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void updateCardsPreview() {
         chatLayout.removeAll();
 
         // 1. O card de solicitação
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (!isSimulatedSent) {
             chatLayout.add(createRequestCardPreview());
         } else {
             chatLayout.add(createRequestCardSnapshot());
             
             // 2. Mensagens do log (se houver)
+            /*
+             * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+             */
             for (String msg : simulatedLog) {
                 chatLayout.add(createChatBubble("Sistema", msg));
             }
@@ -1171,6 +1405,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         chatLayout.getElement().executeJs("setTimeout(() => { this.scrollTop = this.scrollHeight; }, 50);");
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private Component createChatBubble(String user, String content) {
         Div container = new Div();
         container.setWidthFull();
@@ -1215,9 +1452,15 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         bubble.add(new Span(content.substring(lastPos)));
 
         container.add(userLabel, bubble);
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return container;
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private Component createRequestCardPreview() {
         requestFields.clear();
         VerticalLayout card = new VerticalLayout();
@@ -1229,6 +1472,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         card.getStyle().set("border-radius", "12px");
         card.getStyle().set("box-shadow", "var(--lumo-box-shadow-s)");
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (isSimulatedSent) {
             card.getStyle().set("opacity", "0.6");
         }
@@ -1239,8 +1485,14 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         title.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-s)");
         card.add(title);
 
+        /*
+         * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+         */
         for (FieldDTO f : fields) {
             Component input = createInputComponentPreview(f.inputType, f.label, f.description, f.isRequired, f.options, "");
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (isSimulatedSent && input instanceof com.vaadin.flow.component.HasEnabled he) {
                 he.setEnabled(false);
             }
@@ -1248,19 +1500,37 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             card.add(input);
         }
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (!isSimulatedSent) {
             Button submitBtn = new Button("Enviar (Simulação)", e -> {
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (steps.isEmpty()) {
                     Notification.show("Defina ao menos uma etapa para simular o envio.");
                     return;
                 }
 
                 // Validações Reais
+                /*
+                 * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+                 */
                 for (FieldDTO f : fields) {
+                    /*
+                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                     */
                     if (f.isRequired) {
                         Component comp = requestFields.get(f.label);
                         String val = extractFieldValue(comp);
+                        /*
+                         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                         */
                         if (val == null || val.isBlank()) {
+                            /*
+                             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                             */
                             if (comp instanceof com.vaadin.flow.component.HasValidation hv) {
                                 hv.setInvalid(true);
                                 hv.setErrorMessage("Este campo é obrigatório.");
@@ -1284,6 +1554,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             submitBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
             submitBtn.setWidthFull();
 
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (showSendButton.getValue()) {
                 card.add(submitBtn);
             } else {
@@ -1297,9 +1570,15 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             card.add(sent);
         }
 
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return card;
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private Component createRequestCardSnapshot() {
         VerticalLayout card = new VerticalLayout();
         card.setWidthFull();
@@ -1311,6 +1590,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         title.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-s)");
         card.add(title);
 
+        /*
+         * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+         */
         for (FieldDTO f : fields) {
             Component field = requestFields.get(f.label);
             String val = extractFieldValue(field);
@@ -1324,9 +1606,15 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             row.add(lbl, valSpan);
             card.add(row);
         }
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return card;
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private Component createStepCardPreview(String label) {
         StepDTO currentStep = label != null ? steps.stream().filter(s -> s.label.equals(label)).findFirst().orElse(null) : null;
         
@@ -1349,6 +1637,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 .set("box-shadow", "var(--lumo-box-shadow-s)")
                 .set("width", "100%");
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (isDark) {
             card.getStyle().set("color", "#ffffff");
             card.getStyle().set("--lumo-secondary-text-color", "rgba(255, 255, 255, 0.7)");
@@ -1374,6 +1665,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 .set("font-size", "var(--lumo-font-size-xs)")
                 .set("font-weight", "bold");
         
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (isPending) {
             statusBadge.getStyle().set("background-color", "var(--lumo-contrast-20pct)").set("color", "var(--lumo-secondary-text-color)");
         } else {
@@ -1388,9 +1682,15 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         card.add(statusRow);
 
         // Campos do Template (Exibição)
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (!fields.isEmpty()) {
             Div fieldsDiv = new Div();
             fieldsDiv.getStyle().set("background", "var(--lumo-contrast-5pct)").set("border-radius", "8px").set("padding", "var(--lumo-space-s)").set("margin-top", "var(--lumo-space-s)").set("font-size", "var(--lumo-font-size-s)");
+            /*
+             * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+             */
             for (FieldDTO f : fields) {
                 Div row = new Div();
                 Span lbl = new Span(f.label + ": ");
@@ -1408,21 +1708,45 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 .collect(Collectors.toSet());
 
         List<StepDTO> nextSteps = new ArrayList<>();
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (isPending) {
+            /*
+             * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+             */
             for (StepDTO s : steps) {
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (!restrictedStepLabels.contains(s.label) || s.isGlobal) {
                     nextSteps.add(s);
                 }
             }
         } else if (currentStep != null) {
             List<String> nextAllowed = currentStep.allowedNextStepLabels != null ? currentStep.allowedNextStepLabels : new ArrayList<>();
+            /*
+             * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+             */
             for (StepDTO s : steps) {
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (s.label.equals(currentStep.label)) continue;
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (!nextAllowed.isEmpty()) {
+                    /*
+                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                     */
                     if (nextAllowed.contains(s.label) || s.isGlobal) {
                         nextSteps.add(s);
                     }
                 } else {
+                    /*
+                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                     */
                     if (!restrictedStepLabels.contains(s.label) || s.isGlobal) {
                         nextSteps.add(s);
                     }
@@ -1434,8 +1758,17 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         stepResponseFields.clear();
 
         // Adicionar campos de resposta de todas as próximas etapas possíveis (comportamento real do NeoKioski)
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (!isSimulatedFinalized) {
+            /*
+             * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+             */
             for (StepDTO nextStep : nextSteps) {
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (nextStep.hasResponseField) {
                     Component respInput = createInputComponentPreview(
                         nextStep.responseInputType, 
@@ -1445,6 +1778,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                         nextStep.responseOptions.stream().map(o -> {
                             TaskFieldOption opt = new TaskFieldOption();
                             opt.setOptionLabel(o);
+                            /*
+                             * Retorna o componente renderizado ou o valor da operação atual.
+                             */
                             return opt;
                         }).collect(Collectors.toList()), 
                         "Preencha se " + nextStep.label
@@ -1459,6 +1795,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         FlexLayout actions = new FlexLayout();
         actions.getStyle().set("flex-wrap", "wrap").set("gap", "var(--lumo-space-s)").set("margin-top", "var(--lumo-space-m)");
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (isSimulatedFinalized && !isPending) {
             Span finalizedInfo = new Span("✓ Fluxo Finalizado");
             finalizedInfo.getStyle()
@@ -1467,6 +1806,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     .set("margin-top", "var(--lumo-space-s)");
             card.add(finalizedInfo);
         } else {
+            /*
+             * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+             */
             for (StepDTO nextStep : nextSteps) {
                 Button btn = createSimulatedStepButton(nextStep);
                 actions.add(btn);
@@ -1474,16 +1816,31 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         }
 
         card.add(actions);
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return card;
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private Button createSimulatedStepButton(StepDTO targetStep) {
         Button btn = new Button(targetStep.label, e -> {
             // Validação de resposta obrigatória para a etapa ESPECÍFICA de destino
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (targetStep.hasResponseField && targetStep.isResponseRequired) {
                 Component input = stepResponseFields.get(targetStep.label);
                 String val = extractFieldValue(input);
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (val == null || val.isBlank()) {
+                    /*
+                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                     */
                     if (input instanceof com.vaadin.flow.component.HasValidation hv) {
                         hv.setInvalid(true);
                         hv.setErrorMessage("A resposta é obrigatória para " + targetStep.label);
@@ -1497,6 +1854,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             isSimulatedFinalized = targetStep.isFinalizer;
             
             // Mensagem de menção da etapa (Unificada)
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (targetStep.sendNotification && targetStep.notificationMessage != null && !targetStep.notificationMessage.isBlank()) {
                 String message = targetStep.notificationMessage;
                 // Simulação básica de tags para o preview
@@ -1509,6 +1869,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             updateCardsPreview();
         });
         btn.addThemeVariants(ButtonVariant.LUMO_SMALL);
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (targetStep.colorTheme != null && !targetStep.colorTheme.equalsIgnoreCase("gray")) {
             TaskUIUtils.applyThemeStyles(btn, targetStep.colorTheme);
         } else if (targetStep.isFinalizer) {
@@ -1516,13 +1879,28 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         } else {
             btn.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
         }
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return btn;
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private Component createInputComponentPreview(InputType type, String label, String desc, boolean required, List<?> optionsList, String placeholder) {
         List<String> options = new ArrayList<>();
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (optionsList != null) {
+            /*
+             * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+             */
             for (Object o : optionsList) {
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (o instanceof TaskFieldOption tfo) options.add(tfo.getOptionLabel());
                 else options.add(o.toString());
             }
@@ -1533,7 +1911,13 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             case TEXT:
             default:
                 TextField tf = new TextField(label);
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (desc != null) tf.setHelperText(desc);
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (placeholder != null) tf.setPlaceholder(placeholder);
                 tf.setWidthFull();
                 tf.setRequiredIndicatorVisible(required);
@@ -1541,6 +1925,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 break;
             case DATE:
                 com.vaadin.flow.component.datepicker.DatePicker dp = new com.vaadin.flow.component.datepicker.DatePicker(label);
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (desc != null) dp.setHelperText(desc);
                 dp.setWidthFull();
                 dp.setRequiredIndicatorVisible(required);
@@ -1548,6 +1935,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 break;
             case TIME:
                 com.vaadin.flow.component.timepicker.TimePicker tp = new com.vaadin.flow.component.timepicker.TimePicker(label);
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (desc != null) tp.setHelperText(desc);
                 tp.setWidthFull();
                 tp.setRequiredIndicatorVisible(required);
@@ -1555,6 +1945,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 break;
             case NUMBER:
                 com.vaadin.flow.component.textfield.NumberField nf = new com.vaadin.flow.component.textfield.NumberField(label);
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (desc != null) nf.setHelperText(desc);
                 nf.setWidthFull();
                 nf.setRequiredIndicatorVisible(required);
@@ -1576,6 +1969,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 break;
             case DROPDOWN:
                 com.vaadin.flow.component.combobox.ComboBox<String> combo = new com.vaadin.flow.component.combobox.ComboBox<>(label);
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (desc != null) combo.setHelperText(desc);
                 combo.setWidthFull();
                 combo.setRequiredIndicatorVisible(required);
@@ -1584,6 +1980,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 break;
             case MULTISELECT_DROPDOWN:
                 com.vaadin.flow.component.combobox.MultiSelectComboBox<String> multiCombo = new com.vaadin.flow.component.combobox.MultiSelectComboBox<>(label);
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (desc != null) multiCombo.setHelperText(desc);
                 multiCombo.setWidthFull();
                 multiCombo.setRequiredIndicatorVisible(required);
@@ -1592,28 +1991,70 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 break;
         }
 
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return fieldComponent;
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private String extractFieldValue(Component comp) {
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (comp == null) return "";
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (comp instanceof com.vaadin.flow.component.HasValue<?, ?> hv) {
             Object val = hv.getValue();
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (val == null) return "";
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (val instanceof java.util.Collection<?> col) {
+                /*
+                 * Retorna o componente renderizado ou o valor da operação atual.
+                 */
                 return col.stream().map(Object::toString).collect(Collectors.joining(", "));
             }
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (val instanceof java.time.LocalDate ld) {
+                /*
+                 * Retorna o componente renderizado ou o valor da operação atual.
+                 */
                 return ld.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE);
             }
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (val instanceof java.time.LocalTime lt) {
+                /*
+                 * Retorna o componente renderizado ou o valor da operação atual.
+                 */
                 return lt.format(java.time.format.DateTimeFormatter.ISO_LOCAL_TIME);
             }
+            /*
+             * Retorna o componente renderizado ou o valor da operação atual.
+             */
             return String.valueOf(val);
         }
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return "";
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private HorizontalLayout createFooter() {
         HorizontalLayout footer = new HorizontalLayout();
         footer.getStyle().set("margin-top", "auto");
@@ -1628,13 +2069,25 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         });
         
         footer.add(saveBtn, cancelBtn);
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return footer;
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void saveTemplate() {
         TaskTemplate t;
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (editingTemplateId != null) {
             t = templateService.getTemplateById(editingTemplateId);
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (t == null) t = new TaskTemplate();
         } else {
             t = new TaskTemplate();
@@ -1645,7 +2098,13 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         t.setRequiresSignature(requireSignature.getValue());
         t.setSortOrder(sortOrderField.getValue() != null ? sortOrderField.getValue() : 0);
         
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (t.isRequiresSignature()) {
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (authorizingUsersCombo.getValue().isEmpty()) {
                 Notification.show("Selecione pelo menos um autorizador", 3000, Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_ERROR);
                 return;
@@ -1654,16 +2113,25 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             boolean hasAuthorize = steps.stream().anyMatch(s -> s.label.equalsIgnoreCase("AUTORIZADO"));
             boolean hasReject = steps.stream().anyMatch(s -> s.label.equalsIgnoreCase("REJEITADO"));
             
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (!hasAuthorize || !hasReject) {
                 Notification.show("Templates com autorização exigem os passos 'AUTORIZADO' e 'REJEITADO'", 5000, Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_ERROR);
                 return;
             }
         }
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (registraNoRelatorioLojaUI.getValue()) {
             boolean hasColetadoFinalizer = steps.stream()
                     .anyMatch(s -> s.label.equalsIgnoreCase("COLETADO") && s.isFinalizer);
 
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (!hasColetadoFinalizer) {
                 com.vaadin.flow.component.notification.Notification.show("Templates com relatório de loja exigem o passo 'COLETADO' marcado como Finalizador", 5000, com.vaadin.flow.component.notification.Notification.Position.MIDDLE)
                         .addThemeVariants(NotificationVariant.LUMO_ERROR);
@@ -1676,6 +2144,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             boolean hasDeliveryInSteps = steps.stream()
                     .anyMatch(s -> s.hasResponseField && s.responseFieldLabel != null && s.responseFieldLabel.toUpperCase().contains("DELIVERY"));
 
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (!hasDeliveryInFields && !hasDeliveryInSteps) {
                 com.vaadin.flow.component.notification.Notification.show("Templates com relatório de loja exigem um campo (no formulário ou resposta de etapa) contendo 'DELIVERY' no rótulo", 5000, com.vaadin.flow.component.notification.Notification.Position.MIDDLE)
                         .addThemeVariants(NotificationVariant.LUMO_ERROR);
@@ -1691,14 +2162,23 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         t.setDefaultResponsibleRole(defaultResponsibleRoleCombo.getValue());
         t.setRegistraNoRelatorioLoja(registraNoRelatorioLojaUI.getValue());
         t.getGroups().clear();
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (groupComboBox.getValue() != null) {
             t.getGroups().addAll(groupComboBox.getValue());
         }
 
         List<TemplateFieldRelation> fieldRelations = new ArrayList<>();
         int fOrder = 1;
+        /*
+         * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+         */
         for (FieldDTO dto : fields) {
             TaskFieldDefinition def = new TaskFieldDefinition();
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (dto.id != null) {
                 def.setId(dto.id);
             }
@@ -1706,7 +2186,13 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             def.setInputType(dto.inputType);
             def.setDescription(dto.description);
 
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (dto.options != null && !dto.options.isEmpty()) {
+                /*
+                 * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+                 */
                 for (String optStr : dto.options) {
                     TaskFieldOption option = new TaskFieldOption();
                     option.setOptionLabel(optStr.trim());
@@ -1727,8 +2213,14 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
 
         // Primeiro passo: criar todos os TaskStepDefinition e mapeá-los para uso posterior
         Map<String, TaskStepDefinition> defMap = new HashMap<>();
+        /*
+         * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+         */
         for (StepDTO dto : steps) {
             TaskStepDefinition def = new TaskStepDefinition();
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (dto.id != null) {
                 def.setId(dto.id);
             }
@@ -1738,6 +2230,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         }
 
         // Segundo passo: criar as relações e associar as próximas etapas permitidas
+        /*
+         * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+         */
         for (StepDTO dto : steps) {
             TaskStepDefinition def = defMap.get(dto.label);
             TemplateStepRelation rel = new TemplateStepRelation();
@@ -1754,10 +2249,19 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             rel.setResponseIsCompact(dto.responseIsCompact);
             rel.setResponseInputType(dto.responseInputType);
             rel.setAlertSound(dto.alertSound);
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (dto.alertRoles != null) rel.getAlertRoles().addAll(dto.alertRoles);
             rel.setResponsibleRole(dto.responsibleRole);
             
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (dto.responseOptions != null && !dto.responseOptions.isEmpty()) {
+                /*
+                 * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+                 */
                 for (String optStr : dto.responseOptions) {
                     TaskFieldOption opt = new TaskFieldOption();
                     opt.setOptionLabel(optStr.trim());
@@ -1766,9 +2270,18 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 }
             }
 
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (dto.allowedNextStepLabels != null && !dto.allowedNextStepLabels.isEmpty()) {
+                /*
+                 * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+                 */
                 for (String nextLabel : dto.allowedNextStepLabels) {
                     TaskStepDefinition nextDef = defMap.get(nextLabel);
+                    /*
+                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                     */
                     if (nextDef != null) {
                         rel.getAllowedNextSteps().add(nextDef);
                     }
@@ -1778,11 +2291,20 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         }
 
         List<TaskAlert> taskAlerts = new ArrayList<>();
+        /*
+         * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+         */
         for (AlertDTO dto : alerts) {
             TaskAlert alert = new TaskAlert();
             TaskStepDefinition target = defMap.get(dto.targetStepLabel);
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (target != null) {
                 alert.setId(dto.id);
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (dto.startStepLabel != null && !dto.startStepLabel.isBlank()) {
                      alert.setStartStep(defMap.get(dto.startStepLabel));
                 }
@@ -1790,6 +2312,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 alert.setTimeoutMinutes(dto.timeoutMinutes);
                 alert.setAlertMessage(dto.alertMessage);
                 alert.setAlertSound(dto.alertSound);
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (dto.alertRoles != null) alert.getAlertRoles().addAll(dto.alertRoles);
                 taskAlerts.add(alert);
             }
@@ -1797,12 +2322,21 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
 
 
         List<TaskSlaConfig> taskSlas = new ArrayList<>();
+        /*
+         * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+         */
         for (SlaDTO dto : slas) {
             TaskSlaConfig config = new TaskSlaConfig();
             config.setName(dto.name);
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (dto.sourceStepLabel != null && !dto.sourceStepLabel.isBlank()) {
                 config.setSourceStep(defMap.get(dto.sourceStepLabel));
             }
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (dto.targetStepLabel != null && !dto.targetStepLabel.isBlank()) {
                 config.setTargetStep(defMap.get(dto.targetStepLabel));
             }
@@ -1818,10 +2352,19 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     @Override
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public void setParameter(BeforeEvent event, @OptionalParameter Long parameter) {
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (parameter != null) {
             this.editingTemplateId = parameter;
             TaskTemplate t = templateService.getTemplateById(parameter);
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (t != null) {
                 nameField.setValue(t.getName());
                 showSendButton.setValue(t.isShowSendButton());
@@ -1840,6 +2383,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 groupComboBox.setValue(t.getGroups());
 
                 fields.clear();
+                /*
+                 * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+                 */
                 for (TemplateFieldRelation fr : templateService.getFieldRelationsByTemplateId(parameter)) {
                     FieldDTO dto = new FieldDTO();
                     dto.id = fr.getTaskFieldDefinition().getId();
@@ -1847,7 +2393,13 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     dto.inputType = fr.getTaskFieldDefinition().getInputType();
                     dto.description = fr.getTaskFieldDefinition().getDescription();
                     dto.isRequired = fr.isRequired();
+                    /*
+                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                     */
                     if (fr.getTaskFieldDefinition().getTaskFieldOptions() != null) {
+                        /*
+                         * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+                         */
                         for (TaskFieldOption opt : fr.getTaskFieldDefinition().getTaskFieldOptions()) {
                             dto.options.add(opt.getOptionLabel());
                         }
@@ -1857,6 +2409,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 fieldsGrid.getDataProvider().refreshAll();
 
                 steps.clear();
+                /*
+                 * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+                 */
                 for (TemplateStepRelation sr : templateService.getStepRelationsByTemplateId(parameter)) {
                     StepDTO dto = new StepDTO();
                     dto.id = sr.getTaskStepDefinition().getId();
@@ -1875,6 +2430,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     dto.alertSound = sr.getAlertSound();
                     dto.alertRoles = new HashSet<>(sr.getAlertRoles());
                     dto.responsibleRole = sr.getResponsibleRole();
+                    /*
+                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                     */
                     if (sr.getResponseOptions() != null) {
                         dto.responseOptions = sr.getResponseOptions().stream()
                                 .map(TaskFieldOption::getOptionLabel)
@@ -1888,9 +2446,15 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 stepsGrid.getDataProvider().refreshAll();
                 
                 alerts.clear();
+                /*
+                 * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+                 */
                 for (TaskAlert alert : t.getAlerts()) {
                     AlertDTO dto = new AlertDTO();
                     dto.id = alert.getId();
+                    /*
+                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                     */
                     if (alert.getStartStep() != null) {
                         dto.startStepLabel = alert.getStartStep().getLabel();
                     }
@@ -1904,10 +2468,19 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 alertsGrid.getDataProvider().refreshAll();
                 
                 slas.clear();
+                /*
+                 * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+                 */
                 for (TaskSlaConfig sla : templateService.getSlaConfigsByTemplateId(parameter)) {
                     SlaDTO dto = new SlaDTO();
                     dto.name = sla.getName();
+                    /*
+                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                     */
                     if (sla.getSourceStep() != null) dto.sourceStepLabel = sla.getSourceStep().getLabel();
+                    /*
+                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                     */
                     if (sla.getTargetStep() != null) dto.targetStepLabel = sla.getTargetStep().getLabel();
                     dto.targetValue = sla.getTargetValue();
                     dto.unit = sla.getUnit();

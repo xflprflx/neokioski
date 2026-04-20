@@ -8,6 +8,9 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "tb_task_field_definitions")
+/**
+ * Entidade que representa a definição estrutural de um campo customizável pertencente a um template.
+ */
 public class TaskFieldDefinition {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -61,7 +64,15 @@ public class TaskFieldDefinition {
         return taskFieldOptions;
     }
 
+    /**
+     * Adiciona uma opção selecionável disponível para este campo.
+     *
+     * @param taskFieldOption A opção de campo a ser inserida.
+     */
     public void addTaskFieldOption(TaskFieldOption taskFieldOption) {
+        /*
+         * Insere a opção na lista de alternativas para este campo.
+         */
         this.taskFieldOptions.add(taskFieldOption);
     }
 

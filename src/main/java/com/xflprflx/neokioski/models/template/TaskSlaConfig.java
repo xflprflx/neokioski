@@ -7,6 +7,9 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "tb_task_sla_configs")
+/**
+ * Entidade de configuração que define os parâmetros de limite de tempo (SLA) para os passos de um template de tarefa.
+ */
 public class TaskSlaConfig {
 
     @Id

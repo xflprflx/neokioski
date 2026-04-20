@@ -19,6 +19,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 @Service
+/**
+ * Serviço responsável por gerenciar a lógica de negócios relacionada às mensagens de chat (envio, edição, exclusão e reações).
+ */
 public class ChatService {
 
     private final ChatMessageRepository repository;
@@ -31,21 +34,36 @@ public class ChatService {
     }
 
     @Transactional
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public ChatMessage sendMessage(String content, User user, Group group) {
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return sendMessage(content, user, group, null, null, null);
     }
 
     @Transactional
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public ChatMessage sendMessage(String content, User user, Group group, ChatMessage replyTo, String alertSound, String alertRoles) {
         ChatMessage message = new ChatMessage(content, user, group, replyTo);
         message.setAlertSound(alertSound);
         message.setAlertRoles(alertRoles);
         message = repository.save(message);
         broadcast(group.getId(), message);
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return message;
     }
 
     @Transactional
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public ChatMessage sendVolatileMessage(String content, User user, Group group, ChatMessage replyTo, String alertSound, String alertRoles) {
         // Mensagem VOLÁTIL: Não salvamos no banco
         ChatMessage message = new ChatMessage(content, user, group, replyTo);
@@ -56,10 +74,16 @@ public class ChatService {
         message.setId(-1L * System.currentTimeMillis());
         
         broadcast(group.getId(), message);
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return message;
     }
 
     @Transactional
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public ChatMessage sendMessageWithTask(String content, User user, Group group, Task task, String alertSound, String alertRoles) {
         ChatMessage message = new ChatMessage(content, user, group, null);
         message.setAlertSound(alertSound);
@@ -67,15 +91,27 @@ public class ChatService {
         message.setTask(task);
         message = repository.save(message);
         broadcast(group.getId(), message);
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return message;
     }
 
     @Transactional
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public ChatMessage sendSystemAlertForTask(String content, Task task) {
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return sendSystemAlertForTask(content, task, null, null);
     }
 
     @Transactional
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public ChatMessage sendSystemAlertForTask(String content, Task task, String alertSound, String alertRoles) {
         // Alerta VOLÁTIL: Não salvamos no banco para economizar espaço
         String finalContent = (content == null || content.isBlank()) ? "Alerta de tempo esgotado" : content;
@@ -89,16 +125,28 @@ public class ChatService {
         
         // Responder à primeira mensagem da tarefa (geralmente o card original)
         List<ChatMessage> msgs = repository.findByTaskOrderByIdAsc(task);
+        /*
+         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+         */
         if (!msgs.isEmpty()) {
             alertMsg.setReplyTo(msgs.get(0));
         }
 
         broadcast(task.getGroup().getId(), alertMsg);
 
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return alertMsg;
     }
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public void broadcastSoundOnly(String alertSound, String alertRoles, Group group) {
+        /*
+         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+         */
         if (alertSound == null || alertSound.isEmpty()) return;
         
         ChatMessage ephemeral = new ChatMessage("(Alerta Sonoro)", null, group, null);
@@ -108,15 +156,27 @@ public class ChatService {
     }
 
     @Transactional
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public ChatMessage linkTaskToMessage(Long messageId, Task task) {
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return repository.findById(messageId).map(msg -> {
             msg.setTask(task);
             ChatMessage saved = repository.save(msg);
             broadcast(saved.getGroup().getId(), saved);
+            /*
+             * Retorna o resultado final processado pelo método.
+             */
             return saved;
         }).orElse(null);
     }
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public List<ChatMessage> getMessagesByGroup(Group group, java.time.Instant start, java.time.Instant end) {
         // Busca todas as mensagens (sem fetch)
         List<ChatMessage> all = repository.findByGroupAndTimestampBetweenOrderByTimestampAsc(group, start, end);
@@ -124,12 +184,21 @@ public class ChatService {
         List<ChatMessage> withTask = repository.findByGroupWithTaskAndTimestampBetweenOrderByTimestampAsc(group, start, end);
         // Substitui os objetos com task pelo equivalente com coleções inicializadas
         Map<Long, ChatMessage> taskMap = new HashMap<>();
+        /*
+         * Inicia um laço de repetição (for) para iterar sobre os elementos.
+         */
         for (ChatMessage m : withTask) taskMap.put(m.getId(), m);
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return all.stream()
                 .map(m -> taskMap.getOrDefault(m.getId(), m))
                 .toList();
     }
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public List<ChatMessage> getMessagesByGroup(Group group) {
         // Busca todas as mensagens (sem fetch)
         List<ChatMessage> all = repository.findByGroupOrderByTimestampAsc(group);
@@ -137,17 +206,32 @@ public class ChatService {
         List<ChatMessage> withTask = repository.findByGroupWithTaskOrderByTimestampAsc(group);
         // Substitui os objetos com task pelo equivalente com coleções inicializadas
         Map<Long, ChatMessage> taskMap = new HashMap<>();
+        /*
+         * Inicia um laço de repetição (for) para iterar sobre os elementos.
+         */
         for (ChatMessage m : withTask) taskMap.put(m.getId(), m);
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return all.stream()
                 .map(m -> taskMap.getOrDefault(m.getId(), m))
                 .toList();
     }
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public List<ChatMessage> searchMessages(Group group, String query, int page, int size) {
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return repository.searchMessages(group, query, org.springframework.data.domain.PageRequest.of(page, size));
     }
 
     @Transactional
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public void toggleReaction(Long messageId, User user, String emoji) {
         repository.findById(messageId).ifPresent(message -> {
             reactionRepository.findByChatMessageAndUserAndEmoji(message, user, emoji)
@@ -167,9 +251,15 @@ public class ChatService {
     }
 
     @Transactional
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public void editMessage(Long messageId, String newContent, User user) {
         repository.findById(messageId).ifPresent(message -> {
             // Apenas o autor pode editar (ou sistema se necessário, mas aqui assumimos autor)
+            /*
+             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+             */
             if (message.getUser().equals(user) && !message.isDeleted()) {
                 MessageEdit edit = new MessageEdit(message.getContent(), message);
                 message.getEdits().add(edit);
@@ -181,10 +271,16 @@ public class ChatService {
     }
 
     @Transactional
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public void deleteMessage(Long messageId, User user) {
         repository.findById(messageId).ifPresent(message -> {
             // Apenas o autor ou ADMIN (opcional, mas foco no autor por enquanto) pode excluir
             boolean isAdmin = user.getRole() == com.xflprflx.neokioski.models.enums.Role.ADMIN;
+            /*
+             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+             */
             if ((message.getUser().equals(user) || isAdmin) && !message.isDeleted()) {
                 message.setDeleted(true);
                 repository.save(message);
@@ -193,21 +289,42 @@ public class ChatService {
         });
     }
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public void register(Long groupId, Consumer<ChatMessage> listener) {
         listeners.computeIfAbsent(groupId, k -> new CopyOnWriteArrayList<>()).add(listener);
     }
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public void unregister(Long groupId, Consumer<ChatMessage> listener) {
         List<Consumer<ChatMessage>> groupListeners = listeners.get(groupId);
+        /*
+         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+         */
         if (groupListeners != null) {
             groupListeners.remove(listener);
         }
     }
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     private void broadcast(Long groupId, ChatMessage message) {
         List<Consumer<ChatMessage>> groupListeners = listeners.get(groupId);
+        /*
+         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+         */
         if (groupListeners != null) {
+            /*
+             * Inicia um laço de repetição (for) para iterar sobre os elementos.
+             */
             for (Consumer<ChatMessage> listener : groupListeners) {
+                /*
+                 * Inicia um bloco try-catch para tratar possíveis exceções.
+                 */
                 try {
                     listener.accept(message);
                 } catch (Exception e) {

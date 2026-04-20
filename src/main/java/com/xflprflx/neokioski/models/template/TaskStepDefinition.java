@@ -6,6 +6,9 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "tb_task_step_definitions")
+/**
+ * Entidade que define um passo específico no fluxo (pipeline) de um template de tarefa.
+ */
 public class TaskStepDefinition {
 
     @Id

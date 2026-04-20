@@ -7,6 +7,9 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
+/**
+ * Repositório de acesso a dados para persistência e buscas de usuários, essencial para autenticação e gestão de acesso (User).
+ */
 public interface UserRepository extends JpaRepository<User, Long> {
     /**
      * Busca um usuário pelo seu nome de login.

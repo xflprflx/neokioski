@@ -45,6 +45,9 @@ import java.util.Set;
 @PageTitle("Início | NeoKioski")
 @PermitAll
 @JavaScript("https://cdn.jsdelivr.net/npm/apexcharts")
+/**
+ * View da tela inicial (Dashboard) que apresenta os principais gráficos, métricas pendentes e alertas para o usuário logado.
+ */
 public class HomeView extends Div {
 
     private final DashboardService dashboardService;
@@ -99,10 +102,19 @@ public class HomeView extends Div {
         createChartsSection();
 
         getElement().addEventListener("creator-clicked", e -> {
+            /*
+             * Inicia um bloco try-catch para evitar que erros internos quebrem a renderização da interface.
+             */
             try {
                 var categoryNode = e.getEventData().get("event.detail.category");
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (categoryNode != null && !categoryNode.isNull()) {
                     String clickedName = categoryNode.isTextual() ? categoryNode.textValue() : categoryNode.toString().replace("\"", "");
+                    /*
+                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                     */
                     if (clickedName != null) {
                         creatorFilter.getDataProvider().fetch(new com.vaadin.flow.data.provider.Query<>())
                             .filter(u -> u.getName().equalsIgnoreCase(clickedName))
@@ -116,11 +128,20 @@ public class HomeView extends Div {
         }).addEventData("event.detail.category");
 
         getElement().addEventListener("tma-clicked", e -> {
+            /*
+             * Inicia um bloco try-catch para evitar que erros internos quebrem a renderização da interface.
+             */
             try {
                 var categoryNode = e.getEventData().get("event.detail.category");
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (categoryNode != null && !categoryNode.isNull()) {
                     String templateStr = categoryNode.isString() ? categoryNode.stringValue() : categoryNode.toString().replace("\"", "");
                     
+                    /*
+                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                     */
                     if (templateStr != null && !templateStr.isEmpty()) {
                         final String searchName = templateStr;
                         templateService.findAll().stream()
@@ -135,10 +156,19 @@ public class HomeView extends Div {
         }).addEventData("event.detail.category");
 
         getElement().addEventListener("finalizer-clicked", e -> {
+            /*
+             * Inicia um bloco try-catch para evitar que erros internos quebrem a renderização da interface.
+             */
             try {
                 var categoryNode = e.getEventData().get("event.detail.category");
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (categoryNode != null && !categoryNode.isNull()) {
                     String clickedName = categoryNode.isString() ? categoryNode.stringValue() : categoryNode.toString().replace("\"", "");
+                    /*
+                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                     */
                     if (clickedName != null) {
                         finalizerFilter.getDataProvider().fetch(new com.vaadin.flow.data.provider.Query<>())
                             .filter(u -> u.getName().equalsIgnoreCase(clickedName))
@@ -155,6 +185,9 @@ public class HomeView extends Div {
     }
 
     @Override
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
         super.onAttach(attachEvent);
         com.vaadin.flow.component.UI ui = attachEvent.getUI();
@@ -163,15 +196,27 @@ public class HomeView extends Div {
     }
 
     @Override
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     protected void onDetach(com.vaadin.flow.component.DetachEvent detachEvent) {
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (taskListener != null) {
             taskService.unregisterGlobal(taskListener);
         }
         super.onDetach(detachEvent);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void createHeaderSection() {
         User user = securityService.getAuthenticatedInternalUser().orElse(null);
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (user == null) return;
 
         Div welcome = new Div();
@@ -201,8 +246,14 @@ public class HomeView extends Div {
         subtitle.getStyle().set("color", "var(--dash-text-sec)").set("font-weight", "500");
         
         welcome.add(titleRow, subtitle);
+        /*
+         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
+         */
         add(welcome);
     }
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void createFilterSection() {
         Div filters = new Div();
         filters.addClassNames("filter-section", "dashboard-filters", "animate-in");
@@ -255,9 +306,15 @@ public class HomeView extends Div {
         finalizerFilter.addValueChangeListener(e -> updateDashboard());
 
         filters.add(startDatePicker, endDatePicker, groupFilter, templateFilter, creatorFilter, finalizerFilter);
+        /*
+         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
+         */
         add(filters);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void createKpiSection() {
         kpiGrid = new Div();
         kpiGrid.addClassNames("kpi-container", "animate-in");
@@ -270,9 +327,15 @@ public class HomeView extends Div {
                 .set("justify-content", "center")
                 .set("grid-column", "span 12")
                 .set("width", "100%");
+        /*
+         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
+         */
         add(kpiGrid);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void createChartsSection() {
         Div chartsContainer = new Div();
         chartsContainer.addClassNames("charts-container", "animate-in");
@@ -307,6 +370,9 @@ public class HomeView extends Div {
         tmaCol.add(createChartHeader("TMA Médio Total por Tipo"), tmaStackedChartDiv);
 
         chartsContainer.add(rankingCol, finalizerCol, tmaCol);
+        /*
+         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
+         */
         add(chartsContainer);
 
         Div bottomChartContainer = new Div();
@@ -337,9 +403,15 @@ public class HomeView extends Div {
         mixedCol.add(createChartHeader("Evolução Diária - Tarefas e SLA"), mixedChartDiv);
 
         bottomChartContainer.add(mixedCol);
+        /*
+         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
+         */
         add(bottomChartContainer);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private Div createChartCard(String flexBasis) {
         Div col = new Div();
         col.addClassNames("chart-card", "animate-in");
@@ -353,18 +425,33 @@ public class HomeView extends Div {
                 .set("display", "flex")
                 .set("flex-direction", "column")
                 .set("height", "400px");
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return col;
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private Div createChartHeader(String title) {
         Div header = new Div();
         header.addClassName("chart-title");
         header.setText(title);
         header.getStyle().set("margin-bottom", "-20px").set("z-index", "10").set("position", "relative");
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return header;
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void updateDashboard() {
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (startDatePicker.getValue() == null || endDatePicker.getValue() == null) return;
 
         Instant start = startDatePicker.getValue().atStartOfDay(ZoneId.systemDefault()).toInstant();
@@ -379,12 +466,18 @@ public class HomeView extends Div {
         DashboardService.DashboardData data = dashboardService.getDashboardData(start, end, group, type, activeCreatorFilter, activeFinalizerFilter, null);
         this.lastDashboardData = data;
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (activeCreatorFilter != null) {
              rankingHeaderDiv.setText("Ranking (Filtro: " + activeCreatorFilter + ")");
         } else {
              rankingHeaderDiv.setText("Ranking Criadores de Tarefas");
         }
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (activeFinalizerFilter != null) {
              finalizerRankingHeaderDiv.setText("Ranking (Filtro: " + activeFinalizerFilter + ")");
         } else {
@@ -395,6 +488,9 @@ public class HomeView extends Div {
         renderCharts(data);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void renderKpiCards(DashboardService.DashboardStats stats) {
         kpiGrid.removeAll();
 
@@ -409,6 +505,9 @@ public class HomeView extends Div {
         addKpiToGrid("Tarefas Ativas", String.valueOf(stats.activeTasks()), VaadinIcon.TASKS, "blue", "spark-active", 0);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void addKpiToGrid(String label, String value, VaadinIcon icon, String theme, String sparkId, int index) {
         Div cardWrapper = createStatCard(label, value, icon, theme, sparkId);
         cardWrapper.addClassName("animate-in");
@@ -416,6 +515,9 @@ public class HomeView extends Div {
         kpiGrid.add(cardWrapper);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private Div createStatCard(String label, String value, VaadinIcon icon, String theme, String sparklineId) {
         String[] colors = TaskUIUtils.getThemeColors(theme);
         String bgColor = colors[0];
@@ -467,6 +569,9 @@ public class HomeView extends Div {
                 .set("top", "20px")
                 .set("font-size", "1.8rem");
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (isDark) {
             labelSpan.getStyle().set("color", "rgba(255, 255, 255, 0.7)");
             valueSpan.getStyle().set("color", "#ffffff");
@@ -480,13 +585,25 @@ public class HomeView extends Div {
         Div sparkline = new Div();
         sparkline.setId(sparklineId);
         sparkline.addClassName("sparkline-container");
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (isDark) sparkline.getStyle().set("opacity", "0.3");
 
         card.add(labelSpan, valueSpan, iconWrapper, sparkline);
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return card;
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void renderCharts(DashboardService.DashboardData data) {
+        /*
+         * Inicia um bloco try-catch para evitar que erros internos quebrem a renderização da interface.
+         */
         try {
             String rankingSeries = objectMapper.writeValueAsString(data.userRanking().stream().map(d -> d.value()).toList());
             String rankingLabels = objectMapper.writeValueAsString(data.userRanking().stream().map(d -> d.label()).toList());
@@ -505,6 +622,9 @@ public class HomeView extends Div {
             List<Double> tmaTotals = data.tmaPerStep().stream().map(d -> d.totalAvgSeconds()).toList();
 
             Map<String, Map<String, Double>> detailedTmaMap = new HashMap<>();
+            /*
+             * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+             */
             for (DashboardService.StackedBarData d : data.tmaPerStep()) {
                 detailedTmaMap.put(d.category(), d.seriesValues());
             }
@@ -516,6 +636,9 @@ public class HomeView extends Div {
             String js = String.format("""
                 (function() {
                     const tryRenderAll = () => {
+                        /*
+                         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                         */
                         if (typeof ApexCharts === 'undefined') {
                             setTimeout(tryRenderAll, 100);
                             return;
@@ -550,6 +673,9 @@ public class HomeView extends Div {
                         
                         const renderSpark = (id, data, color) => {
                             const el = document.querySelector("#" + id);
+                            /*
+                             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                             */
                             if (el) {
                                 el.innerHTML = "";
                                 new ApexCharts(el, { ...sparkOptions, series: [{ data }], colors: [color], theme: { mode: theme } }).render();
@@ -572,12 +698,24 @@ public class HomeView extends Div {
                                 height: '100%%',
                                 events: {
                                     click: function(event, chartContext, config) {
+                                        /*
+                                         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                                         */
                                         if (config && config.dataPointIndex !== undefined && config.dataPointIndex !== -1) {
                                             let category;
                                             const cats = chartContext.w.config.xaxis.categories || chartContext.w.globals.labels;
+                                            /*
+                                             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                                             */
                                             if (cats && cats[config.dataPointIndex]) category = cats[config.dataPointIndex];
+                                            /*
+                                             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                                             */
                                             if (category) {
                                                 const rootEl = document.getElementById('dashboard-home');
+                                                /*
+                                                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                                                 */
                                                 if (rootEl) {
                                                     rootEl.dispatchEvent(new CustomEvent('creator-clicked', { 
                                                         detail: { category: String(category) }, bubbles: true, composed: true 
@@ -606,12 +744,24 @@ public class HomeView extends Div {
                                 height: '100%%',
                                 events: {
                                     click: function(event, chartContext, config) {
+                                        /*
+                                         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                                         */
                                         if (config && config.dataPointIndex !== undefined && config.dataPointIndex !== -1) {
                                             let category;
                                             const cats = chartContext.w.config.xaxis.categories || chartContext.w.globals.labels;
+                                            /*
+                                             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                                             */
                                             if (cats && cats[config.dataPointIndex]) category = cats[config.dataPointIndex];
+                                            /*
+                                             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                                             */
                                             if (category) {
                                                 const rootEl = document.getElementById('dashboard-home');
+                                                /*
+                                                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                                                 */
                                                 if (rootEl) {
                                                     rootEl.dispatchEvent(new CustomEvent('finalizer-clicked', { 
                                                         detail: { category: String(category) }, bubbles: true, composed: true 
@@ -641,12 +791,24 @@ public class HomeView extends Div {
                                     height: '100%%',
                                     events: {
                                         click: function(event, chartContext, config) {
+                                            /*
+                                             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                                             */
                                             if (config && config.dataPointIndex !== undefined && config.dataPointIndex !== -1) {
                                                 let category;
                                                 const cats = chartContext.w.config.xaxis.categories || chartContext.w.globals.labels;
+                                                /*
+                                                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                                                 */
                                                 if (cats && cats[config.dataPointIndex]) category = cats[config.dataPointIndex];
+                                                /*
+                                                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                                                 */
                                                 if (category) {
                                                     const rootEl = document.getElementById('dashboard-home');
+                                                    /*
+                                                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                                                     */
                                                     if (rootEl) {
                                                         rootEl.dispatchEvent(new CustomEvent('tma-clicked', { 
                                                             detail: { category: String(category) }, bubbles: true, composed: true 
@@ -666,7 +828,13 @@ public class HomeView extends Div {
                                         formatter: function(val) {
                                             const h = Math.floor(val / 3600);
                                             const m = Math.floor((val %% 3600) / 60);
+                                            /*
+                                             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                                             */
                                             if (h > 0) return h + "h " + m + "m";
+                                            /*
+                                             * Retorna o componente renderizado ou o valor da operação atual.
+                                             */
                                             return m + "m";
                                         }
                                     } 
@@ -676,12 +844,24 @@ public class HomeView extends Div {
                                         const category = w.globals.labels[dataPointIndex];
                                         const totalVal = series[seriesIndex][dataPointIndex];
                                         const formatTime = (val) => {
+                                            /*
+                                             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                                             */
                                             if (!val || val === 0) return "0s";
                                             const h = Math.floor(val / 3600);
                                             const m = Math.floor((val %% 3600) / 60);
                                             const s = Math.floor(val %% 60);
+                                            /*
+                                             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                                             */
                                             if (h > 0) return h + "h " + m + "m " + s + "s";
+                                            /*
+                                             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                                             */
                                             if (m > 0) return m + "m " + s + "s";
+                                            /*
+                                             * Retorna o componente renderizado ou o valor da operação atual.
+                                             */
                                             return s + "s";
                                         };
                                         const isD = isDark();
@@ -691,7 +871,13 @@ public class HomeView extends Div {
                                         let tHTML = '<div style="padding: 12px; background: ' + bgColor + '; color: ' + textColor + '; min-width: 220px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-radius: 6px; border: 1px solid ' + borderColor + ';">';
                                         tHTML += '<div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid ' + borderColor + '; padding-bottom: 6px;">' + category + '</div>';
                                         tHTML += '<div style="margin-bottom: 10px; font-weight: 600; color: #3b82f6;">Tempo Total: ' + formatTime(totalVal) + '</div>';
+                                        /*
+                                         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                                         */
                                         if (detailedTma && detailedTma[category]) {
+                                            /*
+                                             * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+                                             */
                                             for (const [stepName, stepVal] of Object.entries(detailedTma[category])) {
                                                 tHTML += '<div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px;">';
                                                 tHTML += '<span style="opacity: 0.8; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">- ' + stepName + '</span>';
@@ -700,12 +886,18 @@ public class HomeView extends Div {
                                             }
                                         }
                                         tHTML += '</div>';
+                                        /*
+                                         * Retorna o componente renderizado ou o valor da operação atual.
+                                         */
                                         return tHTML;
                                     }
                                 },
                                 dataLabels: { enabled: true, formatter: (val) => { 
                                     const h = Math.floor(val / 3600);
                                     const m = Math.floor((val %% 3600) / 60);
+                                    /*
+                                     * Retorna o componente renderizado ou o valor da operação atual.
+                                     */
                                     return h > 0 ? h + "h " + m + "m" : m + "m";
                                 }, style: { colors: [isDark() ? '#fff' : '#000'] } },
                                 legend: { show: false },
@@ -735,15 +927,27 @@ public class HomeView extends Div {
 
                         // Renderização
                         const userRankingEl = document.querySelector("#user-ranking-chart");
+                        /*
+                         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                         */
                         if (userRankingEl) { userRankingEl.innerHTML = ""; new ApexCharts(userRankingEl, userRankingOptions).render(); }
                         
                         const finalizerRankingEl = document.querySelector("#finalizer-ranking-chart");
+                        /*
+                         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                         */
                         if (finalizerRankingEl) { finalizerRankingEl.innerHTML = ""; new ApexCharts(finalizerRankingEl, finalizerRankingOptions).render(); }
                         
                         const tmaEl = document.querySelector("#tma-stacked-chart");
+                        /*
+                         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                         */
                         if (tmaEl) { tmaEl.innerHTML = ""; new ApexCharts(tmaEl, tmaOptions).render(); }
                         
                         const mixedEl = document.querySelector("#mixed-history-chart");
+                        /*
+                         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                         */
                         if (mixedEl) { mixedEl.innerHTML = ""; new ApexCharts(mixedEl, mixedChartOptions).render(); }
                     };
 

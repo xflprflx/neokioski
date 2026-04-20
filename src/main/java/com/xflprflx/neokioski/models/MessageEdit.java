@@ -5,6 +5,9 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "tb_message_edits")
+/**
+ * Entidade que armazena o histórico de edições de uma mensagem de chat.
+ */
 public class MessageEdit {
 
     @Id

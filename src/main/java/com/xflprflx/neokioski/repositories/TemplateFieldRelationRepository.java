@@ -9,6 +9,9 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
+/**
+ * Repositório para gerenciamento da relação que mapeia quais campos pertencem a qual template (TemplateFieldRelation).
+ */
 public interface TemplateFieldRelationRepository extends JpaRepository<TemplateFieldRelation, Long> {
     
     @Query("SELECT r FROM TemplateFieldRelation r " +

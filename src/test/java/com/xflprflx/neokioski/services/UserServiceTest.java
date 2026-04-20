@@ -15,6 +15,10 @@ import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(MockitoExtension.class)
+/**
+ * Classe de testes unitários para o serviço de usuários (UserService).
+ * Utiliza o Mockito para simular dependências e isolar as validações de regra de negócio, principalmente focando nas lógicas de senhas.
+ */
 public class UserServiceTest {
 
     @Mock
@@ -27,69 +31,107 @@ public class UserServiceTest {
     private UserService userService;
 
     @Test
+    /**
+     * Teste que valida o comportamento do serviço ao salvar um usuário sem alterar a senha.
+     * Deve garantir que a senha original (hash antigo) será preservada no objeto antes da persistência.
+     */
     public void shouldRestoreOldPasswordIfNewOneIsNull() {
-        // Arrange
+        /*
+         * Preparação do cenário de teste (Arrange): configuração de mocks, variáveis e dados de entrada necessários para a execução.
+         */
         User existingUser = new User();
         existingUser.setId(1L);
         existingUser.setPassword("OLD_HASH");
 
         User updatedUser = new User();
         updatedUser.setId(1L);
-        updatedUser.setPassword(null); // Emulated form behavior when not changing password
+        updatedUser.setPassword(null); /* Simulando o comportamento de um formulário Vaadin onde a senha em branco ou nula não deve sobrescrever a atual. */
 
         when(repository.findById(1L)).thenReturn(Optional.of(existingUser));
 
-        // Act
+        /*
+         * Ação (Act): execução do método principal ou comportamento em teste utilizando os dados preparados.
+         */
         userService.save(updatedUser);
 
-        // Assert
+        /*
+         * Verificação (Assert): validação dos resultados, confirmação de valores alterados e verificação de interações dos mocks (ex: métodos chamados).
+         */
         assertEquals("OLD_HASH", updatedUser.getPassword());
         verify(passwordEncoder, never()).encode(any());
         verify(repository).save(updatedUser);
     }
 
     @Test
+    /**
+     * Teste que verifica se uma nova senha inserida em texto plano será corretamente
+     * criptografada (encode) com o PasswordEncoder antes de ser salva no banco.
+     */
     public void shouldEncodeNewPasswordIfProvided() {
-        // Arrange
+        /*
+         * Preparação do cenário de teste (Arrange): configuração de mocks, variáveis e dados de entrada necessários para a execução.
+         */
         User updatedUser = new User();
         updatedUser.setId(1L);
         updatedUser.setPassword("new_password");
 
         when(passwordEncoder.encode("new_password")).thenReturn("NEW_HASH");
 
-        // Act
+        /*
+         * Ação (Act): execução do método principal ou comportamento em teste utilizando os dados preparados.
+         */
         userService.save(updatedUser);
 
-        // Assert
+        /*
+         * Verificação (Assert): validação dos resultados, confirmação de valores alterados e verificação de interações dos mocks (ex: métodos chamados).
+         */
         assertEquals("NEW_HASH", updatedUser.getPassword());
         verify(repository).save(updatedUser);
-        // Should not have called findById because password was not null/empty
+        /* Verifica se o repositório NÃO foi chamado para buscar os dados antigos do usuário, pois a nova senha já foi preenchida, não havendo necessidade. */
         verify(repository, never()).findById(any());
     }
 
     @Test
+    /**
+     * Teste que assegura que uma senha já criptografada (que inicie com a assinatura do BCrypt)
+     * não será criptografada novamente ao passar pelo método de salvamento.
+     */
     public void shouldNotReencodeIfAlreadyABcryptHash() {
-        // Arrange
+        /*
+         * Preparação do cenário de teste (Arrange): configuração de mocks, variáveis e dados de entrada necessários para a execução.
+         */
         User user = new User();
         user.setId(1L);
-        user.setPassword("$2a$10$abcdefghij"); // Looks like a BCrypt hash
+        user.setPassword("$2a$10$abcdefghij"); /* Simula um formato característico gerado pelo algoritmo BCrypt, que não necessita ser re-encodado. */
 
-        // Act
+        /*
+         * Ação (Act): execução do método principal ou comportamento em teste utilizando os dados preparados.
+         */
         userService.save(user);
 
-        // Assert
+        /*
+         * Verificação (Assert): validação dos resultados, confirmação de valores alterados e verificação de interações dos mocks (ex: métodos chamados).
+         */
         assertEquals("$2a$10$abcdefghij", user.getPassword());
         verify(passwordEncoder, never()).encode(any());
         verify(repository).save(user);
     }
 
     @Test
+    /**
+     * Teste para validar que o serviço de usuário repassa corretamente as atualizações pontuais
+     * de flags de notificação (PATCH) para o repositório.
+     */
     public void shouldCallRepositoryUpdateMethodsForPatch() {
-        // Act
+        /*
+         * Ação (Act): execução do método principal ou comportamento em teste utilizando os dados preparados.
+         */
         userService.updateNotifyStoreOrder(1L, true);
         userService.updateNotifyChatSounds(1L, false);
 
-        // Assert
+        /*
+         * Verificação (Assert): validação dos resultados, confirmação de valores alterados e verificação de interações dos mocks (ex: métodos chamados).
+         */
         verify(repository).updateNotifyStoreOrder(1L, true);
         verify(repository).updateNotifyChatSounds(1L, false);
     }

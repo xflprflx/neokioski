@@ -6,6 +6,9 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "tb_template_field_relations")
+/**
+ * Entidade que mapeia o relacionamento entre um template de tarefa e a definição de um campo de entrada.
+ */
 public class TemplateFieldRelation {
 
     @Id

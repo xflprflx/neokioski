@@ -7,6 +7,9 @@ import java.util.List;
 
 @Entity
 @Table(name = "tb_chat_messages")
+/**
+ * Entidade que representa uma mensagem de texto trocada entre usuários ou em grupos de chat.
+ */
 public class ChatMessage {
 
     @Id

@@ -6,6 +6,9 @@ import jakarta.persistence.*;
 @Table(name = "tb_message_reactions", uniqueConstraints = {
     @UniqueConstraint(columnNames = {"chat_message_id", "user_id", "emoji"})
 })
+/**
+ * Entidade que representa uma reação (emoji, like, etc) de um usuário a uma mensagem do chat.
+ */
 public class MessageReaction {
 
     @Id

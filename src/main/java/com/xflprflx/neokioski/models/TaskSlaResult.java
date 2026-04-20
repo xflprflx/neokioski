@@ -9,6 +9,9 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "tb_task_sla_results")
+/**
+ * Entidade que consolida o resultado do tempo de nível de serviço (SLA) para uma determinada tarefa.
+ */
 public class TaskSlaResult {
 
     @Id

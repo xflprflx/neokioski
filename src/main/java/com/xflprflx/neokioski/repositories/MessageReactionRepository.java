@@ -7,6 +7,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
 
+/**
+ * Repositório para persistência e consultas relacionadas às reações de mensagens de chat (MessageReaction).
+ */
 public interface MessageReactionRepository extends JpaRepository<MessageReaction, Long> {
     Optional<MessageReaction> findByChatMessageAndUserAndEmoji(ChatMessage chatMessage, User user, String emoji);
 }

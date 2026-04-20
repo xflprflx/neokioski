@@ -2,9 +2,18 @@ package com.xflprflx.neokioski.ui.utils;
 
 import com.vaadin.flow.component.html.Span;
 
+/**
+ * Classe utilitária contendo métodos auxiliares para a construção e formatação da interface de tarefas (badges de status, cores).
+ */
 public class TaskUIUtils {
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public static String[] getThemeColors(String theme) {
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (theme == null) theme = "gray";
         
         String bg, fg;
@@ -24,11 +33,23 @@ public class TaskUIUtils {
                 bg = "var(--lumo-contrast-5pct)";
                 fg = "var(--lumo-contrast-80pct)";
         }
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return new String[]{bg, fg, String.valueOf(isDark)};
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public static String getThemeColorRGB(String theme) {
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (theme == null) theme = "gray";
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return switch (theme.toLowerCase()) {
             case "blue" -> "21, 101, 192";
             case "yellow" -> "220, 109, 0";
@@ -44,25 +65,61 @@ public class TaskUIUtils {
         };
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public static String resolveTemplateEmoji(String templateName) {
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (templateName == null) return "📋";
         String lower = templateName.toLowerCase();
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (lower.contains("bug")) return "🐛";
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (lower.contains("feature")) return "⭐";
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (lower.contains("review")) return "🔄";
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (lower.contains("meeting")) return "📄";
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (lower.contains("design")) return "🎨";
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (lower.contains("qa")) return "🔍";
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return "📋";
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public static void applyThemeStyles(Span span, String theme) {
         applyThemeStyles((com.vaadin.flow.component.HasStyle) span, theme);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public static void applyThemeStyles(com.vaadin.flow.component.HasStyle component, String theme) {
         String[] colors = getThemeColors(theme);
         component.getStyle().set("background-color", colors[1]);
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (theme != null && theme.equalsIgnoreCase("black")) {
             component.getStyle().set("color", "#212121");
         } else {

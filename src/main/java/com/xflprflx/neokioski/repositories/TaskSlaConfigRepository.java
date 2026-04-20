@@ -7,6 +7,9 @@ import org.springframework.data.jpa.repository.Query;
 import java.time.Instant;
 import java.util.List;
 
+/**
+ * Repositório de configuração das regras e limites de tempo (SLA) para tarefas (TaskSlaConfig).
+ */
 public interface TaskSlaConfigRepository extends JpaRepository<TaskSlaConfig, Long> {
     
     @Query("SELECT c FROM TaskSlaConfig c WHERE c.taskTemplate = :template " +

@@ -9,6 +9,9 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Repositório para persistência e gerenciamento de configurações de relatórios por loja (StoreReportConfig).
+ */
 public interface StoreReportConfigRepository extends JpaRepository<StoreReportConfig, Long> {
 
     @Query("SELECT c FROM StoreReportConfig c " +

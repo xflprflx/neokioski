@@ -27,6 +27,9 @@ import com.xflprflx.neokioski.services.TaskService;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Formulário da interface para a configuração de regras e parâmetros dos relatórios específicos das lojas.
+ */
 public class StoreReportConfigForm extends VerticalLayout {
     TextField identifier = new TextField("ID / Identificador");
     TextField revision = new TextField("Revisão");
@@ -63,6 +66,9 @@ public class StoreReportConfigForm extends VerticalLayout {
 
         configureColumnsGrid();
 
+        /*
+         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
+         */
         add(headerFields, 
             new H4("Colunas do Relatório"), 
             createAddColumnLayout(), 
@@ -70,6 +76,9 @@ public class StoreReportConfigForm extends VerticalLayout {
             createButtonsLayout());
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void configureColumnsGrid() {
         columnsGrid.addColumn(ReportColumnConfig::getLabel).setHeader("Rótulo (Label)");
         columnsGrid.addColumn(ReportColumnConfig::getAttributeKey).setHeader("Atributo (Key)");
@@ -80,11 +89,17 @@ public class StoreReportConfigForm extends VerticalLayout {
                 columnsList.remove(col);
                 columnsGrid.setItems(columnsList);
             });
+            /*
+             * Retorna o componente renderizado ou o valor da operação atual.
+             */
             return removeBtn;
         }).setHeader("Ações").setFlexGrow(0).setWidth("80px");
         columnsGrid.setAllRowsVisible(true);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private Component createAddColumnLayout() {
         TextField labelField = new TextField("Rótulo");
         ComboBox<String> keyField = new ComboBox<>("Atributo");
@@ -94,6 +109,9 @@ public class StoreReportConfigForm extends VerticalLayout {
 
         Button addBtn = new Button("Adicionar Coluna", VaadinIcon.PLUS.create());
         addBtn.addClickListener(e -> {
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (!labelField.getValue().isBlank() && keyField.getValue() != null && !keyField.getValue().isBlank()) {
                 columnsList.add(new ReportColumnConfig(keyField.getValue(), labelField.getValue()));
                 columnsGrid.setItems(columnsList);
@@ -104,9 +122,15 @@ public class StoreReportConfigForm extends VerticalLayout {
 
         HorizontalLayout layout = new HorizontalLayout(labelField, keyField, addBtn);
         layout.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.BASELINE);
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return layout;
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private Component createButtonsLayout() {
         save.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         delete.addThemeVariants(ButtonVariant.LUMO_ERROR);
@@ -121,18 +145,33 @@ public class StoreReportConfigForm extends VerticalLayout {
 
         binder.addStatusChangeListener(e -> save.setEnabled(binder.isValid()));
 
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return new HorizontalLayout(save, delete, close);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public void setConfig(StoreReportConfig config) {
         binder.setBean(config);
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (config != null) {
             columnsList = new ArrayList<>(config.getColumns());
             columnsGrid.setItems(columnsList);
         }
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void validateAndSave() {
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (binder.isValid()) {
             StoreReportConfig config = binder.getBean();
             config.setColumns(new ArrayList<>(columnsList));
@@ -149,7 +188,13 @@ public class StoreReportConfigForm extends VerticalLayout {
             this.config = config;
         }
 
+        /**
+         * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+         */
         public StoreReportConfig getConfig() {
+            /*
+             * Retorna o componente renderizado ou o valor da operação atual.
+             */
             return config;
         }
     }
@@ -172,15 +217,33 @@ public class StoreReportConfigForm extends VerticalLayout {
         }
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public Registration addDeleteListener(ComponentEventListener<DeleteEvent> listener) {
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return addListener(DeleteEvent.class, listener);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public Registration addSaveListener(ComponentEventListener<SaveEvent> listener) {
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return addListener(SaveEvent.class, listener);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public Registration addCloseListener(ComponentEventListener<CloseEvent> listener) {
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return addListener(CloseEvent.class, listener);
     }
 }

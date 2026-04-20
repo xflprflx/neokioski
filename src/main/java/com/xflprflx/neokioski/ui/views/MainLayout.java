@@ -80,6 +80,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
         createDrawer();
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void createHeader() {
         H1 logo = new H1("NeoKioski");
         logo.addClassNames(LumoUtility.FontSize.LARGE, LumoUtility.Margin.MEDIUM);
@@ -91,6 +94,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
 
         Button logout = new Button("Sair");
         logout.addClickListener(event -> {
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (currentUser != null) {
                 presenceService.forceOffline(currentUser.getId());
             }
@@ -108,6 +114,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
         addToNavbar(header);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void createDrawer() {
         drawerContainer.setSizeFull();
         drawerContainer.setPadding(false);
@@ -120,6 +129,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
         addToDrawer(scroller);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void showPrimaryNav() {
         drawerContainer.removeAll();
         SideNav nav = new SideNav();
@@ -130,6 +142,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
         chatsItem.getElement().addEventListener("click", e -> showChatNav(null));
         nav.addItem(chatsItem);
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (authContext.hasAnyRole("ADMIN")) {
             nav.addItem(new SideNavItem("Grupos", GroupListView.class, VaadinIcon.USERS.create()));
             nav.addItem(new SideNavItem("Usuários", UserListView.class, VaadinIcon.USER_CARD.create()));
@@ -142,6 +157,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
         drawerContainer.add(nav);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void showChatNav(Group selectedGroup) {
         drawerContainer.removeAll();
 
@@ -171,6 +189,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
 
 
     @Override
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public void beforeEnter(BeforeEnterEvent event) {
         securityService.getAuthenticatedInternalUser().ifPresent(u -> {
             // Verificar no banco de dados se o usuário ainda está ativo
@@ -178,10 +199,16 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
                     .map(User::isActive)
                     .orElse(false);
             
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (!active) {
                 System.out.println("[SECURITY] Usuário inativo detectado na navegação: " + u.getUsername());
                 
                 // Forçar logout e redirecionar
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (currentUser != null) {
                     presenceService.forceOffline(currentUser.getId());
                 }
@@ -200,14 +227,26 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
     }
 
     @Override
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public void afterNavigation(AfterNavigationEvent event) {
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (!event.getActiveChain().isEmpty() && event.getActiveChain().get(0) instanceof ChatView) {
             // Extrair groupId da URL para carregar tasks do grupo
             String location = event.getLocation().getPath();
             // URL padrão: /chat/123
             String[] parts = location.split("/");
             Group group = null;
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (parts.length >= 2) {
+                /*
+                 * Inicia um bloco try-catch para evitar que erros internos quebrem a renderização da interface.
+                 */
                 try {
                     long groupId = Long.parseLong(parts[parts.length - 1]);
                     group = groupService.findById(groupId).orElse(null);
@@ -217,18 +256,33 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
         }
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private String loadAudioAsBase64(String resourcePath) {
         String path = resourcePath.startsWith("/") ? resourcePath : "/" + resourcePath;
         try (InputStream is = getClass().getResourceAsStream(path)) {
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (is == null) return "";
             byte[] bytes = is.readAllBytes();
+            /*
+             * Retorna o componente renderizado ou o valor da operação atual.
+             */
             return Base64.getEncoder().encodeToString(bytes);
         } catch (Exception e) {
+            /*
+             * Retorna o componente renderizado ou o valor da operação atual.
+             */
             return "";
         }
     }
 
     @Override
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
         super.onAttach(attachEvent);
         
@@ -247,6 +301,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
         jsBuilder.append("window.audioData = window.audioData || {};");
         
         // Mapear cada som disponível para sua URL estática
+        /*
+         * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+         */
         for (String sound : availableSounds) {
             String url = "/sounds/" + sound.replace("#", "%23");
             jsBuilder.append(String.format("window.audioData['%s'] = '%s';", sound, url));
@@ -258,6 +315,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
         jsBuilder.append(String.format("window.audioData['i-was-mentioned'] = 'data:audio/mp3;base64,%s';", mentionedB64));
         jsBuilder.append(String.format("window.audioData['remove-or-edit'] = 'data:audio/mp3;base64,%s';", removeOrEditB64));
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (!availableSounds.contains("pedido-loja")) {
              jsBuilder.append("window.audioData['pedido-loja'] = '/sounds/pedido-loja';");
         }
@@ -285,6 +345,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
             this.currentUser = u;
             // Registrar listener de mensagens para alertas temporais, steps e chat comum
             this.chatMessageListener = message -> {
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (getUI().isEmpty()) return;
                 
                 System.out.println("[DEBUG-SOUND] Mensagem recebida por: " + u.getUsername() + " (ID: " + u.getId() + ")");
@@ -298,17 +361,29 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
                                      " | Chat: " + freshUser.isNotifyChatSounds());
 
                     // Prioridade 1: Alertas operacionais (AlertSound preenchido)
+                    /*
+                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                     */
                     if (message.getAlertSound() != null && !message.getAlertSound().isEmpty()) {
                         System.out.println("[DEBUG-SOUND] Operacional: " + message.getAlertSound() + " | Roles: " + message.getAlertRoles());
                         
                         boolean hasRoleAccess = true;
+                        /*
+                         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                         */
                         if (message.getAlertRoles() != null && !message.getAlertRoles().isEmpty()) {
                             hasRoleAccess = false;
                             String[] roles = message.getAlertRoles().split(",");
+                            /*
+                             * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+                             */
                             for (String rStr : roles) {
                                 String userRole = (freshUser.getRole() != null) ? freshUser.getRole().name() : "NULL";
                                 String targetRole = rStr.trim();
                                 
+                                /*
+                                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                                 */
                                 if (userRole.equalsIgnoreCase(targetRole)) {
                                     hasRoleAccess = true;
                                     break;
@@ -318,6 +393,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
                         
                         System.out.println("[DEBUG-SOUND] hasRoleAccess: " + hasRoleAccess);
 
+                        /*
+                         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                         */
                         if (hasRoleAccess && freshUser.isNotifyStoreOrder()) {
                             getUI().ifPresent(ui -> ui.access(() -> {
                                 System.out.println("[DEBUG-SOUND] Tocar JS: " + message.getAlertSound());
@@ -332,7 +410,13 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
                     // Prioridade 2: Sons de chat
                     boolean isSystemMessageWithNoSound = (message.getUser() == null && (message.getAlertSound() == null || message.getAlertSound().isEmpty()));
                     
+                    /*
+                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                     */
                     if (freshUser.isNotifyChatSounds() && !isSystemMessageWithNoSound) {
+                        /*
+                         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                         */
                         if (message.getUser() == null || !message.getUser().getId().equals(freshUser.getId())) {
                             getUI().ifPresent(ui -> ui.access(() -> {
                                 String soundToPlay = null;
@@ -344,6 +428,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
                                 boolean mentioned = message.getContent() != null && 
                                                    message.getContent().contains("@" + freshUser.getUsername());
 
+                                /*
+                                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                                 */
                                 if (isReplyToMe) {
                                     soundToPlay = "reply-to-me";
                                 } else if (mentioned) {
@@ -352,6 +439,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
                                     soundToPlay = "new-message";
                                 }
                                 
+                                /*
+                                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                                 */
                                 if (soundToPlay != null) {
                                     System.out.println("[DEBUG-SOUND] Tocar JS Chat: " + soundToPlay);
                                     ui.getPage().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", soundToPlay);
@@ -368,6 +458,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
             java.util.List<com.xflprflx.neokioski.models.Group> groups = groupService.findActiveGroupsByUser(u);
             
             // FALLBACK PARA ADMIN: Registrar em todos os grupos ativos se a lista estiver vazia
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (u.getRole() == com.xflprflx.neokioski.models.enums.Role.ADMIN && (groups == null || groups.isEmpty())) {
                 System.out.println("[DEBUG-SOUND] Admin sem grupos explícitos. Registrando fallback global.");
                 groups = groupService.findAll();
@@ -375,6 +468,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
 
             System.out.println("[DEBUG-SOUND] Usuário " + u.getUsername() + " registrando em " + (groups != null ? groups.size() : 0) + " grupos.");
             
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (groups != null) {
                 groups.forEach(group -> {
                     chatService.register(group.getId(), chatMessageListener);
@@ -383,6 +479,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
         });
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void showPermissionDialog() {
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Ativar Alertas Sonoros");
@@ -408,13 +507,22 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
     }
 
     @Override
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     protected void onDetach(com.vaadin.flow.component.DetachEvent detachEvent) {
         super.onDetach(detachEvent);
         
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (currentUser != null) {
             presenceService.markOffline(currentUser.getId());
         }
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (chatMessageListener != null && currentUser != null) {
             groupService.findActiveGroupsByUser(currentUser).forEach(group -> {
                 chatService.unregister(group.getId(), chatMessageListener);
@@ -422,6 +530,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
         }
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void showChangePasswordDialog() {
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Alterar Minha Senha");
@@ -443,24 +554,36 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
         dialog.add(dialogLayout);
 
         Button saveButton = new Button("Salvar", e -> {
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (currentUser == null) return;
 
             String currentPass = currentPassword.getValue();
             String newPass = newPassword.getValue();
             String confirmPass = confirmPassword.getValue();
 
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (currentPass.isEmpty() || newPass.isEmpty() || confirmPass.isEmpty()) {
                 Notification.show("Por favor, preencha todos os campos", 3000, Notification.Position.MIDDLE)
                         .addThemeVariants(NotificationVariant.LUMO_ERROR);
                 return;
             }
 
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (!userService.isPasswordValid(currentUser, currentPass)) {
                 Notification.show("Senha atual incorreta", 3000, Notification.Position.MIDDLE)
                         .addThemeVariants(NotificationVariant.LUMO_ERROR);
                 return;
             }
 
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (!newPass.equals(confirmPass)) {
                 Notification.show("As novas senhas não coincidem", 3000, Notification.Position.MIDDLE)
                         .addThemeVariants(NotificationVariant.LUMO_ERROR);
@@ -468,6 +591,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
             }
 
             // Validar força da senha: min 6, [A-Z], [a-z], [0-9], [@$!%*?&]
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (!(newPass.length() >= 6 && 
                   newPass.matches(".*[A-Z].*") && 
                   newPass.matches(".*[a-z].*") && 

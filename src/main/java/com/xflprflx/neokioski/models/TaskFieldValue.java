@@ -6,6 +6,9 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "tb_task_field_values")
+/**
+ * Entidade que armazena o valor preenchido em um campo dinâmico de uma tarefa específica.
+ */
 public class TaskFieldValue {
 
     @Id

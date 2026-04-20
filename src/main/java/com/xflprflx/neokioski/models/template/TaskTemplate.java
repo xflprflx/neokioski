@@ -13,6 +13,9 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "tb_task_templates")
+/**
+ * Entidade que define o modelo ou gabarito estrutural utilizado na criação de novas tarefas.
+ */
 public class TaskTemplate {
 
     @Id
@@ -146,7 +149,15 @@ public class TaskTemplate {
         return groups;
     }
 
+    /**
+     * Adiciona um grupo à lista de grupos associados a este template.
+     *
+     * @param group O grupo a ser adicionado.
+     */
     public void addGroups(Group group) {
+        /*
+         * Insere o grupo na coleção local da entidade.
+         */
         this.groups.add(group);
     }
 
@@ -182,8 +193,21 @@ public class TaskTemplate {
         this.alerts = alerts;
     }
 
+    /**
+     * Adiciona um alerta de tarefa configurado e atualiza a referência deste
+     * template dentro do alerta (relação bidirecional).
+     *
+     * @param alert O alerta de tarefa a ser adicionado.
+     */
     public void addAlert(TaskAlert alert) {
+        /*
+         * Adiciona o alerta na lista de alertas deste template.
+         */
         this.alerts.add(alert);
+
+        /*
+         * Configura este template como a referência (pai) no objeto do alerta.
+         */
         alert.setTaskTemplate(this);
     }
 

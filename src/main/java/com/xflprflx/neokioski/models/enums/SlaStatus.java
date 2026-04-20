@@ -1,5 +1,8 @@
 package com.xflprflx.neokioski.models.enums;
 
+/**
+ * Enumeração que define o status em relação ao tempo estipulado no SLA (No prazo, Atrasado, etc).
+ */
 public enum SlaStatus {
     ON_TIME("No Prazo"),
     DELAYED("Atrasado");

@@ -10,6 +10,9 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 import java.util.List;
 @Repository
+/**
+ * Repositório responsável por consultar e armazenar modelos (templates) de tarefas (TaskTemplate).
+ */
 public interface TaskTemplateRepository extends JpaRepository<TaskTemplate, Long> {
     
     @Query("SELECT t FROM TaskTemplate t LEFT JOIN FETCH t.alerts WHERE t.id = :id")

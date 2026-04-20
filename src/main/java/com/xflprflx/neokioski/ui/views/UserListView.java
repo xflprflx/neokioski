@@ -24,6 +24,9 @@ import jakarta.annotation.security.RolesAllowed;
 @RolesAllowed("ADMIN")
 @Route(value = "usuarios", layout = MainLayout.class)
 @PageTitle("Usuários | NeoKioski")
+/**
+ * View de interface responsável por listar os usuários ativos do sistema com recursos de busca e ações de modificação.
+ */
 public class UserListView extends VerticalLayout {
     Grid<User> grid = new Grid<>(User.class);
     TextField filterText = new TextField();
@@ -41,20 +44,32 @@ public class UserListView extends VerticalLayout {
         configureGrid();
         configureForm();
 
+        /*
+         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
+         */
         add(getToolbar(), getContent());
         updateList();
         closeEditor();
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private Component getContent() {
         HorizontalLayout content = new HorizontalLayout(grid, form);
         content.setFlexGrow(2, grid);
         content.setFlexGrow(1, form);
         content.addClassNames("content");
         content.setSizeFull();
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return content;
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void configureForm() {
         form = new UserForm();
         form.setWidth("25em");
@@ -64,18 +79,27 @@ public class UserListView extends VerticalLayout {
         form.addCloseListener(e -> closeEditor());
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void saveUser(UserForm.SaveEvent event) {
         service.save(event.getUser());
         updateList();
         closeEditor();
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void deleteUser(UserForm.DeleteEvent event) {
         service.delete(event.getUser());
         updateList();
         closeEditor();
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void resetPassword(UserForm.ResetPasswordEvent event) {
         String tempPass = service.generateTemporaryPassword(event.getUser().getId());
         
@@ -120,6 +144,9 @@ public class UserListView extends VerticalLayout {
         dialog.open();
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void configureGrid() {
         grid.addClassNames("user-grid");
         grid.setSizeFull();
@@ -147,6 +174,9 @@ public class UserListView extends VerticalLayout {
             HorizontalLayout layout = new HorizontalLayout(dot, text);
             layout.setAlignItems(FlexComponent.Alignment.CENTER);
             layout.setSpacing(false);
+            /*
+             * Retorna o componente renderizado ou o valor da operação atual.
+             */
             return layout;
         }).setHeader("Status").setSortable(true).setComparator(user -> presenceService.isOnline(user.getId()));
 
@@ -156,6 +186,9 @@ public class UserListView extends VerticalLayout {
                 editUser(event.getValue()));
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private HorizontalLayout getToolbar() {
         filterText.setPlaceholder("Filtrar por nome...");
         filterText.setClearButtonVisible(true);
@@ -167,10 +200,19 @@ public class UserListView extends VerticalLayout {
 
         var toolbar = new HorizontalLayout(filterText, addUserButton);
         toolbar.addClassName("toolbar");
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return toolbar;
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public void editUser(User user) {
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (user == null) {
             closeEditor();
         } else {
@@ -180,22 +222,34 @@ public class UserListView extends VerticalLayout {
         }
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void closeEditor() {
         form.setUser(null);
         form.setVisible(false);
         removeClassName("editing");
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void addUser() {
         grid.asSingleSelect().clear();
         editUser(new User());
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void updateList() {
         grid.setItems(service.findAll(filterText.getValue()));
     }
 
     @Override
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
         super.onAttach(attachEvent);
         presenceListener = event -> {
@@ -207,8 +261,14 @@ public class UserListView extends VerticalLayout {
     }
 
     @Override
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     protected void onDetach(com.vaadin.flow.component.DetachEvent detachEvent) {
         super.onDetach(detachEvent);
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (presenceListener != null) {
             presenceService.removeListener(presenceListener);
         }

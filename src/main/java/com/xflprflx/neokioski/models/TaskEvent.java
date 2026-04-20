@@ -7,6 +7,9 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "tb_task_events")
+/**
+ * Entidade que registra os eventos e histórico do ciclo de vida de uma tarefa (criação, avanço de passo, conclusão).
+ */
 public class TaskEvent {
 
     @Id

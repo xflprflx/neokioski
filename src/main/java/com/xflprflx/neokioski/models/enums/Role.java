@@ -1,5 +1,8 @@
 package com.xflprflx.neokioski.models.enums;
 
+/**
+ * Enumeração que define os diferentes papéis e níveis de acesso dos usuários do sistema.
+ */
 public enum Role {
     ADMIN(1, "Administrador"),
     SELLER(2, "Comercial"),

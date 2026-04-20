@@ -9,6 +9,9 @@ import java.util.Set;
 
 @Entity
 @Table(name = "tb_task_template_alerts")
+/**
+ * Entidade que configura alertas automáticos associados às tarefas para avisar sobre vencimentos.
+ */
 public class TaskAlert {
 
     @Id

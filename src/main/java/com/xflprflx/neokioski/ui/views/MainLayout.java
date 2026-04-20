@@ -153,24 +153,15 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
         SideNav chatNav = new SideNav();
         chatNav.setLabel("Meus Grupos");
 
-        if (this.currentUser != null) {
-            groupService.findActiveGroupsByUser(this.currentUser)
+        securityService.getAuthenticatedInternalUser().ifPresent(user -> {
+            this.currentUser = user;
+            groupService.findActiveGroupsByUser(user)
                     .forEach(group -> {
                         String url = RouteConfiguration.forSessionScope().getUrl(ChatView.class, group.getId());
                         SideNavItem item = new SideNavItem(group.getName(), url, VaadinIcon.GROUP.create());
                         chatNav.addItem(item);
                     });
-        } else {
-            securityService.getAuthenticatedInternalUser().ifPresent(user -> {
-                this.currentUser = user;
-                groupService.findActiveGroupsByUser(user)
-                        .forEach(group -> {
-                            String url = RouteConfiguration.forSessionScope().getUrl(ChatView.class, group.getId());
-                            SideNavItem item = new SideNavItem(group.getName(), url, VaadinIcon.GROUP.create());
-                            chatNav.addItem(item);
-                        });
-            });
-        }
+        });
 
         drawerContainer.add(backButton, chatNav);
 
@@ -182,10 +173,12 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
         securityService.getAuthenticatedInternalUser().ifPresent(u -> {
-            this.currentUser = u;
-            // Verificar no objeto carregado se o usuário ainda está ativo
-            // Isso evita uma consulta extra por ID que era feita anteriormente
-            if (!u.isActive()) {
+            // Verificar no banco de dados se o usuário ainda está ativo
+            boolean active = userService.findById(u.getId())
+                    .map(User::isActive)
+                    .orElse(false);
+            
+            if (!active) {
                 System.out.println("[SECURITY] Usuário inativo detectado na navegação: " + u.getUsername());
                 
                 // Forçar logout e redirecionar
@@ -239,15 +232,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
     protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
         super.onAttach(attachEvent);
         
-        if (this.currentUser == null) {
-            securityService.getAuthenticatedInternalUser().ifPresent(u -> {
-                this.currentUser = u;
-            });
-        }
-        
-        if (this.currentUser != null) {
-            presenceService.markOnline(this.currentUser.getId());
-        }
+        securityService.getAuthenticatedInternalUser().ifPresent(u -> {
+            presenceService.markOnline(u.getId());
+        });
         
         // Carregar sons fixos do chat
         String newMessageB64 = loadAudioAsBase64("themes/neokioski/sounds/new-message.mp3");
@@ -293,9 +280,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
         
         showPermissionDialog();
 
-        // Capturar usuário atual para a closure
-        if (this.currentUser != null) {
-            User u = this.currentUser;
+        // Capturar usuário atual e ID para a closure
+        securityService.getAuthenticatedInternalUser().ifPresent(u -> {
+            this.currentUser = u;
             // Registrar listener de mensagens para alertas temporais, steps e chat comum
             this.chatMessageListener = message -> {
                 if (getUI().isEmpty()) return;
@@ -393,7 +380,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
                     chatService.register(group.getId(), chatMessageListener);
                 });
             }
-        }
+        });
     }
 
     private void showPermissionDialog() {

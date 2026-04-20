@@ -240,17 +240,15 @@ public class HomeView extends Div {
         groupFilter.addValueChangeListener(e -> updateDashboard());
         templateFilter.addValueChangeListener(e -> updateDashboard());
 
-        List<User> allUsers = userService.findAll();
-
         creatorFilter = new ComboBox<>("Criador");
-        creatorFilter.setItems(allUsers);
+        creatorFilter.setItems(userService.findAll());
         creatorFilter.setItemLabelGenerator(User::getName);
         creatorFilter.setPlaceholder("Todos os criadores");
         creatorFilter.setClearButtonVisible(true);
         creatorFilter.addValueChangeListener(e -> updateDashboard());
 
         finalizerFilter = new ComboBox<>("Concluidor (Delivery)");
-        finalizerFilter.setItems(allUsers);
+        finalizerFilter.setItems(userService.findAll());
         finalizerFilter.setItemLabelGenerator(User::getName);
         finalizerFilter.setPlaceholder("Todos os concluidores");
         finalizerFilter.setClearButtonVisible(true);

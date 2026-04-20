@@ -18,6 +18,9 @@ import com.xflprflx.neokioski.ui.utils.TaskUIUtils;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
+/**
+ * Componente visual (Dialog) do Vaadin utilizado para exibir os detalhes minuciosos de uma tarefa específica e interagir com seu fluxo.
+ */
 public class TaskDetailsDialog extends Dialog {
 
     private final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")
@@ -37,6 +40,9 @@ public class TaskDetailsDialog extends Dialog {
         title.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-l)");
         content.add(title);
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (task.getCurrentStep() != null) {
             String stepLabel = task.getCurrentStep().getLabel();
             String colorTheme = task.getCurrentStep().getColorTheme();
@@ -54,14 +60,23 @@ public class TaskDetailsDialog extends Dialog {
             content.add(statusRow);
         }
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (task.getCreator() != null) {
             content.add(new Span("Criado por: @" + task.getCreator().getUsername()));
         }
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (!task.getTaskFieldValues().isEmpty()) {
             Span fieldsTitle = new Span("Campos:");
             fieldsTitle.getStyle().set("font-weight", "bold");
             content.add(fieldsTitle);
+            /*
+             * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+             */
             for (TaskFieldValue fv : task.getTaskFieldValues()) {
                 String lbl = fv.getTaskFieldDefinition() != null ? fv.getTaskFieldDefinition().getLabel() : "Campo";
                 String valStr = fv.getValue();
@@ -79,10 +94,16 @@ public class TaskDetailsDialog extends Dialog {
             }
         }
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (!task.getSlaResults().isEmpty()) {
             Span slaTitle = new Span("SLAs:");
             slaTitle.getStyle().set("font-weight", "bold");
             content.add(slaTitle);
+            /*
+             * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+             */
             for (com.xflprflx.neokioski.models.TaskSlaResult sla : task.getSlaResults()) {
                 String slaName = sla.getSlaConfig() != null ? sla.getSlaConfig().getName() : "SLA";
                 String target = sla.getTargetValue() + " " + (sla.getUnit() != null ? sla.getUnit().getLabel().toLowerCase() : "");
@@ -96,6 +117,9 @@ public class TaskDetailsDialog extends Dialog {
                         .set("font-weight", "bold")
                         .set("margin-left", "8px");
                 
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (sla.getStatus() == com.xflprflx.neokioski.models.enums.SlaStatus.ON_TIME) {
                     statusBadge.getStyle().set("background-color", "#e8f5e9").set("color", "#2e7d32");
                 } else if (sla.getStatus() == com.xflprflx.neokioski.models.enums.SlaStatus.DELAYED) {
@@ -112,16 +136,25 @@ public class TaskDetailsDialog extends Dialog {
             }
         }
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (!task.getTaskEvents().isEmpty()) {
             Span histTitle = new Span("Histórico:");
             histTitle.getStyle().set("font-weight", "bold");
             content.add(histTitle);
+            /*
+             * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
+             */
             for (com.xflprflx.neokioski.models.TaskEvent ev : task.getTaskEvents()) {
                 String who = ev.getUser() != null ? "@" + ev.getUser().getUsername() : "sistema";
                 String when = ev.getTimestamp() != null ? dateTimeFormatter.format(ev.getTimestamp()) : "";
                 String step = ev.getTaskStepDefinition() != null ? ev.getTaskStepDefinition().getLabel() : "";
                 String line = "• " + who + " → " + step + " (" + when + ")";
                 content.add(new Span(line));
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (ev.getResponse() != null && !ev.getResponse().isBlank()) {
                     String respStr = ev.getResponse();
                     Span resp = new Span("  Resp: " + respStr);
@@ -142,11 +175,20 @@ public class TaskDetailsDialog extends Dialog {
 
         Scroller scroller = new Scroller(content);
         scroller.setMaxHeight("75vh");
+        /*
+         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
+         */
         add(scroller);
         getFooter().add(new Button("Fechar", ev -> close()));
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void copyToClipboard(String text) {
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (text == null || text.isBlank()) return;
         
         getElement().executeJs(
@@ -165,13 +207,25 @@ public class TaskDetailsDialog extends Dialog {
         n.open();
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private String formatSeconds(long seconds) {
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (seconds < 60) return seconds + "s";
         long mins = seconds / 60;
         long secs = seconds % 60;
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (mins < 60) return mins + "m " + secs + "s";
         long hrs = mins / 60;
         mins = mins % 60;
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return hrs + "h " + mins + "m " + secs + "s";
     }
 }

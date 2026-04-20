@@ -6,6 +6,9 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "tb_task_field_options")
+/**
+ * Entidade que armazena opções disponíveis de seleção para campos do tipo 'Dropdown' ou similares em um template.
+ */
 public class TaskFieldOption {
 
     @Id

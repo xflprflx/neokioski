@@ -10,6 +10,9 @@ import java.util.Set;
 
 @Entity
 @Table(name = "tb_users")
+/**
+ * Entidade que representa um usuário do sistema, com credenciais e papéis de acesso.
+ */
 public class User {
 
     @Id

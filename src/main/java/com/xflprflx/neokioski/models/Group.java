@@ -7,6 +7,9 @@ import java.util.*;
 
 @Entity
 @Table(name = "tb_groups")
+/**
+ * Entidade que representa um grupo de usuários no sistema, utilizado para permissões e agrupar conversas.
+ */
 public class Group {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -65,7 +68,15 @@ public class Group {
         return taskTemplates;
     }
 
+    /**
+     * Adiciona um template de tarefa aos permitidos/vinculados a este grupo.
+     *
+     * @param taskTemplate O template de tarefa a ser adicionado.
+     */
     public void addTaskTemplate(TaskTemplate taskTemplate) {
+        /*
+         * Insere o template de tarefa na coleção local do grupo.
+         */
         this.taskTemplates.add(taskTemplate);
     }
 

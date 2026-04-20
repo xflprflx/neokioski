@@ -8,6 +8,9 @@ import java.util.List;
 
 @Entity
 @Table(name = "tb_store_report_config")
+/**
+ * Entidade responsável por armazenar as configurações de relatório personalizadas de uma loja (ou unidade).
+ */
 public class StoreReportConfig {
 
     @Id

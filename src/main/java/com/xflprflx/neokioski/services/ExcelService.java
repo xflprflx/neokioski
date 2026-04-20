@@ -16,11 +16,17 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+/**
+ * Serviço de utilidade para a geração dinâmica de relatórios em formato Excel (XLSX) utilizando Apache POI.
+ */
 public class ExcelService {
 
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
             .withZone(ZoneId.systemDefault());
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public ByteArrayInputStream generateGeneralTaskReport(List<Task> tasks) {
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet("Relatório de Tarefas");
@@ -36,6 +42,9 @@ public class ExcelService {
             headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
             headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
 
+            /*
+             * Inicia um laço de repetição (for) para iterar sobre os elementos.
+             */
             for (int i = 0; i < columns.length; i++) {
                 Cell cell = headerRow.createCell(i);
                 cell.setCellValue(columns[i]);
@@ -43,6 +52,9 @@ public class ExcelService {
             }
 
             int rowIdx = 1;
+            /*
+             * Inicia um laço de repetição (for) para iterar sobre os elementos.
+             */
             for (Task task : tasks) {
                 Row row = sheet.createRow(rowIdx++);
 
@@ -67,11 +79,17 @@ public class ExcelService {
                 row.createCell(7).setCellValue(responses);
             }
 
+            /*
+             * Inicia um laço de repetição (for) para iterar sobre os elementos.
+             */
             for (int i = 0; i < columns.length; i++) {
                 sheet.autoSizeColumn(i);
             }
 
             workbook.write(out);
+            /*
+             * Retorna o resultado final processado pelo método.
+             */
             return new ByteArrayInputStream(out.toByteArray());
         } catch (IOException e) {
             throw new RuntimeException("Erro ao gerar Excel: " + e.getMessage());

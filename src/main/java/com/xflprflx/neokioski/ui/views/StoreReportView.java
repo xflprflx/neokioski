@@ -28,6 +28,9 @@ import java.util.List;
 @PermitAll
 @Route(value = "relatorio-loja", layout = MainLayout.class)
 @PageTitle("Relatório de Loja | NeoKioski")
+/**
+ * View dedicada à exibição dos relatórios de uma unidade/loja específica com opções de exportação (PDF/Excel).
+ */
 public class StoreReportView extends VerticalLayout {
 
     private final TaskService taskService;
@@ -65,12 +68,18 @@ public class StoreReportView extends VerticalLayout {
 
         configureGrid();
 
+        /*
+         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
+         */
         add(title, filters, grid);
         setFlexGrow(1, grid);
 
         updateGrid();
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void configureGrid() {
         grid.setSizeFull();
         grid.addColumn(TaskService.StoreReportEntry::taskId).setHeader("ID").setSortable(true).setWidth("80px").setFlexGrow(0);
@@ -84,7 +93,13 @@ public class StoreReportView extends VerticalLayout {
         grid.getColumns().forEach(col -> col.setAutoWidth(true));
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void updateGrid() {
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (startDatePicker.getValue() == null || endDatePicker.getValue() == null) return;
 
         Instant start = startDatePicker.getValue().atStartOfDay(ZoneId.systemDefault()).toInstant();
@@ -94,7 +109,13 @@ public class StoreReportView extends VerticalLayout {
         grid.setItems(data);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void downloadPdf() {
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (startDatePicker.getValue() == null || endDatePicker.getValue() == null) return;
 
         LocalDate startDay = startDatePicker.getValue();
@@ -103,6 +124,9 @@ public class StoreReportView extends VerticalLayout {
         // Validar vigência para cada dia no intervalo
         LocalDate current = startDay;
         while (!current.isAfter(endDay)) {
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (configRepository.findActiveConfig(current).isEmpty()) {
                 Notification notification = Notification.show(
                     "Não há modelo de relatório cadastrado para o dia " + 
@@ -121,6 +145,9 @@ public class StoreReportView extends VerticalLayout {
 
         List<TaskService.StoreReportEntry> data = taskService.getStoreReportData(start, end);
 
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (data.isEmpty()) {
             Notification.show("Nenhum dado encontrado para o período selecionado.");
             return;
@@ -132,6 +159,9 @@ public class StoreReportView extends VerticalLayout {
         Anchor downloadAnchor = new Anchor(resource, "");
         downloadAnchor.getElement().setAttribute("download", true);
         downloadAnchor.getElement().getStyle().set("display", "none");
+        /*
+         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
+         */
         add(downloadAnchor);
         downloadAnchor.getElement().executeJs("this.click()");
     }

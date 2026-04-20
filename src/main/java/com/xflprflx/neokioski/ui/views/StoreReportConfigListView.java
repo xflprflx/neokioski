@@ -18,6 +18,9 @@ import jakarta.annotation.security.RolesAllowed;
 @RolesAllowed("ADMIN")
 @Route(value = "modelos-relatorio", layout = MainLayout.class)
 @PageTitle("Modelos de Relatório | NeoKioski")
+/**
+ * View que exibe as configurações de relatório das lojas cadastradas em formato de listagem (Grid).
+ */
 public class StoreReportConfigListView extends VerticalLayout {
     Grid<StoreReportConfig> grid = new Grid<>(StoreReportConfig.class);
     StoreReportConfigForm form;
@@ -33,18 +36,30 @@ public class StoreReportConfigListView extends VerticalLayout {
         configureGrid();
         configureForm();
 
+        /*
+         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
+         */
         add(getToolbar(), getContent());
         updateList();
         closeEditor();
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private Component getContent() {
         HorizontalLayout content = new HorizontalLayout(grid);
         content.addClassNames("content");
         content.setSizeFull();
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return content;
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void configureForm() {
         form = new StoreReportConfigForm(taskService);
         form.addSaveListener(this::saveConfig);
@@ -58,7 +73,13 @@ public class StoreReportConfigListView extends VerticalLayout {
         configDialog.setHeight("90%");
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void saveConfig(StoreReportConfigForm.SaveEvent event) {
+        /*
+         * Inicia um bloco try-catch para evitar que erros internos quebrem a renderização da interface.
+         */
         try {
             service.save(event.getConfig());
             updateList();
@@ -69,12 +90,18 @@ public class StoreReportConfigListView extends VerticalLayout {
         }
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void deleteConfig(StoreReportConfigForm.DeleteEvent event) {
         service.delete(event.getConfig());
         updateList();
         closeEditor();
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void configureGrid() {
         grid.addClassNames("config-grid");
         grid.setSizeFull();
@@ -85,16 +112,28 @@ public class StoreReportConfigListView extends VerticalLayout {
                 editConfig(event.getValue()));
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private HorizontalLayout getToolbar() {
         Button addConfigButton = new Button("Novo Modelo");
         addConfigButton.addClickListener(click -> addConfig());
 
         var toolbar = new HorizontalLayout(addConfigButton);
         toolbar.addClassName("toolbar");
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return toolbar;
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public void editConfig(StoreReportConfig config) {
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (config == null) {
             closeEditor();
         } else {
@@ -104,17 +143,26 @@ public class StoreReportConfigListView extends VerticalLayout {
         }
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void closeEditor() {
         form.setConfig(null);
         configDialog.close();
         removeClassName("editing");
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void addConfig() {
         grid.asSingleSelect().clear();
         editConfig(new StoreReportConfig());
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void updateList() {
         grid.setItems(service.findAll());
     }

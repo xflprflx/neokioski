@@ -9,6 +9,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 @Service
+/**
+ * Serviço que orquestra a criação e administração dos templates estruturais utilizados nas tarefas.
+ */
 public class TaskTemplateService {
 
     private final TaskTemplateRepository taskTemplateRepository;
@@ -46,6 +49,9 @@ public class TaskTemplateService {
     }
 
     @Transactional
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public TaskTemplate saveTemplate(TaskTemplate template, 
                                      List<TemplateFieldRelation> fieldRelations, 
                                      List<TemplateStepRelation> stepRelations,
@@ -54,6 +60,9 @@ public class TaskTemplateService {
         
         // Limpa apenas os alertas antigos da coleção que foram excluídos na interface (para orphanRemoval funcionar adequadamente),
         // preservando os que ficaram para não quebrar a identidade e trocar de ID
+        /*
+         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+         */
         if (template.getAlerts() != null && alerts != null) {
             java.util.Set<Long> incomingIds = alerts.stream()
                 .map(TaskAlert::getId)
@@ -64,13 +73,22 @@ public class TaskTemplateService {
 
         TaskTemplate savedTemplate = taskTemplateRepository.save(template);
 
+        /*
+         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+         */
         if (savedTemplate.getId() != null) {
             templateFieldRelationRepository.deleteByTaskTemplateId(savedTemplate.getId());
             templateStepRelationRepository.deleteByTaskTemplateId(savedTemplate.getId());
         }
 
+        /*
+         * Inicia um laço de repetição (for) para iterar sobre os elementos.
+         */
         for (TemplateFieldRelation fr : fieldRelations) {
             TaskFieldDefinition fieldDef = fr.getTaskFieldDefinition();
+            /*
+             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+             */
             if (fieldDef.getTaskFieldOptions() != null) {
                 taskFieldOptionRepository.saveAll(fieldDef.getTaskFieldOptions());
             }
@@ -81,17 +99,29 @@ public class TaskTemplateService {
 
         // Os definitions precisam ser salvos antes de vincularmos aos alertas 
         // para evitar o erro de 'TransientPropertyValueException'
+        /*
+         * Inicia um laço de repetição (for) para iterar sobre os elementos.
+         */
         for (TemplateStepRelation sr : stepRelations) {
             taskStepDefinitionRepository.save(sr.getTaskStepDefinition());
         }
 
+        /*
+         * Inicia um laço de repetição (for) para iterar sobre os elementos.
+         */
         for (TemplateStepRelation sr : stepRelations) {
             sr.setTaskTemplate(savedTemplate);
             templateStepRelationRepository.save(sr);
         }
 
         // Agora que os passos (targetStep) já estão com IDs, podemos persistir os alertas novos.
+        /*
+         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+         */
         if (alerts != null) {
+            /*
+             * Inicia um laço de repetição (for) para iterar sobre os elementos.
+             */
             for (TaskAlert alert : alerts) {
                 alert.setTaskTemplate(savedTemplate);
                 taskAlertRepository.save(alert);
@@ -99,24 +129,39 @@ public class TaskTemplateService {
         }
 
         // Persistir SLAs através de Vigência (Imutabilidade para hitórico)
+        /*
+         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+         */
         if (savedTemplate.getId() != null) {
             // Buscamos as configurações que estão ATIVAS atualmente
             List<TaskSlaConfig> activeSlas = taskSlaConfigRepository.findByTaskTemplateAndValidToIsNull(savedTemplate);
             
             // "Encerramos" a vigência das configurações atuais.
             // Quando novas configurações forem salvas abaixo, elas serão as novas versões vigentes.
+            /*
+             * Inicia um laço de repetição (for) para iterar sobre os elementos.
+             */
             for (TaskSlaConfig activeSla : activeSlas) {
                 activeSla.setValidTo(java.time.Instant.now());
                 taskSlaConfigRepository.save(activeSla);
             }
         }
 
+        /*
+         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+         */
         if (slas != null) {
+            /*
+             * Inicia um laço de repetição (for) para iterar sobre os elementos.
+             */
             for (TaskSlaConfig sla : slas) {
                 // Garantimos que cada entrada seja salva como um NOVO registro histórico
                 sla.setId(null); 
                 sla.setTaskTemplate(savedTemplate);
                 // validFrom já vem preenchido como now() do DTO, mas garantimos aqui se necessário
+                /*
+                 * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+                 */
                 if (sla.getValidFrom() == null) sla.setValidFrom(java.time.Instant.now());
                 sla.setValidTo(null);
                 taskSlaConfigRepository.save(sla);
@@ -124,9 +169,18 @@ public class TaskTemplateService {
         }
 
         // Tentar reajustar cronômetros das tarefas pendentes em memória (via Dynamic Scheduling)
+        /*
+         * Inicia um bloco try-catch para tratar possíveis exceções.
+         */
         try {
             java.util.List<com.xflprflx.neokioski.models.Task> pendings = taskRepository.findAllPending();
+            /*
+             * Inicia um laço de repetição (for) para iterar sobre os elementos.
+             */
             for (com.xflprflx.neokioski.models.Task pt : pendings) {
+                /*
+                 * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+                 */
                 if (pt.getTaskTemplate() != null && pt.getTaskTemplate().getId().equals(savedTemplate.getId())) {
                     taskAlertService.scheduleAlertsForTask(pt);
                 }
@@ -135,30 +189,66 @@ public class TaskTemplateService {
             System.err.println("Aviso: Falha ao tentar reagendar alertas das tarefas ativas após edição do template: " + e.getMessage());
         }
 
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return savedTemplate;
     }
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public List<TaskTemplate> findAll() {
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return taskTemplateRepository.findAll(Sort.by(Sort.Direction.ASC, "sortOrder", "name"));
     }
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public TaskTemplate getTemplateById(Long id) {
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return taskTemplateRepository.findByIdWithGroups(id).orElse(null);
     }
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public List<TaskTemplate> getTemplatesByGroupId(Long groupId) {
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return taskTemplateRepository.findByGroupId(groupId);
     }
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public List<TemplateFieldRelation> getFieldRelationsByTemplateId(Long templateId) {
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return templateFieldRelationRepository.findByTaskTemplateIdOrderByOrderAsc(templateId);
     }
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public List<TemplateStepRelation> getStepRelationsByTemplateId(Long templateId) {
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return templateStepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(templateId);
     }
 
     @Transactional
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public void deleteTemplate(Long id) {
         templateFieldRelationRepository.deleteByTaskTemplateId(id);
         templateStepRelationRepository.deleteByTaskTemplateId(id);
@@ -167,9 +257,18 @@ public class TaskTemplateService {
         taskTemplateRepository.deleteById(id);
     }
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public List<TaskSlaConfig> getSlaConfigsByTemplateId(Long templateId) {
         TaskTemplate template = taskTemplateRepository.findById(templateId).orElse(null);
+        /*
+         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+         */
         if (template == null) return new java.util.ArrayList<>();
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return taskSlaConfigRepository.findByTaskTemplateAndValidToIsNull(template);
     }
 }

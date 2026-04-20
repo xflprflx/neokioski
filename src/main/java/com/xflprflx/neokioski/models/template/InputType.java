@@ -1,5 +1,8 @@
 package com.xflprflx.neokioski.models.template;
 
+/**
+ * Enumeração que lista os diferentes tipos de entrada suportados nos campos de um template (Texto, Número, Data, etc).
+ */
 public enum InputType {
     TEXT(1, "Texto"),
     NUMBER(2, "Número"),

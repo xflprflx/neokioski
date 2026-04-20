@@ -26,6 +26,9 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 @Service
+/**
+ * Serviço responsável por construir e exportar arquivos e relatórios em formato PDF utilizando a biblioteca OpenPDF.
+ */
 public class PdfService {
 
     private final StoreReportConfigRepository configRepository;
@@ -38,6 +41,9 @@ public class PdfService {
         this.taskService = taskService;
     }
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public ByteArrayInputStream generateStoreReportPdf(List<TaskService.StoreReportEntry> entries) {
         // 1. Agrupar por data de coleta (LocalDate) usando TreeMap para manter a ordem cronológica
         Map<LocalDate, List<TaskService.StoreReportEntry>> entriesByDate = entries.stream()
@@ -50,10 +56,16 @@ public class PdfService {
         Document document = new Document(PageSize.A4, 36, 36, 36, 36);
         
         // Definir orientação inicial baseada no primeiro grupo
+        /*
+         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+         */
         if (!entriesByDate.isEmpty()) {
             LocalDate firstDate = entriesByDate.keySet().iterator().next();
             StoreReportConfig firstConfig = configRepository.findActiveConfig(firstDate)
                     .orElse(null);
+            /*
+             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+             */
             if (firstConfig != null && firstConfig.getOrientation() == ReportOrientation.LANDSCAPE) {
                 document.setPageSize(PageSize.A4.rotate());
             }
@@ -61,6 +73,9 @@ public class PdfService {
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
+        /*
+         * Inicia um bloco try-catch para tratar possíveis exceções.
+         */
         try {
             PdfWriter.getInstance(document, out);
             document.open();
@@ -75,6 +90,9 @@ public class PdfService {
             int pageNumber = 1;
             int totalPages = entriesByDate.size();
 
+            /*
+             * Inicia um laço de repetição (for) para iterar sobre os elementos.
+             */
             for (Map.Entry<LocalDate, List<TaskService.StoreReportEntry>> group : entriesByDate.entrySet()) {
                 LocalDate date = group.getKey();
                 List<TaskService.StoreReportEntry> dateEntries = group.getValue();
@@ -87,6 +105,9 @@ public class PdfService {
                         PageSize.A4.rotate() : PageSize.A4;
                 document.setPageSize(pageSize);
 
+                /*
+                 * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+                 */
                 if (firstPage) {
                     // Na primeira página, o iText precisa do newPage após o open e setPageSize 
                     // para aplicar a rotação se for diferente do padrão inicial (A4 Portrait).
@@ -146,6 +167,9 @@ public class PdfService {
                 // --- TABELA DE DADOS ---
                 List<ReportColumnConfig> columns = config.getColumns();
                 PdfPTable table;
+                /*
+                 * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+                 */
                 if (columns.isEmpty()) {
                     // Padrão antigo
                     table = new PdfPTable(4);
@@ -158,6 +182,9 @@ public class PdfService {
                     table.addCell(createHeaderCell("Entregue para:", fontTitle));
 
                     int sq = 1;
+                    /*
+                     * Inicia um laço de repetição (for) para iterar sobre os elementos.
+                     */
                     for (TaskService.StoreReportEntry entry : dateEntries) {
                         table.addCell(createDataCell(String.valueOf(sq++), fontNormal));
                         table.addCell(createDataCell(dateFormatter.format(entry.collectedAt()), fontNormal));
@@ -165,6 +192,9 @@ public class PdfService {
                         table.addCell(createDataCell(entry.collectorName(), fontNormal));
                     }
 
+                    /*
+                     * Inicia um laço de repetição (for) para iterar sobre os elementos.
+                     */
                     for (int i = dateEntries.size(); i < maxLines; i++) {
                         table.addCell(createDataCell(String.valueOf(sq++), fontNormal));
                         table.addCell(createDataCell("", fontNormal));
@@ -179,21 +209,36 @@ public class PdfService {
                     
                     // Header
                     table.addCell(createHeaderCell("SQ", fontTitle));
+                    /*
+                     * Inicia um laço de repetição (for) para iterar sobre os elementos.
+                     */
                     for (ReportColumnConfig col : columns) {
                         table.addCell(createHeaderCell(col.getLabel(), fontTitle));
                     }
 
                     int sq = 1;
+                    /*
+                     * Inicia um laço de repetição (for) para iterar sobre os elementos.
+                     */
                     for (TaskService.StoreReportEntry entry : dateEntries) {
                         table.addCell(createDataCell(String.valueOf(sq++), fontNormal));
+                        /*
+                         * Inicia um laço de repetição (for) para iterar sobre os elementos.
+                         */
                         for (ReportColumnConfig col : columns) {
                             String value = taskService.getTaskAttributeValue(entry.task(), col.getAttributeKey());
                             table.addCell(createDataCell(value, fontNormal));
                         }
                     }
 
+                    /*
+                     * Inicia um laço de repetição (for) para iterar sobre os elementos.
+                     */
                     for (int i = dateEntries.size(); i < maxLines; i++) {
                         table.addCell(createDataCell(String.valueOf(sq++), fontNormal));
+                        /*
+                         * Inicia um laço de repetição (for) para iterar sobre os elementos.
+                         */
                         for (int j = 0; j < columns.size(); j++) {
                             table.addCell(createDataCell("", fontNormal));
                         }
@@ -232,13 +277,22 @@ public class PdfService {
             e.printStackTrace();
         }
 
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return new ByteArrayInputStream(out.toByteArray());
     }
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public ByteArrayInputStream generateGeneralTaskReportPdf(List<Task> tasks) {
         Document document = new Document(PageSize.A4.rotate(), 36, 36, 36, 36);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
+        /*
+         * Inicia um bloco try-catch para tratar possíveis exceções.
+         */
         try {
             PdfWriter.getInstance(document, out);
             document.open();
@@ -263,6 +317,9 @@ public class PdfService {
             table.addCell(createHeaderCell("Criador", fontTitle));
             table.addCell(createHeaderCell("Status", fontTitle));
 
+            /*
+             * Inicia um laço de repetição (for) para iterar sobre os elementos.
+             */
             for (Task task : tasks) {
                 table.addCell(createDataCell(String.valueOf(task.getId()), fontNormal));
                 table.addCell(createDataCell(dateFormatter.format(task.getCreatedAt()), fontNormal));
@@ -278,16 +335,28 @@ public class PdfService {
             e.printStackTrace();
         }
 
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return new ByteArrayInputStream(out.toByteArray());
     }
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     private PdfPCell createCell(String text, Font font) {
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
         cell.setBorderWidth(0.5f);
         cell.setPadding(2);
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return cell;
     }
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     private PdfPCell createHeaderCell(String text, Font font) {
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
         cell.setBackgroundColor(new Color(230, 230, 230)); // Cinza claro como na imagem
@@ -295,20 +364,35 @@ public class PdfService {
         cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
         cell.setPadding(5);
         cell.setBorderWidth(1f);
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return cell;
     }
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     private PdfPCell createDataCell(String text, Font font) {
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
         cell.setPadding(4);
         cell.setBorderWidth(0.5f);
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return cell;
     }
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     private PdfPCell createNoBorderCell(String text, Font font) {
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
         cell.setBorder(com.lowagie.text.Rectangle.NO_BORDER);
         cell.setPadding(2);
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return cell;
     }
 }

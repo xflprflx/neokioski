@@ -36,6 +36,9 @@ import java.util.List;
 @PageTitle("Relatório Geral de Tarefas | NeoKioski")
 @Route(value = "relatorio-geral", layout = MainLayout.class)
 @RolesAllowed("ADMIN")
+/**
+ * View do painel de administração que permite gerar e visualizar relatórios consolidados sobre as tarefas.
+ */
 public class GeneralTaskReportView extends VerticalLayout {
 
     private final TaskService taskService;
@@ -69,6 +72,9 @@ public class GeneralTaskReportView extends VerticalLayout {
         setPadding(true);
         setSpacing(true);
 
+        /*
+         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
+         */
         add(new H2("Relatório Geral de Tarefas"));
 
         createFilterLayout();
@@ -77,6 +83,9 @@ public class GeneralTaskReportView extends VerticalLayout {
         refreshGrid();
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void createFilterLayout() {
         HorizontalLayout filterRow1 = new HorizontalLayout();
         filterRow1.setWidthFull();
@@ -127,9 +136,15 @@ public class GeneralTaskReportView extends VerticalLayout {
 
         filterRow2.add(searchField, filterBtn, clearBtn, excelBtn, pdfBtn);
 
+        /*
+         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
+         */
         add(filterRow1, filterRow2);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void clearFilters() {
         startDate.setValue(LocalDate.now());
         endDate.setValue(LocalDate.now());
@@ -140,6 +155,9 @@ public class GeneralTaskReportView extends VerticalLayout {
         refreshGrid();
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void createGridLayout() {
         grid = new Grid<>(Task.class, false);
         grid.setSizeFull();
@@ -167,10 +185,16 @@ public class GeneralTaskReportView extends VerticalLayout {
                 .setAutoWidth(true);
 
         grid.addComponentColumn(t -> {
+            /*
+             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+             */
             if (t.getCurrentStep() == null) return new Span("Pendente");
             Span badge = new Span(t.getCurrentStep().getLabel());
             TaskUIUtils.applyThemeStyles(badge, t.getCurrentStep().getColorTheme());
             badge.getStyle().set("padding", "2px 8px").set("border-radius", "8px").set("font-size", "12px");
+            /*
+             * Retorna o componente renderizado ou o valor da operação atual.
+             */
             return badge;
         }).setHeader("Status").setSortable(true).setAutoWidth(true);
 
@@ -179,22 +203,37 @@ public class GeneralTaskReportView extends VerticalLayout {
                 new TaskDetailsDialog(t).open();
             });
             btn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
+            /*
+             * Retorna o componente renderizado ou o valor da operação atual.
+             */
             return btn;
         }).setHeader("Ações").setAutoWidth(true);
 
+        /*
+         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
+         */
         add(grid);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void refreshGrid() {
         grid.setItems(getFilteredTasks());
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private List<Task> getFilteredTasks() {
         Instant start = startDate.getValue() != null ? 
                 startDate.getValue().atStartOfDay(ZoneId.systemDefault()).toInstant() : null;
         Instant end = endDate.getValue() != null ? 
                 endDate.getValue().atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant() : null;
 
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return taskService.findTasksWithFilters(
                 start, 
                 end, 
@@ -205,8 +244,14 @@ public class GeneralTaskReportView extends VerticalLayout {
         );
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void downloadExcel() {
         List<Task> tasks = getFilteredTasks();
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (tasks.isEmpty()) {
             Notification.show("Nenhum dado encontrado para exportação.");
             return;
@@ -215,8 +260,14 @@ public class GeneralTaskReportView extends VerticalLayout {
         triggerDownload(resource);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void downloadPdf() {
         List<Task> tasks = getFilteredTasks();
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (tasks.isEmpty()) {
             Notification.show("Nenhum dado encontrado para exportação.");
             return;
@@ -225,10 +276,16 @@ public class GeneralTaskReportView extends VerticalLayout {
         triggerDownload(resource);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void triggerDownload(StreamResource resource) {
         Anchor anchor = new Anchor(resource, "");
         anchor.getElement().setAttribute("download", true);
         anchor.getElement().getStyle().set("display", "none");
+        /*
+         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
+         */
         add(anchor);
         anchor.getElement().executeJs("this.click(); setTimeout(() => this.remove(), 1000);");
     }

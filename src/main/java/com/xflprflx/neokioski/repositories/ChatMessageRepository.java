@@ -11,6 +11,9 @@ import java.time.Instant;
 import java.util.List;
 
 @Repository
+/**
+ * Repositório para persistência e consultas relacionadas à entidade de mensagens de chat (ChatMessage).
+ */
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
 
     @Query("""
@@ -63,5 +66,12 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
              )
            ORDER BY m.timestamp DESC
            """)
+ /**
+     * Pesquisa mensagens de chat baseando-se em uma string de consulta em vários campos.
+     * @param group Grupo do chat.
+     * @param query Texto a buscar.
+     * @param pageable Controle de paginação.
+     * @return Lista paginada de mensagens encontradas.
+     */
     List<ChatMessage> searchMessages(@Param("group") Group group, @Param("query") String query, org.springframework.data.domain.Pageable pageable);
 }

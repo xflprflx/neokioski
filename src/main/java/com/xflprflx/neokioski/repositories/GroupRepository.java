@@ -9,6 +9,9 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
+/**
+ * Repositório para persistência e consultas relacionadas à entidade de grupos (Group).
+ */
 public interface GroupRepository extends JpaRepository<Group, Long> {
     @Query("SELECT g FROM Group g LEFT JOIN FETCH g.users")
     List<Group> findAllWithUsers();

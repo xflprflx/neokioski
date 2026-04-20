@@ -7,6 +7,9 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
+/**
+ * Repositório para persistência e gerenciamento das configurações de alertas das tarefas (TaskAlert).
+ */
 public interface TaskAlertRepository extends JpaRepository<TaskAlert, Long> {
     List<TaskAlert> findByTaskTemplateId(Long taskTemplateId);
 }

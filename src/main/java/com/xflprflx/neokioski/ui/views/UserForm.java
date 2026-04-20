@@ -18,6 +18,9 @@ import com.vaadin.flow.shared.Registration;
 import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.models.enums.Role;
 
+/**
+ * Formulário visual utilizado para cadastro e edição dos usuários do sistema e suas permissões (Roles).
+ */
 public class UserForm extends FormLayout {
     TextField name = new TextField("Nome");
     TextField username = new TextField("Username");
@@ -48,14 +51,29 @@ public class UserForm extends FormLayout {
         binder.forField(password)
             .withValidator(pass -> {
                 // Se for novo usuário, a senha é obrigatória
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (binder.getBean() != null && binder.getBean().getId() == null) {
+                    /*
+                     * Retorna o componente renderizado ou o valor da operação atual.
+                     */
                     return pass != null && !pass.isEmpty();
                 }
+                /*
+                 * Retorna o componente renderizado ou o valor da operação atual.
+                 */
                 return true;
             }, "A senha é obrigatória para novos usuários")
             .withValidator(pass -> {
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (pass == null || pass.isEmpty()) return true;
                 // Critérios de senha forte: min 6, [A-Z], [a-z], [0-9], [@$!%*?&]
+                /*
+                 * Retorna o componente renderizado ou o valor da operação atual.
+                 */
                 return pass.length() >= 6 && 
                        pass.matches(".*[A-Z].*") && 
                        pass.matches(".*[a-z].*") && 
@@ -63,6 +81,9 @@ public class UserForm extends FormLayout {
                        pass.matches(".*[@$!%*?&].*");
             }, "A senha deve conter ao menos 6 caracteres, incluindo maiúsculas, minúsculas, números e símbolos (@$!%*?&)")
             .bind(user -> "", (user, pass) -> {
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
                 if (pass != null && !pass.isEmpty()) {
                     user.setPassword(pass);
                 } else if (user.getId() != null) {
@@ -75,9 +96,15 @@ public class UserForm extends FormLayout {
         role.setItems(Role.values());
         role.setItemLabelGenerator(Role::getDescription);
 
+        /*
+         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
+         */
         add(name, username, password, role, isActive, notifyStoreOrder, notifyChatSounds, createButtonsLayout());
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private Component createButtonsLayout() {
         save.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         delete.addThemeVariants(ButtonVariant.LUMO_ERROR);
@@ -93,22 +120,40 @@ public class UserForm extends FormLayout {
 
         binder.addStatusChangeListener(e -> save.setEnabled(binder.isValid()));
 
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return new HorizontalLayout(save, delete, resetPassword, close);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void validateAndSave() {
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (binder.isValid()) {
             fireEvent(new SaveEvent(this, binder.getBean()));
         }
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public void setUser(User user) {
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (user != null && user.getId() != null) {
             // Limpamos a senha para que o service saiba que, se continuar nulo/vazio, 
             // deve manter a senha original do banco
             user.setPassword(null);
         }
         binder.setBean(user);
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (user != null && user.getId() != null) {
             password.setPlaceholder("Deixe em branco para manter");
             resetPassword.setVisible(true);
@@ -127,7 +172,13 @@ public class UserForm extends FormLayout {
             this.user = user;
         }
 
+        /**
+         * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+         */
         public User getUser() {
+            /*
+             * Retorna o componente renderizado ou o valor da operação atual.
+             */
             return user;
         }
     }
@@ -156,19 +207,43 @@ public class UserForm extends FormLayout {
         }
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public Registration addDeleteListener(ComponentEventListener<DeleteEvent> listener) {
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return addListener(DeleteEvent.class, listener);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public Registration addSaveListener(ComponentEventListener<SaveEvent> listener) {
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return addListener(SaveEvent.class, listener);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public Registration addResetPasswordListener(ComponentEventListener<ResetPasswordEvent> listener) {
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return addListener(ResetPasswordEvent.class, listener);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public Registration addCloseListener(ComponentEventListener<CloseEvent> listener) {
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return addListener(CloseEvent.class, listener);
     }
 }

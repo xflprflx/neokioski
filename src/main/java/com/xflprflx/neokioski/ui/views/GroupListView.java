@@ -19,6 +19,9 @@ import jakarta.annotation.security.RolesAllowed;
 @RolesAllowed("ADMIN")
 @Route(value = "grupos", layout = MainLayout.class)
 @PageTitle("Grupos | NeoKioski")
+/**
+ * View que exibe uma listagem em tabela (Grid) de todos os grupos do sistema, permitindo pesquisa e edição.
+ */
 public class GroupListView extends VerticalLayout {
     Grid<Group> grid = new Grid<>(Group.class);
     TextField filterText = new TextField();
@@ -34,20 +37,32 @@ public class GroupListView extends VerticalLayout {
         configureGrid();
         configureForm();
 
+        /*
+         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
+         */
         add(getToolbar(), getContent());
         updateList();
         closeEditor();
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private Component getContent() {
         HorizontalLayout content = new HorizontalLayout(grid, form);
         content.setFlexGrow(2, grid);
         content.setFlexGrow(1, form);
         content.addClassNames("content");
         content.setSizeFull();
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return content;
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void configureForm() {
         form = new GroupForm();
         form.setWidth("25em");
@@ -57,18 +72,27 @@ public class GroupListView extends VerticalLayout {
         form.addCloseListener(e -> closeEditor());
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void saveGroup(GroupForm.SaveEvent event) {
         service.save(event.getGroup());
         updateList();
         closeEditor();
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void deleteGroup(GroupForm.DeleteEvent event) {
         service.delete(event.getGroup());
         updateList();
         closeEditor();
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void configureGrid() {
         grid.addClassNames("group-grid");
         grid.setSizeFull();
@@ -79,6 +103,9 @@ public class GroupListView extends VerticalLayout {
         grid.addComponentColumn(group -> {
             Button chatButton = new Button(VaadinIcon.CHAT.create());
             chatButton.addClickListener(e -> UI.getCurrent().navigate(ChatView.class, group.getId()));
+            /*
+             * Retorna o componente renderizado ou o valor da operação atual.
+             */
             return chatButton;
         }).setHeader("Chat");
         grid.getColumns().forEach(col -> col.setAutoWidth(true));
@@ -87,6 +114,9 @@ public class GroupListView extends VerticalLayout {
                 editGroup(event.getValue()));
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private HorizontalLayout getToolbar() {
         filterText.setPlaceholder("Filtrar por nome...");
         filterText.setClearButtonVisible(true);
@@ -98,10 +128,19 @@ public class GroupListView extends VerticalLayout {
 
         var toolbar = new HorizontalLayout(filterText, addGroupButton);
         toolbar.addClassName("toolbar");
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return toolbar;
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public void editGroup(Group group) {
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (group == null) {
             closeEditor();
         } else {
@@ -111,17 +150,26 @@ public class GroupListView extends VerticalLayout {
         }
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void closeEditor() {
         form.setGroup(null);
         form.setVisible(false);
         removeClassName("editing");
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void addGroup() {
         grid.asSingleSelect().clear();
         editGroup(new Group());
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void updateList() {
         grid.setItems(service.findAll(filterText.getValue()));
     }

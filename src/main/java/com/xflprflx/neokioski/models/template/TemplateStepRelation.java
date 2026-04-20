@@ -12,6 +12,9 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "tb_template_step_relations")
+/**
+ * Entidade que mapeia o relacionamento de ordenação dos passos predefinidos dentro de um template de tarefa.
+ */
 public class TemplateStepRelation {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -233,7 +236,15 @@ public class TemplateStepRelation {
         this.alertRoles = alertRoles;
     }
 
+    /**
+     * Adiciona uma opção de resposta permitida para o passo deste template.
+     *
+     * @param option A opção de campo a ser adicionada.
+     */
     public void addResponseOption(TaskFieldOption option) {
+        /*
+         * Insere a opção na lista de opções de resposta configuradas.
+         */
         this.responseOptions.add(option);
     }
 

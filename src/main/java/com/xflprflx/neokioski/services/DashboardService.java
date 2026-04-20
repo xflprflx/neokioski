@@ -20,6 +20,9 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
+/**
+ * Serviço que consolida os dados e lógicas necessárias para a exibição dos painéis gerenciais e métricas do dashboard.
+ */
 public class DashboardService {
 
     private final TaskRepository taskRepository;
@@ -37,6 +40,9 @@ public class DashboardService {
         this.stepRelationRepository = stepRelationRepository;
     }
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public DashboardData getDashboardData(Instant start, Instant end, Group group, TaskTemplate type, String creatorNameFilter, String finalizerNameFilter, String dateFilterStr) {
         // Buscar todas as tasks no período base de dados limitados pelas DatePickers
         List<Task> tasks = taskRepository.findAllByCreatedAtBetween(start, end);
@@ -108,11 +114,17 @@ public class DashboardService {
 
         long onTime = 0;
         long delayed = 0;
+        /*
+         * Inicia um laço de repetição (for) para iterar sobre os elementos.
+         */
         for (Task t : completed) {
             // No NeoKioski, uma task pode ter múltiplos SLA results (um por step). 
             // Para o dashboard, consideramos se o SLA FINAL da task (calculado na finalização) foi respeitado.
             // Se houver qualquer atraso nos passos, ou se o SLA global foi atingido.
             boolean hasDelay = t.getSlaResults().stream().anyMatch(r -> r.getStatus() == SlaStatus.DELAYED);
+            /*
+             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+             */
             if (hasDelay) delayed++;
             else onTime++;
         }
@@ -135,6 +147,9 @@ public class DashboardService {
                             t.getSlaResults().stream().noneMatch(r -> r.getStatus() == SlaStatus.DELAYED)).count();
                     long dDelayed = dCompleted - dOnTime;
                     double dPct = dCompleted == 0 ? 0 : (double) dOnTime / dCompleted * 100;
+                    /*
+                     * Retorna o resultado final processado pelo método.
+                     */
                     return new MixedChartPoint(date, dTotal, dOnTime, dDelayed, dPct);
                 })
                 .collect(Collectors.toList());
@@ -146,6 +161,9 @@ public class DashboardService {
 
         List<StackedBarData> tmaPerStep = new ArrayList<>();
 
+        /*
+         * Inicia um laço de repetição (for) para iterar sobre os elementos.
+         */
         for (Map.Entry<String, List<Task>> entry : tasksByTemplate.entrySet()) {
             String templateName = entry.getKey();
             List<Task> templateTasks = entry.getValue();
@@ -153,13 +171,22 @@ public class DashboardService {
             Map<String, Long> stepTotalSeconds = new LinkedHashMap<>();
             Map<String, Integer> stepCounts = new LinkedHashMap<>();
 
+            /*
+             * Inicia um laço de repetição (for) para iterar sobre os elementos.
+             */
             for (Task task : templateTasks) {
                 List<TaskEvent> events = task.getTaskEvents().stream()
                         .sorted(Comparator.comparing(TaskEvent::getTimestamp))
                         .toList();
 
+                /*
+                 * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+                 */
                 if (events.isEmpty()) continue;
 
+                /*
+                 * Inicia um laço de repetição (for) para iterar sobre os elementos.
+                 */
                 for (int i = 0; i < events.size(); i++) {
                     TaskEvent currentEvent = events.get(i);
                     String stepName = currentEvent.getTaskStepDefinition() != null ? 
@@ -168,12 +195,18 @@ public class DashboardService {
                     Instant startTime = currentEvent.getTimestamp();
                     Instant endTime;
 
+                    /*
+                     * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+                     */
                     if (i < events.size() - 1) {
                         endTime = events.get(i + 1).getTimestamp();
                     } else {
                         endTime = task.getFinalizedAt();
                     }
 
+                    /*
+                     * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+                     */
                     if (endTime != null && startTime != null && !endTime.isBefore(startTime)) {
                         long durationSeconds = Duration.between(startTime, endTime).getSeconds();
                         
@@ -189,6 +222,9 @@ public class DashboardService {
                     .average().orElse(0);
 
             Map<String, Double> seriesValues = new LinkedHashMap<>();
+            /*
+             * Inicia um laço de repetição (for) para iterar sobre os elementos.
+             */
             for (Map.Entry<String, Long> stepEntry : stepTotalSeconds.entrySet()) {
                 String step = stepEntry.getKey();
                 long totalTime = stepEntry.getValue();
@@ -200,31 +236,61 @@ public class DashboardService {
             tmaPerStep.add(new StackedBarData(templateName, trueTemplateAvg, seriesValues));
         }
 
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return new DashboardData(stats, userRanking, finalizerRanking, history, tmaPerStep);
     }
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     private String getTaskFinalizerName(Task t) {
+        /*
+         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+         */
         if (t.getTaskEvents() == null || t.getTaskEvents().isEmpty()) return null;
         
         // Buscar o evento que preencheu o campo de Delivery
         // No NeoKioski, isso é identificado via TemplateStepRelation que tenha hasResponseField=true e label contendo 'DELIVERY'
+        /*
+         * Inicia um laço de repetição (for) para iterar sobre os elementos.
+         */
         for (TaskEvent event : t.getTaskEvents()) {
+            /*
+             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+             */
             if (event.getTaskStepDefinition() == null) continue;
             
             var relOpt = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
                 t.getTaskTemplate().getId(), event.getTaskStepDefinition().getId());
                 
+            /*
+             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+             */
             if (relOpt.isPresent() && relOpt.get().isHasResponseField() && 
                 relOpt.get().getResponseFieldLabel() != null && 
                 relOpt.get().getResponseFieldLabel().toUpperCase().contains("DELIVERY")) {
                 
+                /*
+                 * Retorna o resultado final processado pelo método.
+                 */
                 return event.getUser() != null ? event.getUser().getName() : null;
             }
         }
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return null;
     }
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     private double calculateInterquartileMeanTma(List<Task> completed) {
+        /*
+         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+         */
         if (completed.isEmpty()) return 0;
         
         List<Long> durations = completed.stream()
@@ -233,7 +299,13 @@ public class DashboardService {
                 .collect(Collectors.toList());
 
         int size = durations.size();
+        /*
+         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+         */
         if (size < 4) {
+            /*
+             * Retorna o resultado final processado pelo método.
+             */
             return durations.stream().mapToLong(Long::longValue).average().orElse(0);
         }
 
@@ -242,16 +314,28 @@ public class DashboardService {
 
         // Pegar o miolo (50% central)
         List<Long> middleDurations = durations.subList(q1Idx, q3Idx);
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return middleDurations.stream().mapToLong(Long::longValue).average().orElse(0); // Retornar em segundos
     }
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     private String formatDate(Instant instant) {
+        /*
+         * Retorna o resultado final processado pelo método.
+         */
         return DateTimeFormatter.ofPattern("dd/MM")
                 .withZone(ZoneId.systemDefault())
                 .format(instant);
     }
 
     // DTOs
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public record DashboardStats(
         long activeTasks,
         long completedTasks,
@@ -261,8 +345,14 @@ public class DashboardService {
         double averageResponseTimeSeconds
     ) {}
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public record ChartDataPoint(String label, double value) {}
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public record MixedChartPoint(
         String date,
         long total,
@@ -271,12 +361,18 @@ public class DashboardService {
         double percentage
     ) {}
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public record StackedBarData(
         String category,
         double totalAvgSeconds,
         Map<String, Double> seriesValues
     ) {}
 
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public record DashboardData(
         DashboardStats stats,
         List<ChartDataPoint> userRanking,

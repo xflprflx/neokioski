@@ -10,12 +10,26 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
+/**
+ * Repositório de acesso a dados para gerenciamento principal da entidade de tarefas (Task).
+ */
 public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificationExecutor<Task> {
 
     @Query("SELECT DISTINCT t FROM Task t WHERE t.group = :group ORDER BY t.createdAt DESC")
+     /**
+     * Busca todas as tarefas associadas a um grupo específico, carregando suas coleções relacionadas.
+     * @param group O grupo associado.
+     * @return Lista de tarefas pertencentes ao grupo.
+     */
     List<Task> findByGroupWithCollections(@Param("group") Group group);
 
     @Query("SELECT DISTINCT t FROM Task t LEFT JOIN t.taskEvents e WHERE t.group = :group AND (t.creator = :user OR e.user = :user) ORDER BY t.createdAt DESC")
+ /**
+     * Retorna tarefas do grupo em que o usuário participou como criador ou agindo em algum evento.
+     * @param group O grupo de tarefas.
+     * @param user O usuário a ser filtrado.
+     * @return Lista ordenada decrescente por data de criação.
+     */
     List<Task> findMyTasksByGroup(@Param("group") Group group, @Param("user") User user);
 
     @Query("""
@@ -25,6 +39,10 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
             AND sr.taskStepDefinition = t.currentStep
            WHERE (t.currentStep IS NULL OR sr IS NULL OR sr.isFinalizer = false)
            """)
+ /**
+     * Consulta todas as tarefas pendentes, isto é, que não estão em um passo considerado "finalizador".
+     * @return Lista de todas as tarefas globais pendentes.
+     */
     List<Task> findAllPending();
     
     @Query("""

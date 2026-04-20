@@ -19,6 +19,9 @@ import com.xflprflx.neokioski.models.User;
 
 import java.util.List;
 
+/**
+ * Formulário de interface visual utilizado para criar ou editar as informações e relacionamentos de um grupo.
+ */
 public class GroupForm extends FormLayout {
     TextField name = new TextField("Nome");
     Checkbox active = new Checkbox("Ativo");
@@ -36,9 +39,15 @@ public class GroupForm extends FormLayout {
 
         users.setItemLabelGenerator(User::getName);
 
+        /*
+         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
+         */
         add(name, active, users, createButtonsLayout());
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private Component createButtonsLayout() {
         save.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         delete.addThemeVariants(ButtonVariant.LUMO_ERROR);
@@ -53,19 +62,34 @@ public class GroupForm extends FormLayout {
 
         binder.addStatusChangeListener(e -> save.setEnabled(binder.isValid()));
 
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return new HorizontalLayout(save, delete, close);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     private void validateAndSave() {
+        /*
+         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+         */
         if (binder.isValid()) {
             fireEvent(new SaveEvent(this, binder.getBean()));
         }
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public void setGroup(Group group) {
         binder.setBean(group);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public void setAvailableUsers(List<User> userList) {
         users.setItems(userList);
     }
@@ -79,7 +103,13 @@ public class GroupForm extends FormLayout {
             this.group = group;
         }
 
+        /**
+         * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+         */
         public Group getGroup() {
+            /*
+             * Retorna o componente renderizado ou o valor da operação atual.
+             */
             return group;
         }
     }
@@ -102,15 +132,33 @@ public class GroupForm extends FormLayout {
         }
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public Registration addDeleteListener(ComponentEventListener<DeleteEvent> listener) {
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return addListener(DeleteEvent.class, listener);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public Registration addSaveListener(ComponentEventListener<SaveEvent> listener) {
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return addListener(SaveEvent.class, listener);
     }
 
+    /**
+     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     */
     public Registration addCloseListener(ComponentEventListener<CloseEvent> listener) {
+        /*
+         * Retorna o componente renderizado ou o valor da operação atual.
+         */
         return addListener(CloseEvent.class, listener);
     }
 }

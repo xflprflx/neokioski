@@ -15,10 +15,16 @@ import java.util.List;
  */
 public interface TaskTemplateRepository extends JpaRepository<TaskTemplate, Long> {
     
+    // #improve_n+1 - Múltiplos FETCH para Lists geram MultipleBagFetchException. Removemos o Graph amplo.
     @Query("SELECT t FROM TaskTemplate t LEFT JOIN FETCH t.alerts WHERE t.id = :id")
     Optional<TaskTemplate> findByIdWithGroups(@Param("id") Long id);
 
+    // #improve_n+1 - Evitar que a lista geral carregue sub-colecoes lazy e cause queries secundárias
     @Query("SELECT t FROM TaskTemplate t JOIN t.groups g WHERE g.id = :groupId ORDER BY t.sortOrder ASC, t.name ASC")
     List<TaskTemplate> findByGroupId(@Param("groupId") Long groupId);
 
+    // #improve_n+1 - Como as dependências viraram Lazy, a listagem geral só puxa o Template em si
+    @Override
+    @Query("SELECT t FROM TaskTemplate t ORDER BY t.sortOrder ASC, t.name ASC")
+    List<TaskTemplate> findAll();
 }

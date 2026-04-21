@@ -41,12 +41,14 @@ public class TaskTemplate {
     @Column(nullable = false)
     private Integer sortOrder = 0;
 
-    @ElementCollection(fetch = FetchType.EAGER)
+    // #improve_n+1 - Remoção do EAGER forçado nas coleções administrativas que causavam queries em massa quando uma Task era listada
+    @ElementCollection(fetch = FetchType.LAZY)
     @Enumerated(EnumType.STRING)
     @CollectionTable(name = "tb_task_template_alert_roles", joinColumns = @JoinColumn(name = "task_template_id"))
     @Column(name = "role")
     private Set<Role> alertRoles = new HashSet<>();
-    @ManyToMany(fetch = FetchType.EAGER)
+
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "tb_task_templates_groups",
             joinColumns = @JoinColumn(name = "task_template_id"),
@@ -54,14 +56,17 @@ public class TaskTemplate {
     )
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
     private List<Group> groups = new ArrayList<>();
+
     @OneToMany(mappedBy = "taskTemplate")
     private List<TemplateStepRelation> templateStepRelation = new ArrayList<>();
+
     @OneToMany(mappedBy = "taskTemplate")
     private List<TemplateFieldRelation> templateFieldRelation = new ArrayList<>();
+
     @OneToMany(mappedBy = "taskTemplate", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TaskAlert> alerts = new ArrayList<>();
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "tb_task_templates_authorizer_users",
             joinColumns = @JoinColumn(name = "task_template_id"),

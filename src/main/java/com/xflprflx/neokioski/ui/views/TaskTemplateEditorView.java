@@ -2361,8 +2361,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
          */
         if (parameter != null) {
             this.editingTemplateId = parameter;
-            // #improve_n+1 - Usa a versão com EntityGraph para carregar todas as relações
-            TaskTemplate t = templateService.getTemplateWithFullGraphById(parameter);
+            TaskTemplate t = templateService.getTemplateById(parameter);
             /*
              * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
              */
@@ -2387,7 +2386,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 /*
                  * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
                  */
-                for (TemplateFieldRelation fr : t.getTemplateFieldRelation()) {
+                for (TemplateFieldRelation fr : templateService.getFieldRelationsByTemplateId(parameter)) {
                     FieldDTO dto = new FieldDTO();
                     dto.id = fr.getTaskFieldDefinition().getId();
                     dto.label = fr.getTaskFieldDefinition().getLabel();
@@ -2413,8 +2412,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 /*
                  * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
                  */
-                // #improve_n+1 - Usa a relação previamente carregada pelo EntityGraph
-                for (TemplateStepRelation sr : t.getTemplateStepRelation()) {
+                for (TemplateStepRelation sr : templateService.getStepRelationsByTemplateId(parameter)) {
                     StepDTO dto = new StepDTO();
                     dto.id = sr.getTaskStepDefinition().getId();
                     dto.label = sr.getTaskStepDefinition().getLabel();

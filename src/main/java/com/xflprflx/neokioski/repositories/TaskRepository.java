@@ -16,7 +16,7 @@ import java.util.List;
 public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificationExecutor<Task> {
 
     // #improve_n+1
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep"})
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     @Query("SELECT DISTINCT t FROM Task t WHERE t.group = :group ORDER BY t.createdAt DESC")
      /**
      * Busca todas as tarefas associadas a um grupo específico, carregando suas coleções relacionadas.
@@ -26,7 +26,7 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
     List<Task> findByGroupWithCollections(@Param("group") Group group);
 
     // #improve_n+1
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep"})
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     @Query("SELECT DISTINCT t FROM Task t LEFT JOIN t.taskEvents e WHERE t.group = :group AND (t.creator = :user OR e.user = :user) ORDER BY t.createdAt DESC")
  /**
      * Retorna tarefas do grupo em que o usuário participou como criador ou agindo em algum evento.
@@ -37,7 +37,7 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
     List<Task> findMyTasksByGroup(@Param("group") Group group, @Param("user") User user);
 
     // #improve_n+1
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep"})
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     @Query("""
            SELECT t FROM Task t
            LEFT JOIN TemplateStepRelation sr
@@ -61,7 +61,7 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
     long countAllPending();
 
     // #improve_n+1
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep"})
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     @Query("""
            SELECT DISTINCT t FROM Task t
            LEFT JOIN TemplateStepRelation sr
@@ -94,16 +94,16 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
     long countPendingByGroups(@Param("groups") List<Group> groups);
 
     // #improve_n+1
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep"})
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     @Query("SELECT DISTINCT t FROM Task t WHERE t.group = :group AND t.createdAt BETWEEN :start AND :end ORDER BY t.createdAt DESC")
     List<Task> findByGroupAndCreatedAtBetweenOrderByCreatedAtDesc(@Param("group") Group group, @Param("start") java.time.Instant start, @Param("end") java.time.Instant end);
 
     // #improve_n+1
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep"})
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     List<Task> findAllByCreatedAtBetween(java.time.Instant start, java.time.Instant end);
 
     // #improve_n+1 - Força EntityGraph no método findAll que recebe Specification
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep"})
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     List<Task> findAll(org.springframework.data.jpa.domain.Specification<Task> spec, org.springframework.data.domain.Sort sort);
 
     @Query("SELECT t.group.name, COUNT(t) FROM Task t GROUP BY t.group.name")

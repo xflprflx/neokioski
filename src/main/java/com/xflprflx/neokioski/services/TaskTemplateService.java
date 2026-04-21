@@ -215,6 +215,11 @@ public class TaskTemplateService {
         return taskTemplateRepository.findByIdWithGroups(id).orElse(null);
     }
 
+    // #improve_n+1 - Delega para o repository com EntityGraph para carregar o grafo inteiro
+    public TaskTemplate getTemplateWithFullGraphById(Long id) {
+        return taskTemplateRepository.findByIdWithFullGraph(id).orElse(null);
+    }
+
     /**
      * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */

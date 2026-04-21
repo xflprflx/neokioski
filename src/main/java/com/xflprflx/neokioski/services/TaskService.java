@@ -1088,6 +1088,9 @@ public class TaskService {
             });
         }
 
+        // #improve_n+1 - EntityGraph no findAll de Specification já adicionado no repository para trazer os Lazy ToOne principais.
+        // O subselect continuará lidando com ToMany collections.
+
         /*
          * Retorna o resultado final processado pelo método.
          */

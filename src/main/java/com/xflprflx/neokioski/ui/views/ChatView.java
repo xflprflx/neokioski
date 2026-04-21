@@ -2960,29 +2960,30 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             onlineUsersAvatars.removeAll();
             Set<Long> onlineIds = presenceService.getOnlineUserIds();
             
+            // #improve_n+1
+            List<User> onlineUsers = userService.findAllById(onlineIds);
+
             /*
              * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
              */
-            for (Long userId : onlineIds) {
-                userService.findById(userId).ifPresent(user -> {
-                    com.vaadin.flow.component.avatar.Avatar avatar = new com.vaadin.flow.component.avatar.Avatar(user.getName());
-                    avatar.getStyle()
-                        .set("width", "24px")
-                        .set("height", "24px")
-                        .set("border", "2px solid var(--lumo-success-color)")
-                        .set("border-radius", "50%")
-                        .set("margin-left", "-8px"); // Sobreposição para visual Google Docs
-                    
-                    /*
-                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                     */
-                    if (onlineUsersAvatars.getComponentCount() == 0) {
-                        avatar.getStyle().set("margin-left", "0");
-                    }
-                    
-                    avatar.getElement().setAttribute("title", user.getName() + " (Online)");
-                    onlineUsersAvatars.add(avatar);
-                });
+            for (User user : onlineUsers) {
+                com.vaadin.flow.component.avatar.Avatar avatar = new com.vaadin.flow.component.avatar.Avatar(user.getName());
+                avatar.getStyle()
+                    .set("width", "24px")
+                    .set("height", "24px")
+                    .set("border", "2px solid var(--lumo-success-color)")
+                    .set("border-radius", "50%")
+                    .set("margin-left", "-8px"); // Sobreposição para visual Google Docs
+
+                /*
+                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                 */
+                if (onlineUsersAvatars.getComponentCount() == 0) {
+                    avatar.getStyle().set("margin-left", "0");
+                }
+
+                avatar.getElement().setAttribute("title", user.getName() + " (Online)");
+                onlineUsersAvatars.add(avatar);
             }
         }));
     }

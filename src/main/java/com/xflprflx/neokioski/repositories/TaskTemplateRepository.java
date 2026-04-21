@@ -20,4 +20,11 @@ public interface TaskTemplateRepository extends JpaRepository<TaskTemplate, Long
 
     @Query("SELECT t FROM TaskTemplate t JOIN t.groups g WHERE g.id = :groupId ORDER BY t.sortOrder ASC, t.name ASC")
     List<TaskTemplate> findByGroupId(@Param("groupId") Long groupId);
+
+    // #improve_n+1 - EntityGraph para trazer todo o grafo principal do template numa só query
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {
+        "groups", "authorizingUsers", "alerts", "templateStepRelation", "templateStepRelation.taskStepDefinition", "templateFieldRelation", "templateFieldRelation.taskFieldDefinition"
+    })
+    @Query("SELECT t FROM TaskTemplate t WHERE t.id = :id")
+    Optional<TaskTemplate> findByIdWithFullGraph(@Param("id") Long id);
 }

@@ -62,6 +62,14 @@ public class UserService {
         return repository.findById(id);
     }
 
+    // #improve_n+1
+    /**
+     * Método otimizado para buscar múltiplos usuários em uma única query.
+     */
+    public List<User> findAllById(Iterable<Long> ids) {
+        return repository.findAllById(ids);
+    }
+
     /**
      * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */

@@ -6,6 +6,7 @@ import com.xflprflx.neokioski.models.TaskEvent;
 import com.xflprflx.neokioski.models.TaskSlaResult;
 import com.xflprflx.neokioski.models.enums.SlaStatus;
 import com.xflprflx.neokioski.models.template.TaskTemplate;
+import com.xflprflx.neokioski.models.template.TemplateStepRelation;
 import com.xflprflx.neokioski.repositories.TaskRepository;
 import com.xflprflx.neokioski.repositories.TaskSlaResultRepository;
 import com.xflprflx.neokioski.repositories.TaskTemplateRepository;
@@ -52,10 +53,13 @@ public class DashboardService {
                 .filter(t -> group == null || group.equals(t.getGroup()))
                 .collect(Collectors.toList());
 
+        // #improve_n+1 cache para evitar query N+1 em loop
+        Map<String, TemplateStepRelation> relCache = new HashMap<>();
+
         // 2. Ranking Base (Menu de Criadores) -> Afetado por Tipo, Concluidor e Data Clique. Ignora clique em Criador.
         List<Task> rankingBaseTasks = globalBaseTasks.stream()
                 .filter(t -> type == null || type.equals(t.getTaskTemplate()))
-                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t), finalizerNameFilter))
+                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t, relCache), finalizerNameFilter))
                 .filter(t -> dateFilterStr == null || formatDate(t.getCreatedAt()).equals(dateFilterStr))
                 .collect(Collectors.toList());
 
@@ -76,7 +80,7 @@ public class DashboardService {
                 .collect(Collectors.toList());
 
         List<ChartDataPoint> finalizerRanking = finalizerBaseTasks.stream()
-                .map(this::getTaskFinalizerName)
+                .map(t -> getTaskFinalizerName(t, relCache))
                 .filter(Objects::nonNull)
                 .collect(Collectors.groupingBy(name -> name, Collectors.counting()))
                 .entrySet().stream()
@@ -88,7 +92,7 @@ public class DashboardService {
         // 3. TMA Base (Menu de Tipos) -> Afetado por Criador, Concluidor e Data Clique. Ignora clique em Tipo.
         List<Task> tmaBaseTasks = globalBaseTasks.stream()
                 .filter(t -> creatorNameFilter == null || (t.getCreator() != null && t.getCreator().getName().equals(creatorNameFilter)))
-                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t), finalizerNameFilter))
+                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t, relCache), finalizerNameFilter))
                 .filter(t -> dateFilterStr == null || formatDate(t.getCreatedAt()).equals(dateFilterStr))
                 .collect(Collectors.toList());
 
@@ -96,14 +100,14 @@ public class DashboardService {
         List<Task> historyBaseTasks = globalBaseTasks.stream()
                 .filter(t -> type == null || type.equals(t.getTaskTemplate()))
                 .filter(t -> creatorNameFilter == null || (t.getCreator() != null && t.getCreator().getName().equals(creatorNameFilter)))
-                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t), finalizerNameFilter))
+                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t, relCache), finalizerNameFilter))
                 .collect(Collectors.toList());
 
         // 5. Strict Base (Variáveis centrais da tela KPIs, afetado por TODOS OS SELETORES EM CADEIA)
         List<Task> strictFilteredTasks = globalBaseTasks.stream()
                 .filter(t -> type == null || type.equals(t.getTaskTemplate()))
                 .filter(t -> creatorNameFilter == null || (t.getCreator() != null && t.getCreator().getName().equals(creatorNameFilter)))
-                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t), finalizerNameFilter))
+                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t, relCache), finalizerNameFilter))
                 .filter(t -> dateFilterStr == null || formatDate(t.getCreatedAt()).equals(dateFilterStr))
                 .collect(Collectors.toList());
 
@@ -245,7 +249,7 @@ public class DashboardService {
     /**
      * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
-    private String getTaskFinalizerName(Task t) {
+    private String getTaskFinalizerName(Task t, Map<String, TemplateStepRelation> relCache) {
         /*
          * Avalia uma condição (if) para desvio de fluxo da lógica principal.
          */
@@ -262,15 +266,24 @@ public class DashboardService {
              */
             if (event.getTaskStepDefinition() == null) continue;
             
-            var relOpt = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
-                t.getTaskTemplate().getId(), event.getTaskStepDefinition().getId());
+            String cacheKey = t.getTaskTemplate().getId() + "-" + event.getTaskStepDefinition().getId();
+
+            TemplateStepRelation relation;
+            if (relCache.containsKey(cacheKey)) {
+                relation = relCache.get(cacheKey);
+            } else {
+                var relOpt = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
+                    t.getTaskTemplate().getId(), event.getTaskStepDefinition().getId());
+                relation = relOpt.orElse(null);
+                relCache.put(cacheKey, relation);
+            }
                 
             /*
              * Avalia uma condição (if) para desvio de fluxo da lógica principal.
              */
-            if (relOpt.isPresent() && relOpt.get().isHasResponseField() && 
-                relOpt.get().getResponseFieldLabel() != null && 
-                relOpt.get().getResponseFieldLabel().toUpperCase().contains("DELIVERY")) {
+            if (relation != null && relation.isHasResponseField() &&
+                relation.getResponseFieldLabel() != null &&
+                relation.getResponseFieldLabel().toUpperCase().contains("DELIVERY")) {
                 
                 /*
                  * Retorna o resultado final processado pelo método.

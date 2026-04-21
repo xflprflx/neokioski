@@ -16,8 +16,10 @@ import java.util.List;
  */
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
 
+    // #improve_n+1
     @Query("""
            SELECT DISTINCT m FROM ChatMessage m
+           LEFT JOIN FETCH m.user
            LEFT JOIN FETCH m.task t
            LEFT JOIN FETCH t.taskTemplate
            LEFT JOIN FETCH t.currentStep
@@ -31,14 +33,18 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
             @Param("start") Instant start, 
             @Param("end") Instant end);
 
+    // #improve_n+1
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"user", "group"})
     @Query("SELECT m FROM ChatMessage m WHERE m.group = :group AND m.timestamp BETWEEN :start AND :end ORDER BY m.timestamp ASC")
     List<ChatMessage> findByGroupAndTimestampBetweenOrderByTimestampAsc(
             @Param("group") Group group, 
             @Param("start") Instant start, 
             @Param("end") Instant end);
 
+    // #improve_n+1
     @Query("""
            SELECT DISTINCT m FROM ChatMessage m
+           LEFT JOIN FETCH m.user
            LEFT JOIN FETCH m.task t
            LEFT JOIN FETCH t.taskTemplate
            LEFT JOIN FETCH t.currentStep
@@ -48,6 +54,8 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
            """)
     List<ChatMessage> findByGroupWithTaskOrderByTimestampAsc(@Param("group") Group group);
 
+    // #improve_n+1
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"user", "group"})
     @Query("SELECT m FROM ChatMessage m WHERE m.group = :group ORDER BY m.timestamp ASC")
     List<ChatMessage> findByGroupOrderByTimestampAsc(@Param("group") Group group);
 

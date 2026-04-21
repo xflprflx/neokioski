@@ -1,6 +1,7 @@
 package com.xflprflx.neokioski.services;
 
 import com.xflprflx.neokioski.models.*;
+import com.xflprflx.neokioski.models.enums.Role;
 import com.xflprflx.neokioski.models.template.*;
 import com.xflprflx.neokioski.repositories.*;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,8 @@ import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+
+import org.hibernate.Hibernate;
 
 @Service
 /**
@@ -67,9 +70,7 @@ public class TaskService {
         /*
          * Retorna o resultado final processado pelo método.
          */
-        return stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
-                task.getTaskTemplate().getId(), task.getCurrentStep().getId()
-        ).map(TemplateStepRelation::getResponsibleRole);
+        return findStepRelation(task).map(TemplateStepRelation::getResponsibleRole);
     }
 
     @Transactional
@@ -144,20 +145,33 @@ public class TaskService {
 
             // Determinar se o step a ser salvo é finalizador *agora*:
             boolean isFinalizerNow = false;
-            Optional<TemplateStepRelation> relationOpt = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
-                    task.getTaskTemplate().getId(), step.getId()
-            );
-            /*
-             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-             */
-            if (relationOpt.isPresent()) {
-                isFinalizerNow = relationOpt.get().isFinalizer();
+            
+            // Otimização via SUBSELECT: Acessar a coleção diretamente preenche os dados para todo o lote
+            Set<TemplateStepRelation> memRelations = task.getTaskTemplate().getTemplateStepRelation();
+            Optional<TemplateStepRelation> relationOpt = Optional.empty();
+            
+            if (memRelations != null) {
+                relationOpt = memRelations.stream()
+                        .filter(r -> r.getTaskStepDefinition().getId().equals(step.getId()))
+                        .findFirst();
+                
+                if (relationOpt.isPresent()) {
+                    isFinalizerNow = relationOpt.get().isFinalizer();
+                } else {
+                    // Fallback em memória por label (casos de template atualizado)
+                    String label = step.getLabel();
+                    isFinalizerNow = memRelations.stream()
+                            .filter(r -> r.getTaskStepDefinition().getLabel().equals(label))
+                            .anyMatch(TemplateStepRelation::isFinalizer);
+                }
             } else {
-                String label = step.getLabel();
-                isFinalizerNow = stepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(task.getTaskTemplate().getId())
-                        .stream()
-                        .filter(r -> r.getTaskStepDefinition().getLabel().equals(label))
-                        .anyMatch(TemplateStepRelation::isFinalizer);
+                // Fallback de segurança caso o template não exista (raro)
+                relationOpt = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
+                        task.getTaskTemplate().getId(), step.getId()
+                );
+                if (relationOpt.isPresent()) {
+                    isFinalizerNow = relationOpt.get().isFinalizer();
+                }
             }
 
             /*
@@ -173,9 +187,18 @@ public class TaskService {
             Task saved = taskRepository.save(task);
 
             // Verificar se deve processar menções e disparar sons
-            stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
+            Optional<TemplateStepRelation> activeRelOpt = Optional.empty();
+            if (memRelations != null) {
+                activeRelOpt = memRelations.stream()
+                        .filter(r -> r.getTaskStepDefinition().getId().equals(step.getId()))
+                        .findFirst();
+            } else {
+                activeRelOpt = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
                     task.getTaskTemplate().getId(), step.getId()
-            ).ifPresent(relation -> {
+                );
+            }
+
+            activeRelOpt.ifPresent(relation -> {
                 // Buscar a mensagem original do card da tarefa para dar "Reply"
                 List<ChatMessage> msgs = chatMessageRepository.findByTaskOrderByIdAsc(task);
                 ChatMessage originalMsg = msgs.isEmpty() ? null : msgs.get(0);
@@ -198,7 +221,7 @@ public class TaskService {
                     }
 
                     // 2. Processar @autorizadores
-                    List<User> authorizers = task.getTaskTemplate().getAuthorizingUsers();
+                    Set<User> authorizers = task.getTaskTemplate().getAuthorizingUsers();
                     /*
                      * Avalia uma condição (if) para desvio de fluxo da lógica principal.
                      */
@@ -276,41 +299,62 @@ public class TaskService {
     /**
      * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
+    @Transactional(readOnly = true)
     public List<Task> getTasksByGroup(Group group) {
-        /*
-         * Retorna o resultado final processado pelo método.
-         */
-        return taskRepository.findByGroupWithCollections(group);
+        List<Task> tasks = taskRepository.findByGroupWithCollections(group);
+        initializeTaskGraph(tasks);
+        return tasks;
     }
 
     /**
      * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
+    @Transactional(readOnly = true)
     public List<Task> getTasksByGroup(Group group, Instant start, Instant end) {
-        /*
-         * Retorna o resultado final processado pelo método.
-         */
-        return taskRepository.findByGroupAndCreatedAtBetweenOrderByCreatedAtDesc(group, start, end);
+        List<Task> tasks = taskRepository.findByGroupAndCreatedAtBetweenOrderByCreatedAtDesc(group, start, end);
+        initializeTaskGraph(tasks);
+        return tasks;
     }
 
     /**
      * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
+    @Transactional(readOnly = true)
     public List<Task> getMyTasks(Group group, User user) {
-        /*
-         * Retorna o resultado final processado pelo método.
-         */
-        return taskRepository.findMyTasksByGroup(group, user);
+        List<Task> tasks = taskRepository.findMyTasksByGroup(group, user);
+        initializeTaskGraph(tasks);
+        return tasks;
     }
 
     /**
      * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
+    @Transactional(readOnly = true)
     public List<Task> getPendingTasks(Group group) {
-        /*
-         * Retorna o resultado final processado pelo método.
-         */
-        return taskRepository.findPendingByGroup(group);
+        List<Task> tasks = taskRepository.findPendingByGroup(group);
+        initializeTaskGraph(tasks);
+        return tasks;
+    }
+
+    private void initializeTaskGraph(List<Task> tasks) {
+        if (tasks != null && !tasks.isEmpty()) {
+            tasks.forEach(t -> {
+                if (t != null) {
+                    Hibernate.initialize(t.getTaskFieldValues());
+                    Hibernate.initialize(t.getSlaResults());
+                    if (t.getSlaResults() != null) {
+                        t.getSlaResults().forEach(r -> {
+                            if (r.getSlaConfig() != null) {
+                                Hibernate.initialize(r.getSlaConfig());
+                            }
+                        });
+                    }
+                    if (t.getTaskTemplate() != null) {
+                        Hibernate.initialize(t.getTaskTemplate().getTemplateStepRelation());
+                    }
+                }
+            });
+        }
     }
 
     /**
@@ -408,7 +452,15 @@ public class TaskService {
          */
         if (isTaskFinalized(task)) return Collections.emptyList();
 
-        List<TemplateStepRelation> allRels = stepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(task.getTaskTemplate().getId());
+        Set<TemplateStepRelation> memRelations = task.getTaskTemplate().getTemplateStepRelation();
+        List<TemplateStepRelation> allRels;
+        if (memRelations != null) {
+            allRels = memRelations.stream()
+                    .sorted(Comparator.comparing(TemplateStepRelation::getOrder))
+                    .collect(Collectors.toList());
+        } else {
+            allRels = stepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(task.getTaskTemplate().getId());
+        }
         
         List<TaskStepDefinition> globalSteps = allRels.stream()
                 .filter(TemplateStepRelation::isGlobal)
@@ -493,7 +545,7 @@ public class TaskService {
          */
         if (currentRelOpt.isPresent()) {
             TemplateStepRelation rel = currentRelOpt.get();
-            List<TaskStepDefinition> nextSteps = rel.getAllowedNextSteps();
+            Set<TaskStepDefinition> nextSteps = rel.getAllowedNextSteps();
             
             List<TaskStepDefinition> result;
             /*
@@ -579,40 +631,13 @@ public class TaskService {
      * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public boolean isTaskFinalized(Task task) {
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
         if (task.getFinalizedAt() != null) return true;
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
         if (task.getCurrentStep() == null) return false;
         
-        // Tentar encontrar a relação exata pelo ID do Step
-        Optional<TemplateStepRelation> relationOpt = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
-                task.getTaskTemplate().getId(), task.getCurrentStep().getId()
-        );
-
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
-        if (relationOpt.isPresent()) {
-            /*
-             * Retorna o resultado final processado pelo método.
-             */
-            return relationOpt.get().isFinalizer();
-        }
-
-        // Fallback: Se a relação exata não existe (ex: template atualizado), 
-        // buscar por Label no template atual
-        String currentLabel = task.getCurrentStep().getLabel();
-        /*
-         * Retorna o resultado final processado pelo método.
-         */
-        return stepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(task.getTaskTemplate().getId())
-                .stream()
-                .filter(r -> r.getTaskStepDefinition().getLabel().equals(currentLabel))
-                .anyMatch(TemplateStepRelation::isFinalizer);
+        // Tenta encontrar a relação preferencialmente pela coleção já inicializada no template
+        return findStepRelation(task)
+                .map(TemplateStepRelation::isFinalizer)
+                .orElse(false);
     }
 
     /**
@@ -641,33 +666,35 @@ public class TaskService {
      * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public boolean shouldTaskPulse(Task task) {
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
         if (task.getCurrentStep() == null) return false;
 
-        Optional<TemplateStepRelation> relationOpt = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
-                task.getTaskTemplate().getId(), task.getCurrentStep().getId()
-        );
+        return findStepRelation(task)
+                .map(TemplateStepRelation::isShouldPulse)
+                .orElse(false);
+    }
 
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
-        if (relationOpt.isPresent()) {
-            /*
-             * Retorna o resultado final processado pelo método.
-             */
-            return relationOpt.get().isShouldPulse();
+    /**
+     * Tenta encontrar a relação entre um template e um passo, priorizando a coleção já carregada
+     * em memória para evitar consultas N+1 quando o EntityGraph foi utilizado.
+     */
+    private Optional<TemplateStepRelation> findStepRelation(Task task) {
+        if (task.getTaskTemplate() == null || task.getCurrentStep() == null) {
+            return Optional.empty();
         }
 
-        String currentLabel = task.getCurrentStep().getLabel();
-        /*
-         * Retorna o resultado final processado pelo método.
-         */
-        return stepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(task.getTaskTemplate().getId())
-                .stream()
-                .filter(r -> r.getTaskStepDefinition().getLabel().equals(currentLabel))
-                .anyMatch(TemplateStepRelation::isShouldPulse);
+        // Acessa a coleção do template. Graças ao @BatchSize, se não estiver inicializada,
+        // o Hibernate carregará para vários templates de uma vez.
+        Set<TemplateStepRelation> relations = task.getTaskTemplate().getTemplateStepRelation();
+        if (relations != null && !relations.isEmpty()) {
+            return relations.stream()
+                    .filter(r -> r.getTaskStepDefinition().getId().equals(task.getCurrentStep().getId()))
+                    .findFirst();
+        }
+
+        // Fallback apenas se a coleção estiver realmente vazia e não for um problema de LazyInit
+        return stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
+                task.getTaskTemplate().getId(), task.getCurrentStep().getId()
+        );
     }
 
     /**
@@ -718,6 +745,9 @@ public class TaskService {
          * Avalia uma condição (if) para desvio de fluxo da lógica principal.
          */
         if (user == null) return false;
+
+        // Administradores sempre podem executar ações (bypass de segurança operacional)
+        if (user.getRole() == Role.ADMIN) return true;
 
         TaskTemplate template = task.getTaskTemplate();
         /*

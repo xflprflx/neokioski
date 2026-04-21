@@ -4,18 +4,60 @@ import com.xflprflx.neokioski.models.Group;
 import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.models.enums.Role;
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.Objects;
+import java.util.*;
 
-@Entity
-@Table(name = "tb_task_templates")
 /**
  * Entidade que define o modelo ou gabarito estrutural utilizado na criação de novas tarefas.
  */
+@Entity
+@Table(name = "tb_task_templates")
+@BatchSize(size = 100)
+@NamedEntityGraph(
+    name = "TaskTemplate.full",
+    attributeNodes = {
+        @NamedAttributeNode("alertRoles"),
+        @NamedAttributeNode("groups"),
+        @NamedAttributeNode(value = "templateStepRelation", subgraph = "taskTemplate.stepRelations"),
+        @NamedAttributeNode(value = "templateFieldRelation", subgraph = "taskTemplate.fieldRelations"),
+        @NamedAttributeNode(value = "alerts", subgraph = "taskTemplate.alerts"),
+        @NamedAttributeNode("authorizingUsers")
+    },
+    subgraphs = {
+        @NamedSubgraph(
+            name = "taskTemplate.stepRelations",
+            attributeNodes = {
+                @NamedAttributeNode("taskStepDefinition"),
+                @NamedAttributeNode("allowedNextSteps"),
+                @NamedAttributeNode("alertRoles"),
+                @NamedAttributeNode("responseOptions")
+            }
+        ),
+        @NamedSubgraph(
+            name = "taskTemplate.fieldRelations",
+            attributeNodes = {
+                @NamedAttributeNode(value = "taskFieldDefinition", subgraph = "taskField.full")
+            }
+        ),
+        @NamedSubgraph(
+            name = "taskField.full",
+            attributeNodes = {
+                @NamedAttributeNode("taskFieldOptions")
+            }
+        ),
+        @NamedSubgraph(
+            name = "taskTemplate.alerts",
+            attributeNodes = {
+                @NamedAttributeNode("alertRoles"),
+                @NamedAttributeNode("targetStep"),
+                @NamedAttributeNode("startStep")
+            }
+        )
+    }
+)
 public class TaskTemplate {
 
     @Id
@@ -41,34 +83,40 @@ public class TaskTemplate {
     @Column(nullable = false)
     private Integer sortOrder = 0;
 
-    @ElementCollection(fetch = FetchType.EAGER)
+    @ElementCollection(fetch = FetchType.LAZY)
     @Enumerated(EnumType.STRING)
     @CollectionTable(name = "tb_task_template_alert_roles", joinColumns = @JoinColumn(name = "task_template_id"))
     @Column(name = "role")
     private Set<Role> alertRoles = new HashSet<>();
-    @ManyToMany(fetch = FetchType.EAGER)
+
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "tb_task_templates_groups",
             joinColumns = @JoinColumn(name = "task_template_id"),
             inverseJoinColumns = @JoinColumn(name = "group_id")
     )
-    @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
-    private List<Group> groups = new ArrayList<>();
-    @OneToMany(mappedBy = "taskTemplate")
-    private List<TemplateStepRelation> templateStepRelation = new ArrayList<>();
-    @OneToMany(mappedBy = "taskTemplate")
-    private List<TemplateFieldRelation> templateFieldRelation = new ArrayList<>();
-    @OneToMany(mappedBy = "taskTemplate", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<TaskAlert> alerts = new ArrayList<>();
+    private Set<Group> groups = new LinkedHashSet<>();
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "taskTemplate")
+    @BatchSize(size = 100)
+    private Set<TemplateStepRelation> templateStepRelation = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "taskTemplate")
+    @BatchSize(size = 100)
+    private Set<TemplateFieldRelation> templateFieldRelation = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "taskTemplate", cascade = CascadeType.ALL, orphanRemoval = true)
+    @BatchSize(size = 100)
+    private Set<TaskAlert> alerts = new LinkedHashSet<>();
+
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "tb_task_templates_authorizer_users",
             joinColumns = @JoinColumn(name = "task_template_id"),
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
-    @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
-    private List<User> authorizingUsers = new ArrayList<>();
+    @BatchSize(size = 100)
+    private Set<User> authorizingUsers = new LinkedHashSet<>();
 
     public TaskTemplate() {
     }
@@ -145,7 +193,7 @@ public class TaskTemplate {
         this.alertRoles = alertRoles;
     }
 
-    public List<Group> getGroups() {
+    public Set<Group> getGroups() {
         return groups;
     }
 
@@ -161,23 +209,23 @@ public class TaskTemplate {
         this.groups.add(group);
     }
 
-    public List<TemplateStepRelation> getTemplateStepRelation() {
+    public Set<TemplateStepRelation> getTemplateStepRelation() {
         return templateStepRelation;
     }
 
-    public List<TemplateFieldRelation> getTemplateFieldRelation() {
+    public Set<TemplateFieldRelation> getTemplateFieldRelation() {
         return templateFieldRelation;
     }
 
-    public List<User> getAuthorizingUsers() {
+    public Set<User> getAuthorizingUsers() {
         return authorizingUsers;
     }
 
-    public void setAuthorizingUsers(List<User> authorizingUsers) {
+    public void setAuthorizingUsers(Set<User> authorizingUsers) {
         this.authorizingUsers = authorizingUsers;
     }
 
-    public List<TaskAlert> getAlerts() {
+    public Set<TaskAlert> getAlerts() {
         return alerts;
     }
 
@@ -189,7 +237,7 @@ public class TaskTemplate {
         this.sortOrder = sortOrder;
     }
 
-    public void setAlerts(List<TaskAlert> alerts) {
+    public void setAlerts(Set<TaskAlert> alerts) {
         this.alerts = alerts;
     }
 

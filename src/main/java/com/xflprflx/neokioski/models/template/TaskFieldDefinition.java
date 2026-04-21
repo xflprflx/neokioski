@@ -2,12 +2,13 @@ package com.xflprflx.neokioski.models.template;
 
 import jakarta.persistence.*;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import org.hibernate.annotations.BatchSize;
+
+import java.util.*;
 
 @Entity
 @Table(name = "tb_task_field_definitions")
+@BatchSize(size = 100)
 /**
  * Entidade que representa a definição estrutural de um campo customizável pertencente a um template.
  */
@@ -23,7 +24,7 @@ public class TaskFieldDefinition {
     private InputType inputType;
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "task_field_definition_id")
-    private List<TaskFieldOption> taskFieldOptions = new ArrayList<>();
+    private Set<TaskFieldOption> taskFieldOptions = new LinkedHashSet<>();
 
     public TaskFieldDefinition() {
     }
@@ -60,7 +61,7 @@ public class TaskFieldDefinition {
         this.inputType = inputType;
     }
 
-    public List<TaskFieldOption> getTaskFieldOptions() {
+    public Set<TaskFieldOption> getTaskFieldOptions() {
         return taskFieldOptions;
     }
 

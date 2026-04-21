@@ -4,11 +4,13 @@ import com.xflprflx.neokioski.models.enums.SlaStatus;
 import com.xflprflx.neokioski.models.enums.TaskSlaUnit;
 import com.xflprflx.neokioski.models.template.TaskSlaConfig;
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 import java.time.Instant;
 import java.util.Objects;
 
 @Entity
 @Table(name = "tb_task_sla_results")
+@BatchSize(size = 100)
 /**
  * Entidade que consolida o resultado do tempo de nível de serviço (SLA) para uma determinada tarefa.
  */

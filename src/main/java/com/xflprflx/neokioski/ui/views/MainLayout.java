@@ -18,6 +18,7 @@ import com.vaadin.flow.router.AfterNavigationObserver;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.RouteConfiguration;
+import com.vaadin.flow.server.auth.AnonymousAllowed;
 import com.vaadin.flow.spring.security.AuthenticationContext;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
@@ -47,7 +48,7 @@ import java.util.function.Consumer;
  * Layout principal da aplicação que define o cabeçalho (Header) e o menu lateral (Drawer).
  * Todas as outras vistas (@Route) são renderizadas dentro deste layout.
  */
-@PermitAll
+@AnonymousAllowed
 public class MainLayout extends AppLayout implements AfterNavigationObserver, BeforeEnterObserver {
 
     private final transient AuthenticationContext authContext;

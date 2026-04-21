@@ -3,17 +3,18 @@ package com.xflprflx.neokioski.services;
 import com.xflprflx.neokioski.models.Group;
 import com.xflprflx.neokioski.models.Task;
 import com.xflprflx.neokioski.models.TaskEvent;
-import com.xflprflx.neokioski.models.TaskSlaResult;
 import com.xflprflx.neokioski.models.enums.SlaStatus;
 import com.xflprflx.neokioski.models.template.TaskTemplate;
 import com.xflprflx.neokioski.repositories.TaskRepository;
 import com.xflprflx.neokioski.repositories.TaskSlaResultRepository;
 import com.xflprflx.neokioski.repositories.TaskTemplateRepository;
+import com.xflprflx.neokioski.repositories.TemplateStepRelationRepository;
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -28,7 +29,7 @@ public class DashboardService {
     private final TaskRepository taskRepository;
     private final TaskSlaResultRepository slaResultRepository;
     private final TaskTemplateRepository templateRepository;
-    private final com.xflprflx.neokioski.repositories.TemplateStepRelationRepository stepRelationRepository;
+    private final TemplateStepRelationRepository stepRelationRepository;
 
     public DashboardService(TaskRepository taskRepository,
                             TaskSlaResultRepository slaResultRepository,
@@ -43,19 +44,36 @@ public class DashboardService {
     /**
      * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
+    @Transactional(readOnly = true)
     public DashboardData getDashboardData(Instant start, Instant end, Group group, TaskTemplate type, String creatorNameFilter, String finalizerNameFilter, String dateFilterStr) {
         // Buscar todas as tasks no período base de dados limitados pelas DatePickers
         List<Task> tasks = taskRepository.findAllByCreatedAtBetween(start, end);
+
+        // Inicializar coleções em lote para evitar LazyInitializationException e N+1 nos rankings
+        tasks.forEach(t -> {
+            Hibernate.initialize(t.getTaskEvents());
+            Hibernate.initialize(t.getSlaResults());
+        });
 
         // 1. Filtros Globais Rígidos (Data Boundary e Grupo afetam absolutamente TUDO)
         List<Task> globalBaseTasks = tasks.stream()
                 .filter(t -> group == null || group.equals(t.getGroup()))
                 .collect(Collectors.toList());
 
+        // Otimização N+1: Pré-carregar todas as definições de passos dos templates envolvidos para identificar concluidores
+        Set<Long> templateIds = globalBaseTasks.stream()
+                .map(t -> t.getTaskTemplate().getId())
+                .collect(Collectors.toSet());
+        
+        Map<Long, List<com.xflprflx.neokioski.models.template.TemplateStepRelation>> relationsCache = new HashMap<>();
+        for (Long tId : templateIds) {
+            relationsCache.put(tId, stepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(tId));
+        }
+
         // 2. Ranking Base (Menu de Criadores) -> Afetado por Tipo, Concluidor e Data Clique. Ignora clique em Criador.
         List<Task> rankingBaseTasks = globalBaseTasks.stream()
                 .filter(t -> type == null || type.equals(t.getTaskTemplate()))
-                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t), finalizerNameFilter))
+                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t, relationsCache), finalizerNameFilter))
                 .filter(t -> dateFilterStr == null || formatDate(t.getCreatedAt()).equals(dateFilterStr))
                 .collect(Collectors.toList());
 
@@ -76,7 +94,7 @@ public class DashboardService {
                 .collect(Collectors.toList());
 
         List<ChartDataPoint> finalizerRanking = finalizerBaseTasks.stream()
-                .map(this::getTaskFinalizerName)
+                .map(t -> getTaskFinalizerName(t, relationsCache))
                 .filter(Objects::nonNull)
                 .collect(Collectors.groupingBy(name -> name, Collectors.counting()))
                 .entrySet().stream()
@@ -88,7 +106,7 @@ public class DashboardService {
         // 3. TMA Base (Menu de Tipos) -> Afetado por Criador, Concluidor e Data Clique. Ignora clique em Tipo.
         List<Task> tmaBaseTasks = globalBaseTasks.stream()
                 .filter(t -> creatorNameFilter == null || (t.getCreator() != null && t.getCreator().getName().equals(creatorNameFilter)))
-                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t), finalizerNameFilter))
+                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t, relationsCache), finalizerNameFilter))
                 .filter(t -> dateFilterStr == null || formatDate(t.getCreatedAt()).equals(dateFilterStr))
                 .collect(Collectors.toList());
 
@@ -96,14 +114,14 @@ public class DashboardService {
         List<Task> historyBaseTasks = globalBaseTasks.stream()
                 .filter(t -> type == null || type.equals(t.getTaskTemplate()))
                 .filter(t -> creatorNameFilter == null || (t.getCreator() != null && t.getCreator().getName().equals(creatorNameFilter)))
-                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t), finalizerNameFilter))
+                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t, relationsCache), finalizerNameFilter))
                 .collect(Collectors.toList());
 
         // 5. Strict Base (Variáveis centrais da tela KPIs, afetado por TODOS OS SELETORES EM CADEIA)
         List<Task> strictFilteredTasks = globalBaseTasks.stream()
                 .filter(t -> type == null || type.equals(t.getTaskTemplate()))
                 .filter(t -> creatorNameFilter == null || (t.getCreator() != null && t.getCreator().getName().equals(creatorNameFilter)))
-                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t), finalizerNameFilter))
+                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t, relationsCache), finalizerNameFilter))
                 .filter(t -> dateFilterStr == null || formatDate(t.getCreatedAt()).equals(dateFilterStr))
                 .collect(Collectors.toList());
 
@@ -246,41 +264,33 @@ public class DashboardService {
      * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private String getTaskFinalizerName(Task t) {
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
+        return getTaskFinalizerName(t, null);
+    }
+
+    private String getTaskFinalizerName(Task t, Map<Long, List<com.xflprflx.neokioski.models.template.TemplateStepRelation>> cache) {
         if (t.getTaskEvents() == null || t.getTaskEvents().isEmpty()) return null;
         
-        // Buscar o evento que preencheu o campo de Delivery
-        // No NeoKioski, isso é identificado via TemplateStepRelation que tenha hasResponseField=true e label contendo 'DELIVERY'
-        /*
-         * Inicia um laço de repetição (for) para iterar sobre os elementos.
-         */
         for (TaskEvent event : t.getTaskEvents()) {
-            /*
-             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-             */
             if (event.getTaskStepDefinition() == null) continue;
             
-            var relOpt = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
-                t.getTaskTemplate().getId(), event.getTaskStepDefinition().getId());
+            com.xflprflx.neokioski.models.template.TemplateStepRelation relation = null;
+            
+            if (cache != null && cache.containsKey(t.getTaskTemplate().getId())) {
+                relation = cache.get(t.getTaskTemplate().getId()).stream()
+                    .filter(r -> r.getTaskStepDefinition().getId().equals(event.getTaskStepDefinition().getId()))
+                    .findFirst().orElse(null);
+            } else {
+                relation = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
+                    t.getTaskTemplate().getId(), event.getTaskStepDefinition().getId()).orElse(null);
+            }
                 
-            /*
-             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-             */
-            if (relOpt.isPresent() && relOpt.get().isHasResponseField() && 
-                relOpt.get().getResponseFieldLabel() != null && 
-                relOpt.get().getResponseFieldLabel().toUpperCase().contains("DELIVERY")) {
+            if (relation != null && relation.isHasResponseField() && 
+                relation.getResponseFieldLabel() != null && 
+                relation.getResponseFieldLabel().toUpperCase().contains("DELIVERY")) {
                 
-                /*
-                 * Retorna o resultado final processado pelo método.
-                 */
                 return event.getUser() != null ? event.getUser().getName() : null;
             }
         }
-        /*
-         * Retorna o resultado final processado pelo método.
-         */
         return null;
     }
 

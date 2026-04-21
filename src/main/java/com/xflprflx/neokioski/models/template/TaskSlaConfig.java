@@ -2,14 +2,16 @@ package com.xflprflx.neokioski.models.template;
 
 import com.xflprflx.neokioski.models.enums.TaskSlaUnit;
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 import java.time.Instant;
 import java.util.Objects;
 
-@Entity
-@Table(name = "tb_task_sla_configs")
 /**
  * Entidade de configuração que define os parâmetros de limite de tempo (SLA) para os passos de um template de tarefa.
  */
+@Entity
+@Table(name = "tb_task_sla_configs")
+@BatchSize(size = 100)
 public class TaskSlaConfig {
 
     @Id

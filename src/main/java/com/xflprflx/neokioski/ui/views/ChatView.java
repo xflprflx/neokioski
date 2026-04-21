@@ -659,7 +659,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             InputType type = rel.getTaskFieldDefinition().getInputType();
             String label = rel.getTaskFieldDefinition().getLabel();
             String desc = rel.getTaskFieldDefinition().getDescription();
-            List<TaskFieldOption> options = rel.getTaskFieldDefinition().getTaskFieldOptions();
+            Set<TaskFieldOption> options = rel.getTaskFieldDefinition().getTaskFieldOptions();
             
             com.vaadin.flow.component.Component fieldComponent = createInputComponent(type, label, desc, rel.isRequired(), options, "", true);
 
@@ -2064,7 +2064,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         return wrapper;
     }
 
-    private com.vaadin.flow.component.Component createInputComponent(InputType type, String label, String desc, boolean required, List<TaskFieldOption> optionsObj, String placeholder, boolean isCompact) {
+    private com.vaadin.flow.component.Component createInputComponent(InputType type, String label, String desc, boolean required, Set<TaskFieldOption> optionsObj, String placeholder, boolean isCompact) {
         List<String> options = optionsObj != null ? optionsObj.stream().map(TaskFieldOption::getOptionLabel).toList() : new ArrayList<>();
         com.vaadin.flow.component.Component fieldComponent = null;
 

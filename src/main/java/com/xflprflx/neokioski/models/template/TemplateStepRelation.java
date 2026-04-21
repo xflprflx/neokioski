@@ -1,20 +1,28 @@
 package com.xflprflx.neokioski.models.template;
 
-
 import com.xflprflx.neokioski.models.enums.Role;
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.Fetch;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.Objects;
+import java.util.*;
 
+/**
+ * Entidade que mapeia o relacionamento de ordenação dos passos predefinidos
+ * dentro de um template de tarefa.
+ */
 @Entity
 @Table(name = "tb_template_step_relations")
-/**
- * Entidade que mapeia o relacionamento de ordenação dos passos predefinidos dentro de um template de tarefa.
- */
+@BatchSize(size = 100)
+@NamedEntityGraphs({
+        @NamedEntityGraph(name = "TemplateStepRelation.findByTaskTemplateIdAndTaskStepDefinitionId", attributeNodes = {
+                @NamedAttributeNode("responseOptions"),
+                @NamedAttributeNode("taskTemplate"),
+                @NamedAttributeNode("taskStepDefinition"),
+                @NamedAttributeNode("allowedNextSteps"),
+                @NamedAttributeNode("alertRoles")
+        })
+})
 public class TemplateStepRelation {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -46,27 +54,24 @@ public class TemplateStepRelation {
     @Column(name = "response_input_type")
     private InputType responseInputType = InputType.TEXT;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JoinColumn(name = "template_step_relation_id")
     @OrderBy("id ASC")
-    @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
-    private List<TaskFieldOption> responseOptions = new ArrayList<>();
+    @BatchSize(size = 100)
+    private Set<TaskFieldOption> responseOptions = new LinkedHashSet<>();
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "task_template_id")
     private TaskTemplate taskTemplate;
-    @ManyToOne(optional = false)
+
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "task_step_definition_id")
     private TaskStepDefinition taskStepDefinition;
 
-    @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(
-            name = "tb_template_step_next_allowed",
-            joinColumns = @JoinColumn(name = "template_step_relation_id"),
-            inverseJoinColumns = @JoinColumn(name = "next_step_definition_id")
-    )
-    @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
-    private List<TaskStepDefinition> allowedNextSteps = new ArrayList<>();
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "tb_template_step_next_allowed", joinColumns = @JoinColumn(name = "template_step_relation_id"), inverseJoinColumns = @JoinColumn(name = "next_step_definition_id"))
+    @BatchSize(size = 100)
+    private Set<TaskStepDefinition> allowedNextSteps = new LinkedHashSet<>();
 
     private String alertSound;
 
@@ -74,10 +79,11 @@ public class TemplateStepRelation {
     @Column(name = "responsible_role")
     private Role responsibleRole;
 
-    @ElementCollection(fetch = FetchType.EAGER)
+    @ElementCollection(fetch = FetchType.LAZY)
     @Enumerated(EnumType.STRING)
     @CollectionTable(name = "tb_template_step_relation_alert_roles", joinColumns = @JoinColumn(name = "relation_id"))
     @Column(name = "role")
+    @BatchSize(size = 100)
     private Set<Role> alertRoles = new HashSet<>();
 
     public TemplateStepRelation() {
@@ -139,14 +145,13 @@ public class TemplateStepRelation {
         this.taskStepDefinition = taskStepDefinition;
     }
 
-    public List<TaskStepDefinition> getAllowedNextSteps() {
+    public Set<TaskStepDefinition> getAllowedNextSteps() {
         return allowedNextSteps;
     }
 
-    public void setAllowedNextSteps(List<TaskStepDefinition> allowedNextSteps) {
+    public void setAllowedNextSteps(Set<TaskStepDefinition> allowedNextSteps) {
         this.allowedNextSteps = allowedNextSteps;
     }
-
 
     public boolean isShouldPulse() {
         return shouldPulse;
@@ -204,11 +209,11 @@ public class TemplateStepRelation {
         this.responseInputType = responseInputType;
     }
 
-    public List<TaskFieldOption> getResponseOptions() {
+    public Set<TaskFieldOption> getResponseOptions() {
         return responseOptions;
     }
 
-    public void setResponseOptions(List<TaskFieldOption> responseOptions) {
+    public void setResponseOptions(Set<TaskFieldOption> responseOptions) {
         this.responseOptions = responseOptions;
     }
 
@@ -250,31 +255,32 @@ public class TemplateStepRelation {
 
     @Override
     public boolean equals(Object o) {
-        if (o == null || getClass() != o.getClass()) return false;
+        if (o == null || getClass() != o.getClass())
+            return false;
         TemplateStepRelation that = (TemplateStepRelation) o;
-        return order == that.order && isFinalizer == that.isFinalizer && 
-               sendNotification == that.sendNotification && 
-               shouldPulse == that.shouldPulse &&
-               isGlobal == that.isGlobal &&
-               hasResponseField == that.hasResponseField &&
-               isResponseRequired == that.isResponseRequired &&
-               responseIsCompact == that.responseIsCompact &&
-               Objects.equals(id, that.id) && 
-               Objects.equals(notificationMessage, that.notificationMessage) && 
-               Objects.equals(taskTemplate, that.taskTemplate) && 
-               Objects.equals(taskStepDefinition, that.taskStepDefinition) &&
-               responseInputType == that.responseInputType &&
-               Objects.equals(responseOptions, that.responseOptions) &&
-               Objects.equals(responseFieldLabel, that.responseFieldLabel) &&
-               responsibleRole == that.responsibleRole;
+        return order == that.order && isFinalizer == that.isFinalizer &&
+                sendNotification == that.sendNotification &&
+                shouldPulse == that.shouldPulse &&
+                isGlobal == that.isGlobal &&
+                hasResponseField == that.hasResponseField &&
+                isResponseRequired == that.isResponseRequired &&
+                responseIsCompact == that.responseIsCompact &&
+                Objects.equals(id, that.id) &&
+                Objects.equals(notificationMessage, that.notificationMessage) &&
+                Objects.equals(taskTemplate, that.taskTemplate) &&
+                Objects.equals(taskStepDefinition, that.taskStepDefinition) &&
+                responseInputType == that.responseInputType &&
+                Objects.equals(responseOptions, that.responseOptions) &&
+                Objects.equals(responseFieldLabel, that.responseFieldLabel) &&
+                responsibleRole == that.responsibleRole;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, order, isFinalizer, sendNotification, shouldPulse, isGlobal, 
-                            hasResponseField, isResponseRequired, responseIsCompact,
-                            getNotificationMessage(), 
-                            taskTemplate, taskStepDefinition, responseFieldLabel, responsibleRole);
+        return Objects.hash(id, order, isFinalizer, sendNotification, shouldPulse, isGlobal,
+                hasResponseField, isResponseRequired, responseIsCompact,
+                getNotificationMessage(),
+                taskTemplate, taskStepDefinition, responseFieldLabel, responsibleRole);
     }
 
 }

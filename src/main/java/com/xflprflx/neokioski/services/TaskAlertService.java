@@ -1,6 +1,7 @@
 package com.xflprflx.neokioski.services;
 
 import com.xflprflx.neokioski.models.Task;
+import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.models.template.TaskAlert;
 import com.xflprflx.neokioski.models.template.TaskStepDefinition;
 import com.xflprflx.neokioski.repositories.TaskRepository;
@@ -12,6 +13,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 
@@ -285,7 +287,7 @@ public class TaskAlertService {
             message = "ALERTA: A tarefa '" + task.getTaskTemplate().getName() + "' está pendente há mais de " + alert.getTimeoutMinutes() + " minutos!";
         }
 
-        List<com.xflprflx.neokioski.models.User> authorizers = task.getTaskTemplate().getAuthorizingUsers();
+        Set<User> authorizers = task.getTaskTemplate().getAuthorizingUsers();
         /*
          * Avalia uma condição (if) para desvio de fluxo da lógica principal.
          */

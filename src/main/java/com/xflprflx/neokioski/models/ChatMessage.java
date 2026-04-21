@@ -1,15 +1,64 @@
 package com.xflprflx.neokioski.models;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
+
 import java.time.Instant;
-import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.List;
 
 @Entity
 @Table(name = "tb_chat_messages")
-/**
- * Entidade que representa uma mensagem de texto trocada entre usuários ou em grupos de chat.
- */
+@BatchSize(size = 100)
+@NamedEntityGraphs({
+    @NamedEntityGraph(
+        name = "ChatMessage.withTaskFull",
+        attributeNodes = {
+            @NamedAttributeNode(value = "task", subgraph = "task.full"),
+            @NamedAttributeNode("user"),
+            @NamedAttributeNode("group"),
+            @NamedAttributeNode("replyTo"),
+            @NamedAttributeNode("reactions"),
+            @NamedAttributeNode("edits")
+        },
+        subgraphs = {
+            @NamedSubgraph(
+                name = "task.full",
+                attributeNodes = {
+                    @NamedAttributeNode("creator"),
+                    @NamedAttributeNode("group"),
+                    @NamedAttributeNode("currentStep"),
+                    @NamedAttributeNode("taskTemplate")
+                }
+            )
+        }
+    ),
+    @NamedEntityGraph(
+        name = "ChatMessage.minimal",
+        attributeNodes = {
+            @NamedAttributeNode("user"),
+            @NamedAttributeNode("group"),
+            @NamedAttributeNode(value = "replyTo", subgraph = "message.basic"),
+            @NamedAttributeNode(value = "reactions", subgraph = "reaction.basic"),
+            @NamedAttributeNode("edits")
+        },
+        subgraphs = {
+            @NamedSubgraph(
+                name = "message.basic",
+                attributeNodes = {
+                    @NamedAttributeNode("user")
+                }
+            ),
+            @NamedSubgraph(
+                name = "reaction.basic",
+                attributeNodes = {
+                    @NamedAttributeNode("user")
+                }
+            )
+        }
+    )
+})
 public class ChatMessage {
 
     @Id
@@ -21,30 +70,28 @@ public class ChatMessage {
 
     private Instant timestamp;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "group_id")
     private Group group;
 
-    @OneToMany(mappedBy = "chatMessage", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
-    private List<MessageReaction> reactions = new ArrayList<>();
+    @OneToMany(mappedBy = "chatMessage", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private Set<MessageReaction> reactions = new LinkedHashSet<>();
 
-    @OneToMany(mappedBy = "chatMessage", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "chatMessage", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("editTimestamp DESC")
-    @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
-    private List<MessageEdit> edits = new ArrayList<>();
+    private Set<MessageEdit> edits = new LinkedHashSet<>();
 
     private boolean isDeleted = false;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reply_to_id")
     private ChatMessage replyTo;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "task_id")
     private Task task;
 
@@ -107,11 +154,11 @@ public class ChatMessage {
         this.group = group;
     }
 
-    public List<MessageReaction> getReactions() {
+    public Set<MessageReaction> getReactions() {
         return reactions;
     }
 
-    public void setReactions(List<MessageReaction> reactions) {
+    public void setReactions(Set<MessageReaction> reactions) {
         this.reactions = reactions;
     }
 
@@ -123,11 +170,11 @@ public class ChatMessage {
         this.replyTo = replyTo;
     }
 
-    public List<MessageEdit> getEdits() {
+    public Set<MessageEdit> getEdits() {
         return edits;
     }
 
-    public void setEdits(List<MessageEdit> edits) {
+    public void setEdits(Set<MessageEdit> edits) {
         this.edits = edits;
     }
 

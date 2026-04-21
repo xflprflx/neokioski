@@ -2,10 +2,12 @@ package com.xflprflx.neokioski.models;
 
 import com.xflprflx.neokioski.models.template.TaskFieldDefinition;
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 import java.util.Objects;
 
 @Entity
 @Table(name = "tb_task_field_values")
+@BatchSize(size = 100)
 /**
  * Entidade que armazena o valor preenchido em um campo dinâmico de uma tarefa específica.
  */

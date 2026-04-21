@@ -3,10 +3,13 @@ package com.xflprflx.neokioski.models;
 import com.xflprflx.neokioski.models.template.TaskTemplate;
 import jakarta.persistence.*;
 
+import org.hibernate.annotations.BatchSize;
+
 import java.util.*;
 
 @Entity
 @Table(name = "tb_groups")
+@BatchSize(size = 100)
 /**
  * Entidade que representa um grupo de usuários no sistema, utilizado para permissões e agrupar conversas.
  */

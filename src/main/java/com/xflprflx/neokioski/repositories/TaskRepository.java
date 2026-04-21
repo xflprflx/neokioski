@@ -3,18 +3,22 @@ package com.xflprflx.neokioski.repositories;
 import com.xflprflx.neokioski.models.Group;
 import com.xflprflx.neokioski.models.Task;
 import com.xflprflx.neokioski.models.User;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Repositório de acesso a dados para gerenciamento principal da entidade de tarefas (Task).
  */
 public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificationExecutor<Task> {
 
+    @EntityGraph("Task.findAllByCreatedAtBetween")
     @Query("SELECT DISTINCT t FROM Task t WHERE t.group = :group ORDER BY t.createdAt DESC")
      /**
      * Busca todas as tarefas associadas a um grupo específico, carregando suas coleções relacionadas.
@@ -23,8 +27,9 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
      */
     List<Task> findByGroupWithCollections(@Param("group") Group group);
 
+    @EntityGraph("Task.findAllByCreatedAtBetween")
     @Query("SELECT DISTINCT t FROM Task t LEFT JOIN t.taskEvents e WHERE t.group = :group AND (t.creator = :user OR e.user = :user) ORDER BY t.createdAt DESC")
- /**
+  /**
      * Retorna tarefas do grupo em que o usuário participou como criador ou agindo em algum evento.
      * @param group O grupo de tarefas.
      * @param user O usuário a ser filtrado.
@@ -54,6 +59,7 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
            """)
     long countAllPending();
 
+    @EntityGraph("Task.findAllByCreatedAtBetween")
     @Query("""
            SELECT DISTINCT t FROM Task t
            LEFT JOIN TemplateStepRelation sr
@@ -85,10 +91,15 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
            """)
     long countPendingByGroups(@Param("groups") List<Group> groups);
 
+    @EntityGraph("Task.findAllByCreatedAtBetween")
     @Query("SELECT DISTINCT t FROM Task t WHERE t.group = :group AND t.createdAt BETWEEN :start AND :end ORDER BY t.createdAt DESC")
     List<Task> findByGroupAndCreatedAtBetweenOrderByCreatedAtDesc(@Param("group") Group group, @Param("start") java.time.Instant start, @Param("end") java.time.Instant end);
 
-    List<Task> findAllByCreatedAtBetween(java.time.Instant start, java.time.Instant end);
+    @EntityGraph("Task.findAllByCreatedAtBetween")
+    List<Task> findAllByCreatedAtBetween(Instant start, Instant end);
+
+    @EntityGraph("Task.findAllByCreatedAtBetween")
+    Optional<Task> findById(Long id);
 
     @Query("SELECT t.group.name, COUNT(t) FROM Task t GROUP BY t.group.name")
     List<Object[]> countTasksByGroup();

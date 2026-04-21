@@ -16,6 +16,9 @@ public interface TemplateStepRelationRepository extends JpaRepository<TemplateSt
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskStepDefinition"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     List<TemplateStepRelation> findByTaskTemplateIdOrderByOrderAsc(Long taskTemplateId);
 
+    // #improve_n+1 - Previne fetch lazy em TaskStepDefinition, TaskTemplate (e seus subgrafos se necessários não devem ser forçados a não ser que preciso, default LAZY)
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskStepDefinition"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     java.util.Optional<TemplateStepRelation> findByTaskTemplateIdAndTaskStepDefinitionId(Long taskTemplateId, Long taskStepDefinitionId);
+
     void deleteByTaskTemplateId(Long taskTemplateId);
 }

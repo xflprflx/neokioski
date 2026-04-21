@@ -183,7 +183,7 @@ public class TaskDetailsDialog extends Dialog {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void copyToClipboard(String text) {
         /*
@@ -208,7 +208,7 @@ public class TaskDetailsDialog extends Dialog {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private String formatSeconds(long seconds) {
         /*

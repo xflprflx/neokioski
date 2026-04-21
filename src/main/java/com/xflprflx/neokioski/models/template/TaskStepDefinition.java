@@ -1,8 +1,10 @@
 package com.xflprflx.neokioski.models.template;
 
 import jakarta.persistence.*;
-
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.Immutable;
 
 import java.util.Objects;
 

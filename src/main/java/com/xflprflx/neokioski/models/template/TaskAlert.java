@@ -2,6 +2,8 @@ package com.xflprflx.neokioski.models.template;
 
 import com.xflprflx.neokioski.models.enums.Role;
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
+
 import java.util.Objects;
 
 import java.util.HashSet;
@@ -9,6 +11,7 @@ import java.util.Set;
 
 @Entity
 @Table(name = "tb_task_template_alerts")
+@BatchSize(size = 100)
 /**
  * Entidade que configura alertas automáticos associados às tarefas para avisar sobre vencimentos.
  */

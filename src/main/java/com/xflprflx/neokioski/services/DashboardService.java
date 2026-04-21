@@ -42,7 +42,7 @@ public class DashboardService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     @Transactional(readOnly = true)
     public DashboardData getDashboardData(Instant start, Instant end, Group group, TaskTemplate type, String creatorNameFilter, String finalizerNameFilter, String dateFilterStr) {
@@ -166,7 +166,7 @@ public class DashboardService {
                     long dDelayed = dCompleted - dOnTime;
                     double dPct = dCompleted == 0 ? 0 : (double) dOnTime / dCompleted * 100;
                     /*
-                     * Retorna o resultado final processado pelo método.
+                     * Retorna o resultado final processado pelo métodx.
                      */
                     return new MixedChartPoint(date, dTotal, dOnTime, dDelayed, dPct);
                 })
@@ -255,13 +255,13 @@ public class DashboardService {
         }
 
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return new DashboardData(stats, userRanking, finalizerRanking, history, tmaPerStep);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private String getTaskFinalizerName(Task t) {
         return getTaskFinalizerName(t, null);
@@ -295,7 +295,7 @@ public class DashboardService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private double calculateInterquartileMeanTma(List<Task> completed) {
         /*
@@ -314,7 +314,7 @@ public class DashboardService {
          */
         if (size < 4) {
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
             return durations.stream().mapToLong(Long::longValue).average().orElse(0);
         }
@@ -325,17 +325,17 @@ public class DashboardService {
         // Pegar o miolo (50% central)
         List<Long> middleDurations = durations.subList(q1Idx, q3Idx);
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return middleDurations.stream().mapToLong(Long::longValue).average().orElse(0); // Retornar em segundos
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private String formatDate(Instant instant) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return DateTimeFormatter.ofPattern("dd/MM")
                 .withZone(ZoneId.systemDefault())
@@ -344,7 +344,7 @@ public class DashboardService {
 
     // DTOs
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public record DashboardStats(
         long activeTasks,
@@ -356,12 +356,12 @@ public class DashboardService {
     ) {}
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public record ChartDataPoint(String label, double value) {}
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public record MixedChartPoint(
         String date,
@@ -372,7 +372,7 @@ public class DashboardService {
     ) {}
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public record StackedBarData(
         String category,
@@ -381,7 +381,7 @@ public class DashboardService {
     ) {}
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public record DashboardData(
         DashboardStats stats,

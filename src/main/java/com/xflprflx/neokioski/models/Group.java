@@ -27,9 +27,11 @@ public class Group {
             joinColumns = @JoinColumn(name = "group_id"),
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
+    @BatchSize(size = 100)
     private Set<User> users = new HashSet<>();
 
     @ManyToMany(mappedBy = "groups")
+    @BatchSize(size = 100)
     private List<TaskTemplate> taskTemplates = new ArrayList<>();
 
     public Group() {

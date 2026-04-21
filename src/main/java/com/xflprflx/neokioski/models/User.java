@@ -4,6 +4,8 @@ import com.xflprflx.neokioski.models.enums.Role;
 import jakarta.persistence.*;
 
 import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -12,6 +14,8 @@ import java.util.Set;
 
 @Entity
 @Table(name = "tb_users")
+@Cacheable
+@Cache(usage = CacheConcurrencyStrategy.NONSTRICT_READ_WRITE)
 @BatchSize(size = 100)
 /**
  * Entidade que representa um usuário do sistema, com credenciais e papéis de acesso.
@@ -36,6 +40,7 @@ public class User {
     private LocalDateTime lastSeen;
 
     @ManyToMany(mappedBy = "users")
+    @Cache(usage = CacheConcurrencyStrategy.NONSTRICT_READ_WRITE)
     private Set<Group> groups = new HashSet<>();
 
     public User() {

@@ -6,7 +6,6 @@ import org.hibernate.annotations.BatchSize;
 import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Set;
-import java.util.List;
 
 @Entity
 @Table(name = "tb_chat_messages")
@@ -79,10 +78,12 @@ public class ChatMessage {
     private Group group;
 
     @OneToMany(mappedBy = "chatMessage", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @BatchSize(size = 100)
     private Set<MessageReaction> reactions = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "chatMessage", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("editTimestamp DESC")
+    @BatchSize(size = 100)
     private Set<MessageEdit> edits = new LinkedHashSet<>();
 
     private boolean isDeleted = false;

@@ -23,7 +23,29 @@ import java.util.*;
                         @NamedAttributeNode("creator"),
                         @NamedAttributeNode("group"),
                         @NamedAttributeNode("currentStep"),
-                        @NamedAttributeNode("taskTemplate")
+                        @NamedAttributeNode(value = "taskTemplate", subgraph = "taskTemplate.full")
+                },
+                subgraphs = {
+                        @NamedSubgraph(
+                                name = "taskTemplate.full",
+                                attributeNodes = {
+                                        @NamedAttributeNode(value = "templateStepRelation", subgraph = "stepRelation.full"),
+                                        @NamedAttributeNode(value = "templateFieldRelation", subgraph = "fieldRelation.full")
+                                }
+                        ),
+                        @NamedSubgraph(
+                                name = "stepRelation.full",
+                                attributeNodes = {
+                                        @NamedAttributeNode("taskStepDefinition"),
+                                        @NamedAttributeNode("allowedNextSteps")
+                                }
+                        ),
+                        @NamedSubgraph(
+                                name = "fieldRelation.full",
+                                attributeNodes = {
+                                        @NamedAttributeNode("taskFieldDefinition")
+                                }
+                        )
                 }
         )
 })
@@ -74,6 +96,7 @@ public class Task {
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "tb_task_triggered_alerts", joinColumns = @JoinColumn(name = "task_id"))
     @Column(name = "alert_id")
+    @BatchSize(size = 100)
     private Set<Long> triggeredAlertIds = new HashSet<>();
 
     private boolean isAlerted = false;
@@ -192,6 +215,14 @@ public class Task {
 
     public void setSlaResults(Set<TaskSlaResult> slaResults) {
         this.slaResults = slaResults;
+    }
+
+    /**
+     * Auxiliar de performance para a UI. 
+     * Evita chamadas ao serviço para checar o estado básico de conclusão.
+     */
+    public boolean isFinalized() {
+        return finalizedAt != null;
     }
 
     @Override

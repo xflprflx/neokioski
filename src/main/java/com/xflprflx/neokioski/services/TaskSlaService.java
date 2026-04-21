@@ -33,7 +33,7 @@ public class TaskSlaService {
 
     @Transactional
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void calculateAndSaveSla(Task task, TaskStepDefinition reachedStep) {
         List<TaskSlaConfig> configs = configRepository.findValidConfigs(task.getTaskTemplate(), task.getCreatedAt());
@@ -54,7 +54,7 @@ public class TaskSlaService {
 
     @Transactional
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void calculateFinalTaskSla(Task task) {
         /*
@@ -79,17 +79,17 @@ public class TaskSlaService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<TaskSlaResult> getResultsForTask(Task task) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return resultRepository.findByTask(task);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private void processSla(Task task, TaskSlaConfig config) {
         Instant studyStartTime = getStartTime(task, config);
@@ -135,7 +135,7 @@ public class TaskSlaService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private Instant getStartTime(Task task, TaskSlaConfig config) {
         /*
@@ -143,14 +143,14 @@ public class TaskSlaService {
          */
         if (config.getSourceStep() == null) {
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
             return task.getCreatedAt();
         }
 
         // Busca o evento mais recente do passo de origem
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return task.getTaskEvents().stream()
                 .filter(e -> config.getSourceStep().equals(e.getTaskStepDefinition()))

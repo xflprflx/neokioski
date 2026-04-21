@@ -2,13 +2,13 @@ package com.xflprflx.neokioski.models.template;
 
 import jakarta.persistence.*;
 
+import org.hibernate.annotations.BatchSize;
+
 import java.util.Objects;
 
 @Entity
 @Table(name = "tb_template_field_relations")
-/**
- * Entidade que mapeia o relacionamento entre um template de tarefa e a definição de um campo de entrada.
- */
+@BatchSize(size = 100)
 public class TemplateFieldRelation {
 
     @Id

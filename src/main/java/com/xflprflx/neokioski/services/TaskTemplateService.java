@@ -2,6 +2,7 @@ package com.xflprflx.neokioski.services;
 
 import com.xflprflx.neokioski.models.template.*;
 import com.xflprflx.neokioski.repositories.*;
+import org.hibernate.Hibernate;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,7 +51,7 @@ public class TaskTemplateService {
 
     @Transactional
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public TaskTemplate saveTemplate(TaskTemplate template, 
                                      List<TemplateFieldRelation> fieldRelations, 
@@ -190,64 +191,90 @@ public class TaskTemplateService {
         }
 
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return savedTemplate;
     }
 
+    @Transactional(readOnly = true)
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<TaskTemplate> findAll() {
-        /*
-         * Retorna o resultado final processado pelo método.
-         */
-        return taskTemplateRepository.findAll(Sort.by(Sort.Direction.ASC, "sortOrder", "name"));
+        List<TaskTemplate> templates = taskTemplateRepository.findAll(Sort.by(Sort.Direction.ASC, "sortOrder", "name"));
+        initializeTemplateGraph(templates);
+        return templates;
     }
 
+    @Transactional(readOnly = true)
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public TaskTemplate getTemplateById(Long id) {
-        /*
-         * Retorna o resultado final processado pelo método.
-         */
-        return taskTemplateRepository.findByIdWithGroups(id).orElse(null);
+        TaskTemplate template = taskTemplateRepository.findByIdWithGroups(id).orElse(null);
+        if (template != null) {
+            initializeTemplateGraph(java.util.Collections.singletonList(template));
+        }
+        return template;
     }
 
+    @Transactional(readOnly = true)
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<TaskTemplate> getTemplatesByGroupId(Long groupId) {
-        /*
-         * Retorna o resultado final processado pelo método.
-         */
-        return taskTemplateRepository.findByGroupId(groupId);
+        List<TaskTemplate> templates = taskTemplateRepository.findByGroupId(groupId);
+        initializeTemplateGraph(templates);
+        return templates;
+    }
+
+    private void initializeTemplateGraph(List<TaskTemplate> templates) {
+        if (templates == null || templates.isEmpty()) return;
+
+        // Com o @BatchSize(size = 100), iterar sobre os templates acionando a
+        // inicialização NÃO causa N+1. O Hibernate carregará lotes de 100 itens.
+        templates.forEach(tt -> {
+            if (tt == null) return;
+            
+            Hibernate.initialize(tt.getTemplateStepRelation());
+            Hibernate.initialize(tt.getAuthorizingUsers());
+            
+            java.util.Set<com.xflprflx.neokioski.models.template.TemplateFieldRelation> fieldRels = tt.getTemplateFieldRelation();
+            Hibernate.initialize(fieldRels);
+            
+            if (fieldRels != null) {
+                fieldRels.forEach(fr -> {
+                    if (fr != null && fr.getTaskFieldDefinition() != null) {
+                        Hibernate.initialize(fr.getTaskFieldDefinition().getTaskFieldOptions());
+                    }
+                });
+            }
+        });
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<TemplateFieldRelation> getFieldRelationsByTemplateId(Long templateId) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return templateFieldRelationRepository.findByTaskTemplateIdOrderByOrderAsc(templateId);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<TemplateStepRelation> getStepRelationsByTemplateId(Long templateId) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return templateStepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(templateId);
     }
 
     @Transactional
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void deleteTemplate(Long id) {
         templateFieldRelationRepository.deleteByTaskTemplateId(id);
@@ -258,7 +285,7 @@ public class TaskTemplateService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<TaskSlaConfig> getSlaConfigsByTemplateId(Long templateId) {
         TaskTemplate template = taskTemplateRepository.findById(templateId).orElse(null);
@@ -267,7 +294,7 @@ public class TaskTemplateService {
          */
         if (template == null) return new java.util.ArrayList<>();
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return taskSlaConfigRepository.findByTaskTemplateAndValidToIsNull(template);
     }

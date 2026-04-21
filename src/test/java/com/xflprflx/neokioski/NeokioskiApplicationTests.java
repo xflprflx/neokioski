@@ -18,7 +18,7 @@ class NeokioskiApplicationTests {
 	void contextLoads() {
 		/*
 		 * O bloco está vazio intencionalmente. Apenas a execução bem-sucedida
-		 * deste método com a anotação @SpringBootTest já comprova que o contexto
+		 * deste métodx com a anotação @SpringBootTest já comprova que o contexto
 		 * foi carregado sem problemas.
 		 */
 	}

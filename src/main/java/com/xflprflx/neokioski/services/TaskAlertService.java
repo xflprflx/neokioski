@@ -48,7 +48,7 @@ public class TaskAlertService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void scheduleAlertsForTask(Task task) {
         /*
@@ -142,7 +142,7 @@ public class TaskAlertService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void cancelAlertByTargetStep(Task task, TaskStepDefinition step) {
         /*
@@ -189,7 +189,7 @@ public class TaskAlertService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void cancelAllAlertsForTask(Task task) {
         /*
@@ -212,12 +212,12 @@ public class TaskAlertService {
                     future.cancel(false);
                 }
                 /*
-                 * Retorna o resultado final processado pelo método.
+                 * Retorna o resultado final processado pelo métodx.
                  */
                 return true;
             }
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
             return false;
         });
@@ -236,7 +236,7 @@ public class TaskAlertService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private void cancelSingleAlert(Task task, TaskAlert alert) {
         String cacheKey = getCacheKey(task, alert);
@@ -250,7 +250,7 @@ public class TaskAlertService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private void executeTransactionalTrigger(Long taskId, TaskAlert alert) {
         transactionTemplate.executeWithoutResult(status -> {
@@ -276,7 +276,7 @@ public class TaskAlertService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private void triggerAlertInternal(Task task, TaskAlert alert) {
         String message = alert.getAlertMessage();
@@ -324,11 +324,11 @@ public class TaskAlertService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private String getCacheKey(Task task, TaskAlert alert) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return task.getId() + "_" + alert.getId();
     }

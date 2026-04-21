@@ -2,6 +2,8 @@ package com.xflprflx.neokioski.models.template;
 
 import com.xflprflx.neokioski.models.enums.Role;
 import jakarta.persistence.*;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.Fetch;
 

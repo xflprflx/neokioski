@@ -186,7 +186,7 @@ public class HomeView extends Div {
 
     @Override
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
         super.onAttach(attachEvent);
@@ -197,7 +197,7 @@ public class HomeView extends Div {
 
     @Override
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     protected void onDetach(com.vaadin.flow.component.DetachEvent detachEvent) {
         /*
@@ -210,7 +210,7 @@ public class HomeView extends Div {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void createHeaderSection() {
         User user = securityService.getAuthenticatedInternalUser().orElse(null);
@@ -252,7 +252,7 @@ public class HomeView extends Div {
         add(welcome);
     }
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void createFilterSection() {
         Div filters = new Div();
@@ -313,7 +313,7 @@ public class HomeView extends Div {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void createKpiSection() {
         kpiGrid = new Div();
@@ -334,7 +334,7 @@ public class HomeView extends Div {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void createChartsSection() {
         Div chartsContainer = new Div();
@@ -410,7 +410,7 @@ public class HomeView extends Div {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Div createChartCard(String flexBasis) {
         Div col = new Div();
@@ -432,7 +432,7 @@ public class HomeView extends Div {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Div createChartHeader(String title) {
         Div header = new Div();
@@ -446,7 +446,7 @@ public class HomeView extends Div {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void updateDashboard() {
         /*
@@ -489,7 +489,7 @@ public class HomeView extends Div {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void renderKpiCards(DashboardService.DashboardStats stats) {
         kpiGrid.removeAll();
@@ -506,7 +506,7 @@ public class HomeView extends Div {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void addKpiToGrid(String label, String value, VaadinIcon icon, String theme, String sparkId, int index) {
         Div cardWrapper = createStatCard(label, value, icon, theme, sparkId);
@@ -516,7 +516,7 @@ public class HomeView extends Div {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Div createStatCard(String label, String value, VaadinIcon icon, String theme, String sparklineId) {
         String[] colors = TaskUIUtils.getThemeColors(theme);
@@ -598,7 +598,7 @@ public class HomeView extends Div {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void renderCharts(DashboardService.DashboardData data) {
         /*

@@ -3,12 +3,12 @@ package com.xflprflx.neokioski.ui.utils;
 import com.vaadin.flow.component.html.Span;
 
 /**
- * Classe utilitária contendo métodos auxiliares para a construção e formatação da interface de tarefas (badges de status, cores).
+ * Classe utilitária contendo métodxs auxiliares para a construção e formatação da interface de tarefas (badges de status, cores).
  */
 public class TaskUIUtils {
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public static String[] getThemeColors(String theme) {
         /*
@@ -40,7 +40,7 @@ public class TaskUIUtils {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public static String getThemeColorRGB(String theme) {
         /*
@@ -66,7 +66,7 @@ public class TaskUIUtils {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public static String resolveTemplateEmoji(String templateName) {
         /*
@@ -105,14 +105,14 @@ public class TaskUIUtils {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public static void applyThemeStyles(Span span, String theme) {
         applyThemeStyles((com.vaadin.flow.component.HasStyle) span, theme);
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public static void applyThemeStyles(com.vaadin.flow.component.HasStyle component, String theme) {
         String[] colors = getThemeColors(theme);

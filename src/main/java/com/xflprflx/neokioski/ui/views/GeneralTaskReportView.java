@@ -84,7 +84,7 @@ public class GeneralTaskReportView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void createFilterLayout() {
         HorizontalLayout filterRow1 = new HorizontalLayout();
@@ -143,7 +143,7 @@ public class GeneralTaskReportView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void clearFilters() {
         startDate.setValue(LocalDate.now());
@@ -156,7 +156,7 @@ public class GeneralTaskReportView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void createGridLayout() {
         grid = new Grid<>(Task.class, false);
@@ -216,14 +216,14 @@ public class GeneralTaskReportView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void refreshGrid() {
         grid.setItems(getFilteredTasks());
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private List<Task> getFilteredTasks() {
         Instant start = startDate.getValue() != null ? 
@@ -245,7 +245,7 @@ public class GeneralTaskReportView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void downloadExcel() {
         List<Task> tasks = getFilteredTasks();
@@ -261,7 +261,7 @@ public class GeneralTaskReportView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void downloadPdf() {
         List<Task> tasks = getFilteredTasks();
@@ -277,7 +277,7 @@ public class GeneralTaskReportView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * Métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void triggerDownload(StreamResource resource) {
         Anchor anchor = new Anchor(resource, "");

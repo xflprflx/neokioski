@@ -77,6 +77,74 @@ public class TaskService {
     /**
      * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
+    public List<TemplateStepRelation> getTemplateStepRelationsByTemplateId(Long templateId) {
+        return stepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(templateId);
+    }
+
+    /**
+     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
+    @Transactional(readOnly = true)
+    public List<Task> getFilteredTasksForDashboard(
+            Group group, User user, Instant start, Instant end,
+            String ownerFilter, String statusFilter, String sectorFilter
+    ) {
+        List<Task> tasks = taskRepository.findAllByCreatedAtBetween(start, end);
+        
+        // Filtra as tarefas do grupo e permissões
+        List<Task> filtered = tasks.stream()
+                .filter(t -> t.getGroup() != null && t.getGroup().getId().equals(group.getId()))
+                .filter(t -> canUserViewTask(t, user))
+                .collect(Collectors.toList());
+
+        // Inicializa dados em lote para evitar N+1 na renderização da UI
+        initializeTaskData(filtered);
+
+        return filtered;
+    }
+
+    /**
+     * Inicializa coleções dependentes em lote usando o BatchSize das entidades.
+     * Isso reduz drasticamente o número de queries de N para 1 por tipo de coleção.
+     */
+    @Transactional(readOnly = true)
+    public void initializeTaskData(List<Task> tasks) {
+        if (tasks == null || tasks.isEmpty()) return;
+
+        tasks.forEach(task -> {
+            // Inicializa coleções da Task (BatchSize trará as outras automaticamente)
+            Hibernate.initialize(task.getSlaResults());
+            Hibernate.initialize(task.getTaskEvents());
+            Hibernate.initialize(task.getTaskFieldValues());
+            Hibernate.initialize(task.getTaskStepDefinitions());
+
+            // Inicializa coleções do Template (BatchSize trará as outras automaticamente)
+            if (task.getTaskTemplate() != null) {
+                Hibernate.initialize(task.getTaskTemplate().getTemplateStepRelation());
+                Hibernate.initialize(task.getTaskTemplate().getTemplateFieldRelation());
+                
+                // Inicializa sub-coleções e objetos críticos
+                task.getTaskTemplate().getTemplateStepRelation().forEach(rel -> {
+                    Hibernate.initialize(rel.getAllowedNextSteps());
+                    Hibernate.initialize(rel.getTaskStepDefinition());
+                    Hibernate.initialize(rel.getResponseOptions());
+                    Hibernate.initialize(rel.getAlertRoles());
+                });
+
+                task.getTaskTemplate().getTemplateFieldRelation().forEach(rel -> {
+                    if (rel.getTaskFieldDefinition() != null) {
+                        Hibernate.initialize(rel.getTaskFieldDefinition().getTaskFieldOptions());
+                    }
+                });
+            }
+
+            // Inicializa configurações de SLA
+            task.getSlaResults().forEach(res -> {
+                Hibernate.initialize(res.getSlaConfig());
+            });
+        });
+    }
+
     public Task createTask(TaskTemplate template,
                            Map<TaskFieldDefinition, String> fieldValues,
                            User creator,
@@ -446,6 +514,7 @@ public class TaskService {
     /**
      * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<TaskStepDefinition> getAllowedNextSteps(Task task) {
         /*
          * Avalia uma condição (if) para desvio de fluxo da lógica principal.
@@ -454,12 +523,18 @@ public class TaskService {
 
         Set<TemplateStepRelation> memRelations = task.getTaskTemplate().getTemplateStepRelation();
         List<TemplateStepRelation> allRels;
-        if (memRelations != null) {
+        boolean safeToUseMem = Hibernate.isInitialized(memRelations) && 
+                memRelations.stream().allMatch(r -> Hibernate.isInitialized(r.getAllowedNextSteps()));
+
+        if (safeToUseMem) {
             allRels = memRelations.stream()
                     .sorted(Comparator.comparing(TemplateStepRelation::getOrder))
                     .collect(Collectors.toList());
         } else {
             allRels = stepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(task.getTaskTemplate().getId());
+            for (TemplateStepRelation r : allRels) {
+                Hibernate.initialize(r.getAllowedNextSteps());
+            }
         }
         
         List<TaskStepDefinition> globalSteps = allRels.stream()
@@ -630,6 +705,7 @@ public class TaskService {
     /**
      * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public boolean isTaskFinalized(Task task) {
         if (task.getFinalizedAt() != null) return true;
         if (task.getCurrentStep() == null) return false;
@@ -643,18 +719,10 @@ public class TaskService {
     /**
      * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public Instant getFinalizedTimestamp(Task task) {
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
         if (task.getFinalizedAt() != null) return task.getFinalizedAt();
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
         if (!isTaskFinalized(task)) return null;
-        /*
-         * Retorna o resultado final processado pelo método.
-         */
         return task.getTaskEvents().stream()
                 .filter(ev -> ev.getTaskStepDefinition() != null)
                 .max(Comparator.comparing(TaskEvent::getTimestamp))
@@ -665,6 +733,7 @@ public class TaskService {
     /**
      * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public boolean shouldTaskPulse(Task task) {
         if (task.getCurrentStep() == null) return false;
 
@@ -674,91 +743,77 @@ public class TaskService {
     }
 
     /**
-     * Tenta encontrar a relação entre um template e um passo, priorizando a coleção já carregada
-     * em memória para evitar consultas N+1 quando o EntityGraph foi utilizado.
+     * Localiza a relação de passo atual para uma tarefa.
+     * Prioriza a coleção já inicializada em memória para evitar N+1.
      */
     private Optional<TemplateStepRelation> findStepRelation(Task task) {
         if (task.getTaskTemplate() == null || task.getCurrentStep() == null) {
             return Optional.empty();
         }
 
-        // Acessa a coleção do template. Graças ao @BatchSize, se não estiver inicializada,
-        // o Hibernate carregará para vários templates de uma vez.
-        Set<TemplateStepRelation> relations = task.getTaskTemplate().getTemplateStepRelation();
-        if (relations != null && !relations.isEmpty()) {
+        TaskTemplate template = task.getTaskTemplate();
+        Set<TemplateStepRelation> relations = template.getTemplateStepRelation();
+        
+        // Se a coleção já está inicializada (mesmo detached após a transação do Service), usamos a memória.
+        // Isso evita o N+1 de queries JOIN pesadas durante a renderização da UI.
+        if (Hibernate.isInitialized(relations) && relations != null) {
             return relations.stream()
-                    .filter(r -> r.getTaskStepDefinition().getId().equals(task.getCurrentStep().getId()))
+                    .filter(rel -> rel.getTaskStepDefinition() != null && 
+                                   rel.getTaskStepDefinition().getId().equals(task.getCurrentStep().getId()))
                     .findFirst();
         }
 
-        // Fallback apenas se a coleção estiver realmente vazia e não for um problema de LazyInit
+        // Fallback apenas se realmente necessário, mas agora sem o EntityGraph pesado (removido no repositório)
         return stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
-                task.getTaskTemplate().getId(), task.getCurrentStep().getId()
+                template.getId(), task.getCurrentStep().getId()
         );
     }
 
     /**
      * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public boolean isTaskPending(Task task) {
         // Uma tarefa é pendente se não tem step OU se o step atual não é finalizador
-        /*
-         * Retorna o resultado final processado pelo método.
-         */
         return task.getCurrentStep() == null || !isTaskFinalized(task);
     }
 
     /**
      * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public boolean canUserViewTask(Task task, User user) {
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
         if (user == null) return false;
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
         if (user.getRole() == com.xflprflx.neokioski.models.enums.Role.ADMIN) return true;
 
         TaskTemplate template = task.getTaskTemplate();
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
         if (template.isRequiresSignature() && task.getCurrentStep() == null) {
-            /*
-             * Retorna o resultado final processado pelo método.
-             */
-            return template.getAuthorizingUsers().contains(user);
+            if (!Hibernate.isInitialized(template.getAuthorizingUsers())) {
+                template = taskTemplateRepository.findById(template.getId()).orElse(template);
+                Hibernate.initialize(template.getAuthorizingUsers());
+            }
+            return Hibernate.isInitialized(template.getAuthorizingUsers()) ? template.getAuthorizingUsers().contains(user) : false;
         }
-        /*
-         * Retorna o resultado final processado pelo método.
-         */
         return true;
     }
 
     /**
      * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public boolean canUserExecuteStep(Task task, User user) {
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
         if (user == null) return false;
 
         // Administradores sempre podem executar ações (bypass de segurança operacional)
         if (user.getRole() == Role.ADMIN) return true;
 
         TaskTemplate template = task.getTaskTemplate();
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
         if (template.isRequiresSignature() && task.getCurrentStep() == null) {
-            // Na fase de autorização, apenas quem está na lista pode agir
-            /*
-             * Retorna o resultado final processado pelo método.
-             */
-            return template.getAuthorizingUsers().contains(user);
+            if (!Hibernate.isInitialized(template.getAuthorizingUsers())) {
+                template = taskTemplateRepository.findById(template.getId()).orElse(template);
+                Hibernate.initialize(template.getAuthorizingUsers());
+            }
+            return Hibernate.isInitialized(template.getAuthorizingUsers()) ? template.getAuthorizingUsers().contains(user) : false;
         }
 
         // Caso padrão (já autorizado ou sem requerimento): No NeoKioski quem vê o grupo pode agir.

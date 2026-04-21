@@ -20,17 +20,17 @@ public class StoreReportConfigService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<StoreReportConfig> findAll() {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return repository.findAll();
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void save(StoreReportConfig config) {
         /*
@@ -75,7 +75,7 @@ public class StoreReportConfigService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void delete(StoreReportConfig config) {
         /*

@@ -1,11 +1,16 @@
 package com.xflprflx.neokioski.models.template;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.Immutable;
 
 import java.util.Objects;
 
 @Entity
 @Table(name = "tb_task_field_options")
+@BatchSize(size = 100)
 /**
  * Entidade que armazena opções disponíveis de seleção para campos do tipo 'Dropdown' ou similares em um template.
  */

@@ -22,7 +22,7 @@ public class GroupService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<Group> findActiveGroupsByUser(User user) {
         /*
@@ -30,28 +30,28 @@ public class GroupService {
          */
         if (user == null || user.getId() == null) {
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
             return List.of();
         }
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return repository.findByUsersIdAndIsActiveTrue(user.getId());
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<Group> findAll() {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return repository.findAllWithUsers();
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<Group> findAll(String filterText) {
         /*
@@ -59,14 +59,14 @@ public class GroupService {
          */
         if (filterText == null || filterText.isEmpty()) {
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
             return repository.findAllWithUsers();
         } else {
             // Se houver necessidade de filtro customizado no repositório, podemos adicionar depois.
             // Por enquanto, faremos o filtro simples se necessário ou retornaremos tudo.
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
             return repository.findAllWithUsers().stream()
                     .filter(g -> g.getName().toLowerCase().contains(filterText.toLowerCase()))
@@ -75,18 +75,18 @@ public class GroupService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public Optional<Group> findById(Long id) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return repository.findByIdWithUsers(id);
     }
 
     @Transactional
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public Group save(Group group) {
         /*
@@ -94,30 +94,30 @@ public class GroupService {
          */
         if (group == null) {
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
             return null;
         }
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return repository.save(group);
     }
 
     @Transactional
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void delete(Group group) {
         repository.delete(group);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public long count() {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return repository.count();
     }

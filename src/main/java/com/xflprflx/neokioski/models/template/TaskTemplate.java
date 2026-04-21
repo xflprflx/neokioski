@@ -4,6 +4,8 @@ import com.xflprflx.neokioski.models.Group;
 import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.models.enums.Role;
 import jakarta.persistence.*;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.Fetch;
 import org.hibernate.annotations.FetchMode;
@@ -95,6 +97,7 @@ public class TaskTemplate {
             joinColumns = @JoinColumn(name = "task_template_id"),
             inverseJoinColumns = @JoinColumn(name = "group_id")
     )
+    @BatchSize(size = 100)
     private Set<Group> groups = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "taskTemplate")

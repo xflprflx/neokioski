@@ -19,7 +19,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 public class NeokioskiApplication implements AppShellConfigurator {
 
 	/**
-	 * Método principal (entry point) da aplicação.
+	 * Métodx principal (entry point) da aplicação.
 	 *
 	 * @param args Argumentos de linha de comando fornecidos durante a execução.
 	 */

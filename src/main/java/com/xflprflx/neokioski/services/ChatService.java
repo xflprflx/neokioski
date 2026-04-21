@@ -1,14 +1,11 @@
 package com.xflprflx.neokioski.services;
 
-import com.xflprflx.neokioski.models.ChatMessage;
-import com.xflprflx.neokioski.models.Group;
-import com.xflprflx.neokioski.models.MessageReaction;
-import com.xflprflx.neokioski.models.MessageEdit;
-import com.xflprflx.neokioski.models.Task;
-import com.xflprflx.neokioski.models.User;
+import com.xflprflx.neokioski.models.*;
+import com.xflprflx.neokioski.models.template.TaskTemplate;
 import com.xflprflx.neokioski.repositories.ChatMessageRepository;
 import com.xflprflx.neokioski.repositories.MessageReactionRepository;
 import org.hibernate.Hibernate;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,36 +17,40 @@ import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
-@Service
 /**
  * Serviço responsável por gerenciar a lógica de negócios relacionada às mensagens de chat (envio, edição, exclusão e reações).
  */
+@Service
 public class ChatService {
 
     private final ChatMessageRepository repository;
     private final MessageReactionRepository reactionRepository;
+    private final TaskService taskService;
     private final Map<Long, List<Consumer<ChatMessage>>> listeners = Collections.synchronizedMap(new HashMap<>());
 
-    public ChatService(ChatMessageRepository repository, MessageReactionRepository reactionRepository) {
+    public ChatService(ChatMessageRepository repository, 
+                       MessageReactionRepository reactionRepository,
+                       @org.springframework.context.annotation.Lazy TaskService taskService) {
         this.repository = repository;
         this.reactionRepository = reactionRepository;
+        this.taskService = taskService;
     }
 
-    @Transactional
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx que encapsula parte da lógica de negócio e regras do serviço.
      */
+    @Transactional
     public ChatMessage sendMessage(String content, User user, Group group) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return sendMessage(content, user, group, null, null, null);
     }
 
-    @Transactional
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx que encapsula parte da lógica de negócio e regras do serviço.
      */
+    @Transactional
     public ChatMessage sendMessage(String content, User user, Group group, ChatMessage replyTo, String alertSound, String alertRoles) {
         ChatMessage message = new ChatMessage(content, user, group, replyTo);
         message.setAlertSound(alertSound);
@@ -57,14 +58,14 @@ public class ChatService {
         message = repository.save(message);
         broadcast(group.getId(), message);
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return message;
     }
 
     @Transactional
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public ChatMessage sendVolatileMessage(String content, User user, Group group, ChatMessage replyTo, String alertSound, String alertRoles) {
         // Mensagem VOLÁTIL: Não salvamos no banco
@@ -77,14 +78,14 @@ public class ChatService {
         
         broadcast(group.getId(), message);
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return message;
     }
 
     @Transactional
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public ChatMessage sendMessageWithTask(String content, User user, Group group, Task task, String alertSound, String alertRoles) {
         ChatMessage message = new ChatMessage(content, user, group, null);
@@ -94,25 +95,25 @@ public class ChatService {
         message = repository.save(message);
         broadcast(group.getId(), message);
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return message;
     }
 
     @Transactional
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public ChatMessage sendSystemAlertForTask(String content, Task task) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return sendSystemAlertForTask(content, task, null, null);
     }
 
     @Transactional
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public ChatMessage sendSystemAlertForTask(String content, Task task, String alertSound, String alertRoles) {
         // Alerta VOLÁTIL: Não salvamos no banco para economizar espaço
@@ -137,13 +138,13 @@ public class ChatService {
         broadcast(task.getGroup().getId(), alertMsg);
 
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return alertMsg;
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void broadcastSoundOnly(String alertSound, String alertRoles, Group group) {
         /*
@@ -159,18 +160,18 @@ public class ChatService {
 
     @Transactional
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public ChatMessage linkTaskToMessage(Long messageId, Task task) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return repository.findById(messageId).map(msg -> {
             msg.setTask(task);
             ChatMessage saved = repository.save(msg);
             broadcast(saved.getGroup().getId(), saved);
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
             return saved;
         }).orElse(null);
@@ -197,26 +198,8 @@ public class ChatService {
         // Aciona o grafo 'ChatMessage.withTaskFull' para trazer os dados de tarefas.
         List<ChatMessage> withTask = repository.findByGroupWithTaskAndTimestampBetweenOrderByTimestampAsc(group, start, end);
         
-        // Passo 3: Inicialização profunda. Como estamos na mesma transação, o Hibernate
-        // otimiza o carregamento dessas coleções (geralmente via BatchSize ou Subselect).
-        for (ChatMessage m : withTask) {
-            if (m.getTask() != null) {
-                // Carrega em lote os valores dos campos da tarefa e resultados de SLA
-                Hibernate.initialize(m.getTask().getTaskFieldValues());
-                Hibernate.initialize(m.getTask().getSlaResults());
-                
-                // Inicializa configs de SLA para garantir que a UI não dispare LazyInit 
-                // fora da transação ao renderizar cores ou prazos
-                for (com.xflprflx.neokioski.models.TaskSlaResult res : m.getTask().getSlaResults()) {
-                    Hibernate.initialize(res.getSlaConfig());
-                }
-
-                // Carrega a definição de passos do template para exibição de progresso
-                if (m.getTask().getTaskTemplate() != null) {
-                    Hibernate.initialize(m.getTask().getTaskTemplate().getTemplateStepRelation());
-                }
-            }
-        }
+        // Passo 3: Inicialização profunda via Multistage Batching.
+        initializeMessagesTaskGraph(withTask);
 
         // Passo 4: Mapeamento e Swap.
         // Criamos um mapa das versões "ricas" das mensagens para substituição na lista timeline.
@@ -242,29 +225,46 @@ public class ChatService {
         // Busca mensagens com tarefas para enriquecimento (usando grafo completo de tarefas)
         List<ChatMessage> withTask = repository.findByGroupWithTaskOrderByTimestampAsc(group);
         
+        // Inicialização profunda para evitar LazyInitException na UI
+        initializeMessagesTaskGraph(withTask);
+        
         // Mapeia instâncias ricas
         Map<Long, ChatMessage> taskMap = new HashMap<>();
         for (ChatMessage m : withTask) taskMap.put(m.getId(), m);
 
-        // Realiza o swap para garantir objetos prontos para a UI
+        // Retorna timeline original com objetos ricos
         return all.stream()
                 .map(m -> taskMap.getOrDefault(m.getId(), m))
                 .toList();
     }
 
+    private void initializeMessagesTaskGraph(List<ChatMessage> messagesWithTasks) {
+        if (messagesWithTasks == null || messagesWithTasks.isEmpty()) return;
+
+        // Extrai as tarefas únicas das mensagens
+        java.util.List<Task> tasks = messagesWithTasks.stream()
+                .filter(msg -> msg != null && msg.getTask() != null)
+                .map(ChatMessage::getTask)
+                .distinct()
+                .collect(java.util.stream.Collectors.toList());
+
+        // Delega o carregamento em lote para o TaskService
+        taskService.initializeTaskData(tasks);
+    }
+
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<ChatMessage> searchMessages(Group group, String query, int page, int size) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
-        return repository.searchMessages(group, query, org.springframework.data.domain.PageRequest.of(page, size));
+        return repository.searchMessages(group, query, PageRequest.of(page, size));
     }
 
     @Transactional
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void toggleReaction(Long messageId, User user, String emoji) {
         repository.findById(messageId).ifPresent(message -> {
@@ -286,7 +286,7 @@ public class ChatService {
 
     @Transactional
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void editMessage(Long messageId, String newContent, User user) {
         repository.findById(messageId).ifPresent(message -> {
@@ -306,7 +306,7 @@ public class ChatService {
 
     @Transactional
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void deleteMessage(Long messageId, User user) {
         repository.findById(messageId).ifPresent(message -> {
@@ -324,14 +324,14 @@ public class ChatService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void register(Long groupId, Consumer<ChatMessage> listener) {
         listeners.computeIfAbsent(groupId, k -> new CopyOnWriteArrayList<>()).add(listener);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void unregister(Long groupId, Consumer<ChatMessage> listener) {
         List<Consumer<ChatMessage>> groupListeners = listeners.get(groupId);
@@ -344,7 +344,7 @@ public class ChatService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private void broadcast(Long groupId, ChatMessage message) {
         List<Consumer<ChatMessage>> groupListeners = listeners.get(groupId);

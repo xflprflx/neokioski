@@ -19,7 +19,7 @@ import java.util.function.Consumer;
 public class PresenceService {
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public record PresenceEvent(Long userId, boolean online, LocalDateTime lastSeen) {}
 
@@ -32,7 +32,7 @@ public class PresenceService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void markOnline(Long userId) {
         /*
@@ -45,7 +45,7 @@ public class PresenceService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void markOffline(Long userId) {
         /*
@@ -61,19 +61,19 @@ public class PresenceService {
             if (newCount <= 0) {
                 notifyOffline(userId);
                 /*
-                 * Retorna o resultado final processado pelo método.
+                 * Retorna o resultado final processado pelo métodx.
                  */
                 return null;
             }
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
             return newCount;
         });
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void forceOffline(Long userId) {
         /*
@@ -85,7 +85,7 @@ public class PresenceService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private void notifyOffline(Long userId) {
         LocalDateTime now = LocalDateTime.now();
@@ -94,7 +94,7 @@ public class PresenceService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public boolean isOnline(Long userId) {
         /*
@@ -102,37 +102,37 @@ public class PresenceService {
          */
         if (userId == null) return false;
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return activeConnections.containsKey(userId);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public Set<Long> getOnlineUserIds() {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return Collections.unmodifiableSet(activeConnections.keySet());
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void addListener(Consumer<PresenceEvent> listener) {
         listeners.add(listener);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void removeListener(Consumer<PresenceEvent> listener) {
         listeners.remove(listener);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private void broadcast(PresenceEvent event) {
         /*

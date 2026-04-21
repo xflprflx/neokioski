@@ -18,7 +18,7 @@ public class SoundService {
     private static final String SOUNDS_PATH_FALLBACK = "classpath*:static/sounds/#alert_*";
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<String> getAvailableAlertSounds() {
         List<String> sounds = new ArrayList<>();
@@ -44,13 +44,13 @@ public class SoundService {
         }
         System.out.println("SOUND: Available sounds: " + sounds);
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return sounds;
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private void addSoundsFromResources(Resource[] resources, List<String> sounds) {
         /*

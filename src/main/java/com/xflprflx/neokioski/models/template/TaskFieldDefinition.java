@@ -1,8 +1,10 @@
 package com.xflprflx.neokioski.models.template;
 
 import jakarta.persistence.*;
-
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.Immutable;
 
 import java.util.*;
 
@@ -24,6 +26,7 @@ public class TaskFieldDefinition {
     private InputType inputType;
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "task_field_definition_id")
+    @BatchSize(size = 100)
     private Set<TaskFieldOption> taskFieldOptions = new LinkedHashSet<>();
 
     public TaskFieldDefinition() {

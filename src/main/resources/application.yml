@@ -9,5 +9,18 @@ spring:
     active: ${APP_PROFILE}
   jpa:
     open-in-view: false
+    properties:
+      hibernate:
+        generate_statistics: true
+        cache:
+          use_second_level_cache: true
+          use_query_cache: true
+          region:
+            factory_class: jcache
+        javax:
+          cache:
+            provider: org.ehcache.jsr107.EhcacheCachingProvider
+            uri: classpath:ehcache.xml
+            missing_cache_strategy: create
 server:
   forward-headers-strategy: native

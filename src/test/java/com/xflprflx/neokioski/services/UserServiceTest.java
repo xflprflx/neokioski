@@ -50,12 +50,12 @@ public class UserServiceTest {
         when(repository.findById(1L)).thenReturn(Optional.of(existingUser));
 
         /*
-         * Ação (Act): execução do método principal ou comportamento em teste utilizando os dados preparados.
+         * Ação (Act): execução do métodx principal ou comportamento em teste utilizando os dados preparados.
          */
         userService.save(updatedUser);
 
         /*
-         * Verificação (Assert): validação dos resultados, confirmação de valores alterados e verificação de interações dos mocks (ex: métodos chamados).
+         * Verificação (Assert): validação dos resultados, confirmação de valores alterados e verificação de interações dos mocks (ex: métodxs chamados).
          */
         assertEquals("OLD_HASH", updatedUser.getPassword());
         verify(passwordEncoder, never()).encode(any());
@@ -78,12 +78,12 @@ public class UserServiceTest {
         when(passwordEncoder.encode("new_password")).thenReturn("NEW_HASH");
 
         /*
-         * Ação (Act): execução do método principal ou comportamento em teste utilizando os dados preparados.
+         * Ação (Act): execução do métodx principal ou comportamento em teste utilizando os dados preparados.
          */
         userService.save(updatedUser);
 
         /*
-         * Verificação (Assert): validação dos resultados, confirmação de valores alterados e verificação de interações dos mocks (ex: métodos chamados).
+         * Verificação (Assert): validação dos resultados, confirmação de valores alterados e verificação de interações dos mocks (ex: métodxs chamados).
          */
         assertEquals("NEW_HASH", updatedUser.getPassword());
         verify(repository).save(updatedUser);
@@ -94,7 +94,7 @@ public class UserServiceTest {
     @Test
     /**
      * Teste que assegura que uma senha já criptografada (que inicie com a assinatura do BCrypt)
-     * não será criptografada novamente ao passar pelo método de salvamento.
+     * não será criptografada novamente ao passar pelo métodx de salvamento.
      */
     public void shouldNotReencodeIfAlreadyABcryptHash() {
         /*
@@ -105,12 +105,12 @@ public class UserServiceTest {
         user.setPassword("$2a$10$abcdefghij"); /* Simula um formato característico gerado pelo algoritmo BCrypt, que não necessita ser re-encodado. */
 
         /*
-         * Ação (Act): execução do método principal ou comportamento em teste utilizando os dados preparados.
+         * Ação (Act): execução do métodx principal ou comportamento em teste utilizando os dados preparados.
          */
         userService.save(user);
 
         /*
-         * Verificação (Assert): validação dos resultados, confirmação de valores alterados e verificação de interações dos mocks (ex: métodos chamados).
+         * Verificação (Assert): validação dos resultados, confirmação de valores alterados e verificação de interações dos mocks (ex: métodxs chamados).
          */
         assertEquals("$2a$10$abcdefghij", user.getPassword());
         verify(passwordEncoder, never()).encode(any());
@@ -124,13 +124,13 @@ public class UserServiceTest {
      */
     public void shouldCallRepositoryUpdateMethodsForPatch() {
         /*
-         * Ação (Act): execução do método principal ou comportamento em teste utilizando os dados preparados.
+         * Ação (Act): execução do métodx principal ou comportamento em teste utilizando os dados preparados.
          */
         userService.updateNotifyStoreOrder(1L, true);
         userService.updateNotifyChatSounds(1L, false);
 
         /*
-         * Verificação (Assert): validação dos resultados, confirmação de valores alterados e verificação de interações dos mocks (ex: métodos chamados).
+         * Verificação (Assert): validação dos resultados, confirmação de valores alterados e verificação de interações dos mocks (ex: métodxs chamados).
          */
         verify(repository).updateNotifyStoreOrder(1L, true);
         verify(repository).updateNotifyChatSounds(1L, false);

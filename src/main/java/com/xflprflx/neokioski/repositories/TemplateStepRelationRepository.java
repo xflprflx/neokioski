@@ -20,5 +20,10 @@ public interface TemplateStepRelationRepository extends JpaRepository<TemplateSt
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskStepDefinition"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     java.util.Optional<TemplateStepRelation> findByTaskTemplateIdAndTaskStepDefinitionId(Long taskTemplateId, Long taskStepDefinitionId);
 
+    // #improve_n+1 - Método para pre-cachear as relations de forma em lote, evitando consultas pontuais em Loop
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskStepDefinition"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
+    @org.springframework.data.jpa.repository.Query("SELECT r FROM TemplateStepRelation r WHERE r.taskTemplate.id IN :templateIds")
+    List<TemplateStepRelation> findByTaskTemplateIdIn(@org.springframework.data.repository.query.Param("templateIds") java.util.Collection<Long> templateIds);
+
     void deleteByTaskTemplateId(Long taskTemplateId);
 }

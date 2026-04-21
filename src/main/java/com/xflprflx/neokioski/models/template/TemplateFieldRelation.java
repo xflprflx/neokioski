@@ -19,11 +19,11 @@ public class TemplateFieldRelation {
     @Column(nullable = false)
     private boolean isRequired;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "task_template_id")
     private TaskTemplate taskTemplate;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "task_field_definition_id")
     private TaskFieldDefinition taskFieldDefinition;
 

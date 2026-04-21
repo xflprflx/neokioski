@@ -20,11 +20,11 @@ public class TaskEvent {
 
     private Instant timestamp;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "task_step_definition_id")
     private TaskStepDefinition taskStepDefinition;
 

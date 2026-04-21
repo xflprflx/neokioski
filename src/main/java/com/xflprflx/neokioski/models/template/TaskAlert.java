@@ -18,15 +18,15 @@ public class TaskAlert {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "task_template_id", nullable = false)
     private TaskTemplate taskTemplate;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "target_step_id", nullable = false)
     private TaskStepDefinition targetStep;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "start_step_id")
     private TaskStepDefinition startStep;
 

@@ -52,10 +52,10 @@ public class TemplateStepRelation {
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
     private List<TaskFieldOption> responseOptions = new ArrayList<>();
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "task_template_id")
     private TaskTemplate taskTemplate;
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "task_step_definition_id")
     private TaskStepDefinition taskStepDefinition;
 

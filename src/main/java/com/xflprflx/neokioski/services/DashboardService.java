@@ -53,8 +53,20 @@ public class DashboardService {
                 .filter(t -> group == null || group.equals(t.getGroup()))
                 .collect(Collectors.toList());
 
-        // #improve_n+1 cache para evitar query N+1 em loop
+        // #improve_n+1 pre-cache em lote para evitar query N+1 em loop
         Map<String, TemplateStepRelation> relCache = new HashMap<>();
+        Set<Long> uniqueTemplateIds = globalBaseTasks.stream()
+                .map(t -> t.getTaskTemplate() != null ? t.getTaskTemplate().getId() : null)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (!uniqueTemplateIds.isEmpty()) {
+            List<TemplateStepRelation> allRels = stepRelationRepository.findByTaskTemplateIdIn(uniqueTemplateIds);
+            for (TemplateStepRelation r : allRels) {
+                if (r.getTaskTemplate() != null && r.getTaskStepDefinition() != null) {
+                    relCache.put(r.getTaskTemplate().getId() + "-" + r.getTaskStepDefinition().getId(), r);
+                }
+            }
+        }
 
         // 2. Ranking Base (Menu de Criadores) -> Afetado por Tipo, Concluidor e Data Clique. Ignora clique em Criador.
         List<Task> rankingBaseTasks = globalBaseTasks.stream()
@@ -268,10 +280,8 @@ public class DashboardService {
             
             String cacheKey = t.getTaskTemplate().getId() + "-" + event.getTaskStepDefinition().getId();
 
-            TemplateStepRelation relation;
-            if (relCache.containsKey(cacheKey)) {
-                relation = relCache.get(cacheKey);
-            } else {
+            TemplateStepRelation relation = relCache.get(cacheKey);
+            if (relation == null && !relCache.containsKey(cacheKey)) {
                 var relOpt = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
                     t.getTaskTemplate().getId(), event.getTaskStepDefinition().getId());
                 relation = relOpt.orElse(null);

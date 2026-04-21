@@ -18,7 +18,7 @@ public class TaskFieldValue {
     @Column(nullable = false)
     private String value;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "task_field_definition_id")
     private TaskFieldDefinition taskFieldDefinition;
 

@@ -17,6 +17,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * @param username O nome de usuário a ser buscado.
      * @return Um Optional contendo o usuário, se encontrado.
      */
+    @org.springframework.data.jpa.repository.QueryHints({
+            @jakarta.persistence.QueryHint(name = "org.hibernate.cacheable", value = "true")
+    })
     Optional<User> findByUsername(String username);
 
     java.util.List<User> findByNameContainingIgnoreCaseOrUsernameContainingIgnoreCase(String name, String username);

@@ -16,18 +16,18 @@ public class TaskSlaConfig {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "task_template_id", nullable = false)
     private TaskTemplate taskTemplate;
 
     @Column(nullable = false)
     private String name;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "source_step_id")
     private TaskStepDefinition sourceStep;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "target_step_id")
     private TaskStepDefinition targetStep;
 

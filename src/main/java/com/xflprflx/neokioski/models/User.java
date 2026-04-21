@@ -10,6 +10,7 @@ import java.util.Set;
 
 @Entity
 @Table(name = "tb_users")
+@org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
 /**
  * Entidade que representa um usuário do sistema, com credenciais e papéis de acesso.
  */

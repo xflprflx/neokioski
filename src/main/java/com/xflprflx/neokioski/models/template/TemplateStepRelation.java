@@ -46,6 +46,7 @@ public class TemplateStepRelation {
     @Column(name = "response_input_type")
     private InputType responseInputType = InputType.TEXT;
 
+    // #improve_n+1 - Revertendo LAZY para coleções que geravam N+1 quando forçadas no LOAD de EntityGraph. SUBSELECT é suficiente.
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @JoinColumn(name = "template_step_relation_id")
     @OrderBy("id ASC")
@@ -78,6 +79,7 @@ public class TemplateStepRelation {
     @Enumerated(EnumType.STRING)
     @CollectionTable(name = "tb_template_step_relation_alert_roles", joinColumns = @JoinColumn(name = "relation_id"))
     @Column(name = "role")
+    @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
     private Set<Role> alertRoles = new HashSet<>();
 
     public TemplateStepRelation() {

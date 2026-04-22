@@ -12,11 +12,11 @@ import java.util.List;
  */
 public interface TemplateStepRelationRepository extends JpaRepository<TemplateStepRelation, Long> {
 
-    // #improve_n+1 - Carrega o step via LOAD graph evitando query extra para obter nomes dos passos
+    // #improve_n+1 - Evitar EntityGraph largo que causa MultipleBagFetchException. Usaremos fetch pontual de to-ones.
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskStepDefinition"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     List<TemplateStepRelation> findByTaskTemplateIdOrderByOrderAsc(Long taskTemplateId);
 
-    // #improve_n+1 - Previne fetch lazy em TaskStepDefinition, TaskTemplate (e seus subgrafos se necessários não devem ser forçados a não ser que preciso, default LAZY)
+    // #improve_n+1 - EntityGraph pontual.
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskStepDefinition"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     java.util.Optional<TemplateStepRelation> findByTaskTemplateIdAndTaskStepDefinitionId(Long taskTemplateId, Long taskStepDefinitionId);
 

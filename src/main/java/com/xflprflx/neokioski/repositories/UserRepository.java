@@ -11,6 +11,11 @@ import java.util.Optional;
  * Repositório de acesso a dados para persistência e buscas de usuários, essencial para autenticação e gestão de acesso (User).
  */
 public interface UserRepository extends JpaRepository<User, Long> {
+
+    // #improve_n+1 - Cache spring-level
+    @Override
+    @org.springframework.cache.annotation.Cacheable(value = "usersById", unless = "#result == null")
+    Optional<User> findById(Long id);
     /**
      * Busca um usuário pelo seu nome de login.
      *
@@ -20,6 +25,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @org.springframework.data.jpa.repository.QueryHints({
             @jakarta.persistence.QueryHint(name = "org.hibernate.cacheable", value = "true")
     })
+    @org.springframework.cache.annotation.Cacheable(value = "usersByUsername", unless = "#result == null")
     Optional<User> findByUsername(String username);
 
     java.util.List<User> findByNameContainingIgnoreCaseOrUsernameContainingIgnoreCase(String name, String username);

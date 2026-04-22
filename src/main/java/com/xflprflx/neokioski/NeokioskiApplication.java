@@ -14,7 +14,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  */
 @Push
 @EnableScheduling
-@org.springframework.cache.annotation.EnableCaching
 @SpringBootApplication
 @Theme(value = "neokioski")
 public class NeokioskiApplication implements AppShellConfigurator {

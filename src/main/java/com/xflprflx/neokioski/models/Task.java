@@ -35,13 +35,14 @@ public class Task {
     @JoinColumn(name = "current_step_id")
     private TaskStepDefinition currentStep;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    // #improve_n+1 - Remoção do EAGER nativo de todas as coleções do Core da Task (Mitiga select gigante no start)
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JoinColumn(name = "task_id")
     @OrderBy("id ASC")
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
     private Set<TaskEvent> taskEvents = new LinkedHashSet<>();
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "tb_task_task_step_definitions",
             joinColumns = @JoinColumn(name = "task_id"),
@@ -50,12 +51,12 @@ public class Task {
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
     private List<TaskStepDefinition> taskStepDefinitions = new ArrayList<>();
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("id ASC")
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
     private Set<TaskFieldValue> taskFieldValues = new LinkedHashSet<>();
 
-    @ElementCollection(fetch = FetchType.EAGER)
+    @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "tb_task_triggered_alerts", joinColumns = @JoinColumn(name = "task_id"))
     @Column(name = "alert_id")
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
@@ -66,7 +67,7 @@ public class Task {
     @Column(name = "finalized_at")
     private Instant finalizedAt;
 
-    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
     private Set<TaskSlaResult> slaResults = new LinkedHashSet<>();
 

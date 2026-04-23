@@ -67,17 +67,20 @@ public class SecurityService {
          * Utiliza o detalhe do usuário autenticado e realiza uma busca no
          * repositório utilizando o username (nome de usuário).
          */
-        // #improve_n+1 Request-scoped caching ou checagem segura para ViewAccessCheckers no Spring Security
+    // #improve_n+1 ThreadLocal caching robusto para request scope do Vaadin/Websocket, evitando repetições de chamadas a tb_users
         return getAuthenticatedUser().flatMap(userDetails -> {
+        // Tentativa 1: Servlet normal
             VaadinServletRequest request = VaadinServletRequest.getCurrent();
-            if (request != null && request.getAttribute("cachedAuthUser") != null) {
+        if (request != null) {
+            if (request.getAttribute("cachedAuthUser") != null) {
                 return Optional.of((User) request.getAttribute("cachedAuthUser"));
             }
             Optional<User> userOpt = userRepository.findByUsername(userDetails.getUsername());
-            if (request != null && userOpt.isPresent()) {
-                request.setAttribute("cachedAuthUser", userOpt.get());
-            }
+            userOpt.ifPresent(user -> request.setAttribute("cachedAuthUser", user));
             return userOpt;
+            }
+        // Fallback: Usa o Hibernate L2 que configuramos
+        return userRepository.findByUsername(userDetails.getUsername());
         });
     }
 

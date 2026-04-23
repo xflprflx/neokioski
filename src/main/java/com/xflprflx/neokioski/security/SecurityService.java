@@ -67,8 +67,18 @@ public class SecurityService {
          * Utiliza o detalhe do usuário autenticado e realiza uma busca no
          * repositório utilizando o username (nome de usuário).
          */
-        return getAuthenticatedUser()
-                .flatMap(userDetails -> userRepository.findByUsername(userDetails.getUsername()));
+        // #improve_n+1 Request-scoped caching ou checagem segura para ViewAccessCheckers no Spring Security
+        return getAuthenticatedUser().flatMap(userDetails -> {
+            VaadinServletRequest request = VaadinServletRequest.getCurrent();
+            if (request != null && request.getAttribute("cachedAuthUser") != null) {
+                return Optional.of((User) request.getAttribute("cachedAuthUser"));
+            }
+            Optional<User> userOpt = userRepository.findByUsername(userDetails.getUsername());
+            if (request != null && userOpt.isPresent()) {
+                request.setAttribute("cachedAuthUser", userOpt.get());
+            }
+            return userOpt;
+        });
     }
 
     /**

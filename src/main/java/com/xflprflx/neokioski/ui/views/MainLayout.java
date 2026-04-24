@@ -455,7 +455,10 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
             };
             
             // Registrar canais de áudio
-            java.util.List<com.xflprflx.neokioski.models.Group> groups = groupService.findActiveGroupsByUser(u);
+            // #improve_n+1 - Uso dos grupos já carregados no EntityGraph do SecurityService (Bloco C otimizado)
+            java.util.List<com.xflprflx.neokioski.models.Group> groups = u.getGroups().stream()
+                    .filter(com.xflprflx.neokioski.models.Group::isActive)
+                    .collect(java.util.stream.Collectors.toList());
             
             // FALLBACK PARA ADMIN: Registrar em todos os grupos ativos se a lista estiver vazia
             /*

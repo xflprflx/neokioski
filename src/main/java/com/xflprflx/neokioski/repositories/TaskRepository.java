@@ -99,7 +99,7 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
     List<Task> findByGroupAndCreatedAtBetweenOrderByCreatedAtDesc(@Param("group") Group group, @Param("start") java.time.Instant start, @Param("end") java.time.Instant end);
 
     // #improve_n+1
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep", "taskEvents", "taskEvents.taskStepDefinition", "slaResults"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     List<Task> findAllByCreatedAtBetween(java.time.Instant start, java.time.Instant end);
 
     // #improve_n+1 - EntityGraph no método findAll que recebe Specification cobrindo os lazy relationships e taskEvents

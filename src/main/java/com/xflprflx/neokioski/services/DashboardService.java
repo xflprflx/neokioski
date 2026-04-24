@@ -281,12 +281,6 @@ public class DashboardService {
             String cacheKey = t.getTaskTemplate().getId() + "-" + event.getTaskStepDefinition().getId();
 
             TemplateStepRelation relation = relCache.get(cacheKey);
-            if (relation == null && !relCache.containsKey(cacheKey)) {
-                var relOpt = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
-                    t.getTaskTemplate().getId(), event.getTaskStepDefinition().getId());
-                relation = relOpt.orElse(null);
-                relCache.put(cacheKey, relation);
-            }
                 
             /*
              * Avalia uma condição (if) para desvio de fluxo da lógica principal.

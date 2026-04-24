@@ -208,7 +208,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void configureSuggestions() {
         suggestionList = new ListBox<>();
@@ -257,7 +257,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
 
     @com.vaadin.flow.component.ClientCallable
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void showSuggestions(String query) {
         List<User> suggestions = userService.findAll().stream()
@@ -326,7 +326,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
 
     @com.vaadin.flow.component.ClientCallable
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void hideSuggestions() {
         suggestionWrapper.setVisible(false);
@@ -334,14 +334,14 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
 
     @com.vaadin.flow.component.ClientCallable
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void setActiveTargetById(String mentionId) {
         this.activeMentionId = mentionId;
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void applyMention(User user) {
         String mention = "@" + user.getUsername() + " ";
@@ -376,7 +376,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void setupMentionLogic(com.vaadin.flow.dom.Element element, String mentionId) {
         element.executeJs(
@@ -414,7 +414,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Component createTopConfiguration() {
         HorizontalLayout firstRow = new HorizontalLayout();
@@ -509,7 +509,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Component createTabs() {
         tabs.add(formFieldsTab, workflowTab, alertsTab, slasTab);
@@ -535,7 +535,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void showSlaTab() {
         tabContent.removeAll();
@@ -575,14 +575,14 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openSlaDialog() {
         openSlaDialog(null);
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openSlaDialog(SlaDTO existingDto) {
         Dialog dialog = new Dialog();
@@ -670,7 +670,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void showAlertsTab() {
         tabContent.removeAll();
@@ -709,14 +709,14 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openAlertDialog() {
         openAlertDialog(null);
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openAlertDialog(AlertDTO existingDto) {
         Dialog dialog = new Dialog();
@@ -828,7 +828,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void showFormFieldsTab() {
         tabContent.removeAll();
@@ -915,14 +915,14 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openFieldDialog() {
         openFieldDialog(null);
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openFieldDialog(FieldDTO existingDto) {
         Dialog dialog = new Dialog();
@@ -1005,7 +1005,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void showWorkflowTab() {
         tabContent.removeAll();
@@ -1092,14 +1092,14 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openStepDialog() {
         openStepDialog(null);
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openStepDialog(StepDTO existingDto) {
         Dialog dialog = new Dialog();
@@ -1330,7 +1330,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void setupWorkflowPreviewLayout() {
         workflowPreview.setWidth("450px");
@@ -1376,7 +1376,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void updateCardsPreview() {
         chatLayout.removeAll();
@@ -1406,7 +1406,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Component createChatBubble(String user, String content) {
         Div container = new Div();
@@ -1459,7 +1459,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Component createRequestCardPreview() {
         requestFields.clear();
@@ -1577,7 +1577,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Component createRequestCardSnapshot() {
         VerticalLayout card = new VerticalLayout();
@@ -1613,7 +1613,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Component createStepCardPreview(String label) {
         StepDTO currentStep = label != null ? steps.stream().filter(s -> s.label.equals(label)).findFirst().orElse(null) : null;
@@ -1823,7 +1823,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Button createSimulatedStepButton(StepDTO targetStep) {
         Button btn = new Button(targetStep.label, e -> {
@@ -1886,7 +1886,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Component createInputComponentPreview(InputType type, String label, String desc, boolean required, List<?> optionsList, String placeholder) {
         List<String> options = new ArrayList<>();
@@ -1998,7 +1998,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private String extractFieldValue(Component comp) {
         /*
@@ -2053,7 +2053,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private HorizontalLayout createFooter() {
         HorizontalLayout footer = new HorizontalLayout();
@@ -2076,7 +2076,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void saveTemplate() {
         TaskTemplate t;
@@ -2353,7 +2353,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
 
     @Override
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void setParameter(BeforeEvent event, @OptionalParameter Long parameter) {
         /*

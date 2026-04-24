@@ -42,7 +42,7 @@ public class PdfService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public ByteArrayInputStream generateStoreReportPdf(List<TaskService.StoreReportEntry> entries) {
         // 1. Agrupar por data de coleta (LocalDate) usando TreeMap para manter a ordem cronológica
@@ -278,13 +278,13 @@ public class PdfService {
         }
 
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return new ByteArrayInputStream(out.toByteArray());
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public ByteArrayInputStream generateGeneralTaskReportPdf(List<Task> tasks) {
         Document document = new Document(PageSize.A4.rotate(), 36, 36, 36, 36);
@@ -336,26 +336,26 @@ public class PdfService {
         }
 
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return new ByteArrayInputStream(out.toByteArray());
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private PdfPCell createCell(String text, Font font) {
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
         cell.setBorderWidth(0.5f);
         cell.setPadding(2);
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return cell;
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private PdfPCell createHeaderCell(String text, Font font) {
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
@@ -365,33 +365,33 @@ public class PdfService {
         cell.setPadding(5);
         cell.setBorderWidth(1f);
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return cell;
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private PdfPCell createDataCell(String text, Font font) {
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
         cell.setPadding(4);
         cell.setBorderWidth(0.5f);
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return cell;
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private PdfPCell createNoBorderCell(String text, Font font) {
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
         cell.setBorder(com.lowagie.text.Rectangle.NO_BORDER);
         cell.setPadding(2);
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return cell;
     }

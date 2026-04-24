@@ -61,12 +61,12 @@ public class TaskService {
          */
         if (task.getCurrentStep() == null) {
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
             return Optional.ofNullable(task.getTaskTemplate().getDefaultResponsibleRole());
         }
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
                 task.getTaskTemplate().getId(), task.getCurrentStep().getId()
@@ -75,7 +75,7 @@ public class TaskService {
 
     @Transactional
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public Task createTask(TaskTemplate template,
                            Map<TaskFieldDefinition, String> fieldValues,
@@ -114,14 +114,14 @@ public class TaskService {
         taskAlertService.scheduleAlertsForTask(saved);
         broadcast(group.getId(), saved);
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return saved;
     }
 
     @Transactional
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public Task executeStep(Long taskId, TaskStepDefinition step, User user, String response) {
         Task task = taskRepository.findById(taskId).orElseThrow(() -> new RuntimeException("Task não encontrada: " + taskId));
@@ -259,83 +259,83 @@ public class TaskService {
 
         broadcast(task.getGroup().getId(), saved);
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return saved;
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public Optional<Task> findById(Long id) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return taskRepository.findById(id);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<Task> getTasksByGroup(Group group) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return taskRepository.findByGroupWithCollections(group);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<Task> getTasksByGroup(Group group, Instant start, Instant end) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return taskRepository.findByGroupAndCreatedAtBetweenOrderByCreatedAtDesc(group, start, end);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<Task> getMyTasks(Group group, User user) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return taskRepository.findMyTasksByGroup(group, user);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<Task> getPendingTasks(Group group) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return taskRepository.findPendingByGroup(group);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public long countActiveTasks() {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return taskRepository.countAllPending();
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public long countActiveTasksByGroup(Group group) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return taskRepository.countPendingByGroup(group);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public long countActiveTasksByGroups(List<Group> groups) {
         /*
@@ -343,7 +343,7 @@ public class TaskService {
          */
         if (groups == null || groups.isEmpty()) return 0;
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return taskRepository.countPendingByGroups(groups);
     }
@@ -364,7 +364,7 @@ public class TaskService {
             results = taskRepository.countTasksByGroupIn(userGroups);
         }
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return results.stream().collect(Collectors.toMap(
                 r -> (String) r[0],
@@ -390,7 +390,7 @@ public class TaskService {
         }
         
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return results.stream().collect(Collectors.toMap(
                 r -> r[0].toString(),
@@ -401,7 +401,7 @@ public class TaskService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<TaskStepDefinition> getAllowedNextSteps(Task task) {
         /*
@@ -427,7 +427,7 @@ public class TaskService {
             if (task.getCurrentStep() == null) {
                 // Se ainda não autorizado, apenas AUTORIZADO e REJEITADO são permitidos
                 /*
-                 * Retorna o resultado final processado pelo método.
+                 * Retorna o resultado final processado pelo métodx.
                  */
                 return allRels.stream()
                         .map(TemplateStepRelation::getTaskStepDefinition)
@@ -441,7 +441,7 @@ public class TaskService {
                         .collect(Collectors.toSet());
 
                 /*
-                 * Retorna o resultado final processado pelo método.
+                 * Retorna o resultado final processado pelo métodx.
                  */
                 return allRels.stream()
                         .filter(r -> !r.isGlobal() 
@@ -480,7 +480,7 @@ public class TaskService {
                 if (!result.contains(gs)) result.add(gs);
             }
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
             return result;
         }
@@ -533,26 +533,26 @@ public class TaskService {
                 }
             }
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
             return result;
         }
 
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return globalSteps;
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void register(Long groupId, Consumer<Task> listener) {
         listeners.computeIfAbsent(groupId, k -> new CopyOnWriteArrayList<>()).add(listener);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void unregister(Long groupId, Consumer<Task> listener) {
         List<Consumer<Task>> groupListeners = listeners.get(groupId);
@@ -563,21 +563,21 @@ public class TaskService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void registerGlobal(Consumer<Task> listener) {
         globalListeners.add(listener);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void unregisterGlobal(Consumer<Task> listener) {
         globalListeners.remove(listener);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public boolean isTaskFinalized(Task task) {
         /*
@@ -599,7 +599,7 @@ public class TaskService {
          */
         if (relationOpt.isPresent()) {
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
             return relationOpt.get().isFinalizer();
         }
@@ -608,7 +608,7 @@ public class TaskService {
         // buscar por Label no template atual
         String currentLabel = task.getCurrentStep().getLabel();
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return stepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(task.getTaskTemplate().getId())
                 .stream()
@@ -617,7 +617,7 @@ public class TaskService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public Instant getFinalizedTimestamp(Task task) {
         /*
@@ -629,7 +629,7 @@ public class TaskService {
          */
         if (!isTaskFinalized(task)) return null;
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return task.getTaskEvents().stream()
                 .filter(ev -> ev.getTaskStepDefinition() != null)
@@ -639,7 +639,7 @@ public class TaskService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public boolean shouldTaskPulse(Task task) {
         /*
@@ -656,14 +656,14 @@ public class TaskService {
          */
         if (relationOpt.isPresent()) {
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
             return relationOpt.get().isShouldPulse();
         }
 
         String currentLabel = task.getCurrentStep().getLabel();
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return stepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(task.getTaskTemplate().getId())
                 .stream()
@@ -672,18 +672,18 @@ public class TaskService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public boolean isTaskPending(Task task) {
         // Uma tarefa é pendente se não tem step OU se o step atual não é finalizador
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return task.getCurrentStep() == null || !isTaskFinalized(task);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public boolean canUserViewTask(Task task, User user) {
         /*
@@ -701,18 +701,18 @@ public class TaskService {
          */
         if (template.isRequiresSignature() && task.getCurrentStep() == null) {
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
             return template.getAuthorizingUsers().contains(user);
         }
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return true;
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public boolean canUserExecuteStep(Task task, User user) {
         /*
@@ -727,20 +727,20 @@ public class TaskService {
         if (template.isRequiresSignature() && task.getCurrentStep() == null) {
             // Na fase de autorização, apenas quem está na lista pode agir
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
             return template.getAuthorizingUsers().contains(user);
         }
 
         // Caso padrão (já autorizado ou sem requerimento): No NeoKioski quem vê o grupo pode agir.
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return true;
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void broadcast(Long groupId, Task task) {
         List<Consumer<Task>> groupListeners = listeners.get(groupId);
@@ -779,13 +779,13 @@ public class TaskService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<StoreReportEntry> getStoreReportData(Instant start, Instant end) {
         List<Task> tasks = taskRepository.findAllByCreatedAtBetween(start, end);
 
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return tasks.stream()
                 .filter(t -> t.getTaskTemplate().isRegistraNoRelatorioLoja())
@@ -799,7 +799,7 @@ public class TaskService {
 
     @Transactional(readOnly = true)
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<String> getAvailableReportAttributes() {
         Set<String> attributes = new TreeSet<>();
@@ -851,13 +851,13 @@ public class TaskService {
         }
 
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return new ArrayList<>(attributes);
     }
     
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public String getTaskAttributeValue(Task task, String attributeKey) {
         /*
@@ -879,7 +879,7 @@ public class TaskService {
                 if (attributeKey.startsWith("FIELD:")) {
                     String label = attributeKey.substring(6);
                     /*
-                     * Retorna o resultado final processado pelo método.
+                     * Retorna o resultado final processado pelo métodx.
                      */
                     return task.getTaskFieldValues().stream()
                             .filter(fv -> fv.getTaskFieldDefinition() != null && 
@@ -889,7 +889,7 @@ public class TaskService {
                 } else if (attributeKey.startsWith("STEP:")) {
                     String label = attributeKey.substring(5);
                     /*
-                     * Retorna o resultado final processado pelo método.
+                     * Retorna o resultado final processado pelo métodx.
                      */
                     return task.getTaskEvents().stream()
                             .filter(e -> e.getTaskStepDefinition() != null && 
@@ -898,14 +898,14 @@ public class TaskService {
                             .findFirst().orElse("");
                 }
                 /*
-                 * Retorna o resultado final processado pelo método.
+                 * Retorna o resultado final processado pelo métodx.
                  */
                 return "";
         }
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private String formatInstant(Instant instant) {
         /*
@@ -913,7 +913,7 @@ public class TaskService {
          */
         if (instant == null) return "";
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
                 .withZone(java.time.ZoneId.systemDefault())
@@ -921,11 +921,11 @@ public class TaskService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private Instant getCollectedAt(Task task) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return task.getTaskEvents().stream()
                 .filter(e -> e.getTaskStepDefinition() != null && e.getTaskStepDefinition().getLabel().equalsIgnoreCase("COLETADO"))
@@ -934,11 +934,11 @@ public class TaskService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private String getCollectorName(Task task) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return task.getTaskEvents().stream()
                 .filter(e -> e.getTaskStepDefinition() != null && e.getTaskStepDefinition().getLabel().equalsIgnoreCase("COLETADO"))
@@ -947,7 +947,7 @@ public class TaskService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private StoreReportEntry mapToStoreReportEntry(Task task) {
         String delivery = "";
@@ -1018,7 +1018,7 @@ public class TaskService {
         if (collector == null) return null;
 
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return new StoreReportEntry(
                 task.getId(),
@@ -1033,7 +1033,7 @@ public class TaskService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<Task> findTasksWithFilters(Instant start, Instant end, User creator, TaskTemplate template, Group group, String search) {
         Specification<Task> spec = Specification.where((root, query, cb) -> cb.conjunction());
@@ -1083,7 +1083,7 @@ public class TaskService {
                 Predicate eventPredicate = cb.like(cb.lower(eventJoin.get("response")), searchPattern);
                 
                 /*
-                 * Retorna o resultado final processado pelo método.
+                 * Retorna o resultado final processado pelo métodx.
                  */
                 return cb.or(fieldPredicate, eventPredicate);
             });
@@ -1093,13 +1093,13 @@ public class TaskService {
         // O subselect continuará lidando com ToMany collections.
 
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return taskRepository.findAll(spec, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public record StoreReportEntry(
             Long taskId,

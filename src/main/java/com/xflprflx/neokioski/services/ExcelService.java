@@ -25,7 +25,7 @@ public class ExcelService {
             .withZone(ZoneId.systemDefault());
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public ByteArrayInputStream generateGeneralTaskReport(List<Task> tasks) {
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -88,7 +88,7 @@ public class ExcelService {
 
             workbook.write(out);
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
             return new ByteArrayInputStream(out.toByteArray());
         } catch (IOException e) {

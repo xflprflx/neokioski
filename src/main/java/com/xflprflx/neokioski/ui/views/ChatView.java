@@ -129,7 +129,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void configureUI() {
         setSizeFull();
@@ -218,7 +218,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private HorizontalLayout createTopHeader() {
         groupName.getStyle().set("margin", "0").set("font-size", "var(--lumo-font-size-l)");
@@ -339,7 +339,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void configureTaskArea() {
         taskArea.setSizeFull();
@@ -405,7 +405,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void refreshAllComponents() {
         loadMessages();
@@ -413,7 +413,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void refreshTaskList() {
         /*
@@ -540,7 +540,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void updateFilterOptions() {
         /*
@@ -594,7 +594,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void configureTemplateBar() {
         templateBar.setWidthFull();
@@ -611,7 +611,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void loadTemplates() {
         templateBar.removeAll();
@@ -767,7 +767,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void configureSuggestions() {
         suggestionList = new ListBox<>();
@@ -814,7 +814,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void configureSuggestionList(ListBox<User> list) {
         list.setRenderer(new com.vaadin.flow.data.renderer.ComponentRenderer<>(user -> {
@@ -856,7 +856,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
     @com.vaadin.flow.component.ClientCallable
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void showSuggestions(String query) {
         /*
@@ -935,7 +935,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
     @com.vaadin.flow.component.ClientCallable
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void hideSuggestions() {
         /*
@@ -948,7 +948,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
     @com.vaadin.flow.component.ClientCallable
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void setActiveTargetById(String mentionId) {
         /*
@@ -972,7 +972,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void applyMention(User user) {
         String mention = "@" + user.getUsername() + " ";
@@ -1008,7 +1008,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void setupMentionLogic(Element element, String mentionId) {
         element.executeJs(
@@ -1046,7 +1046,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void configureReplyBar() {
         replyBar.setWidthFull();
@@ -1059,7 +1059,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void setReplyTo(ChatMessage message) {
         this.replyTo = message;
@@ -1099,7 +1099,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void cancelReply() {
         this.replyTo = null;
@@ -1108,7 +1108,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
     @Override
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void setParameter(BeforeEvent event, Long groupId) {
         Optional<Group> groupOpt = groupService.findById(groupId);
@@ -1166,7 +1166,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void loadMessages() {
         /*
@@ -1195,7 +1195,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void addOrUpdateMessageInUI(ChatMessage msg) {
         /*
@@ -1268,7 +1268,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private HorizontalLayout createMessageLayout(ChatMessage msg) {
         boolean isSystemMessage = msg.getUser() == null;
@@ -2242,7 +2242,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private String extractFieldValue(com.vaadin.flow.component.Component comp) {
         /*
@@ -2252,7 +2252,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private String extractFieldValue(com.vaadin.flow.component.Component comp, String separator) {
         /*
@@ -2307,7 +2307,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void copyToClipboard(String text) {
         /*
@@ -2333,7 +2333,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Div renderMessageContent(String content) {
         Div container = new Div();
@@ -2387,7 +2387,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private boolean isUserMentioned(String content, String username) {
         /*
@@ -2402,7 +2402,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void setupRealTimeUpdate() {
         /*
@@ -2514,7 +2514,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openEditDialog(ChatMessage msg) {
         Dialog dialog = new Dialog();
@@ -2592,7 +2592,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openDeleteDialog(ChatMessage msg) {
         Dialog dialog = new Dialog();
@@ -2612,7 +2612,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openHistoryDialog(ChatMessage msg) {
         Dialog dialog = new Dialog();
@@ -2679,7 +2679,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void scrollToBottom() {
         scroller.getElement().executeJs("this.scrollTo(0, this.scrollHeight)");
@@ -2687,7 +2687,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
     @Override
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
         super.onAttach(attachEvent);
@@ -2705,7 +2705,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
     @Override
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     protected void onDetach(com.vaadin.flow.component.DetachEvent detachEvent) {
         /*
@@ -2731,7 +2731,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openSearchDialog(String query) {
         this.lastSearchQuery = query;
@@ -2768,7 +2768,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void performSearch(String query, boolean append) {
         /*
@@ -2902,7 +2902,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void navigateToMessage(ChatMessage msg) {
         java.time.LocalDate msgDate = msg.getTimestamp().atZone(java.time.ZoneId.systemDefault()).toLocalDate();
@@ -2953,7 +2953,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void updateOnlineUserAvatars() {
         getUI().ifPresent(ui -> ui.access(() -> {

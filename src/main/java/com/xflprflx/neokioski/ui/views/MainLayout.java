@@ -81,7 +81,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void createHeader() {
         H1 logo = new H1("NeoKioski");
@@ -115,7 +115,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void createDrawer() {
         drawerContainer.setSizeFull();
@@ -130,7 +130,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void showPrimaryNav() {
         drawerContainer.removeAll();
@@ -158,7 +158,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void showChatNav(Group selectedGroup) {
         drawerContainer.removeAll();
@@ -190,7 +190,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
 
     @Override
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void beforeEnter(BeforeEnterEvent event) {
         securityService.getAuthenticatedInternalUser().ifPresent(u -> {
@@ -228,7 +228,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
 
     @Override
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void afterNavigation(AfterNavigationEvent event) {
         /*
@@ -257,7 +257,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private String loadAudioAsBase64(String resourcePath) {
         String path = resourcePath.startsWith("/") ? resourcePath : "/" + resourcePath;
@@ -281,7 +281,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
 
     @Override
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
         super.onAttach(attachEvent);
@@ -483,7 +483,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void showPermissionDialog() {
         Dialog dialog = new Dialog();
@@ -511,7 +511,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
 
     @Override
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     protected void onDetach(com.vaadin.flow.component.DetachEvent detachEvent) {
         super.onDetach(detachEvent);
@@ -534,7 +534,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void showChangePasswordDialog() {
         Dialog dialog = new Dialog();

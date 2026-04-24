@@ -50,7 +50,7 @@ public class TaskTemplateService {
 
     @Transactional
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public TaskTemplate saveTemplate(TaskTemplate template, 
                                      List<TemplateFieldRelation> fieldRelations, 
@@ -190,65 +190,65 @@ public class TaskTemplateService {
         }
 
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return savedTemplate;
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<TaskTemplate> findAll() {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return taskTemplateRepository.findAll(Sort.by(Sort.Direction.ASC, "sortOrder", "name"));
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public TaskTemplate getTemplateById(Long id) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return taskTemplateRepository.findByIdWithGroups(id).orElse(null);
     }
 
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<TaskTemplate> getTemplatesByGroupId(Long groupId) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return taskTemplateRepository.findByGroupId(groupId);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<TemplateFieldRelation> getFieldRelationsByTemplateId(Long templateId) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return templateFieldRelationRepository.findByTaskTemplateIdOrderByOrderAsc(templateId);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<TemplateStepRelation> getStepRelationsByTemplateId(Long templateId) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return templateStepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(templateId);
     }
 
     @Transactional
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void deleteTemplate(Long id) {
         templateFieldRelationRepository.deleteByTaskTemplateId(id);
@@ -259,7 +259,7 @@ public class TaskTemplateService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<TaskSlaConfig> getSlaConfigsByTemplateId(Long templateId) {
         TaskTemplate template = taskTemplateRepository.findById(templateId).orElse(null);
@@ -268,7 +268,7 @@ public class TaskTemplateService {
          */
         if (template == null) return new java.util.ArrayList<>();
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return taskSlaConfigRepository.findByTaskTemplateAndValidToIsNull(template);
     }

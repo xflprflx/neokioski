@@ -14,7 +14,7 @@ import java.util.Optional;
 
 /**
  * Serviço responsável por gerenciar a segurança e o contexto de autenticação do usuário.
- * Oferece métodos para obter as credenciais do usuário logado e realizar logout.
+ * Oferece métodxs para obter as credenciais do usuário logado e realizar logout.
  */
 @Component
 public class SecurityService {

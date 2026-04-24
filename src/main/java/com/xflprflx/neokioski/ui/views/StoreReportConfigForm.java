@@ -77,7 +77,7 @@ public class StoreReportConfigForm extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void configureColumnsGrid() {
         columnsGrid.addColumn(ReportColumnConfig::getLabel).setHeader("Rótulo (Label)");
@@ -98,7 +98,7 @@ public class StoreReportConfigForm extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Component createAddColumnLayout() {
         TextField labelField = new TextField("Rótulo");
@@ -129,7 +129,7 @@ public class StoreReportConfigForm extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Component createButtonsLayout() {
         save.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
@@ -152,7 +152,7 @@ public class StoreReportConfigForm extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void setConfig(StoreReportConfig config) {
         binder.setBean(config);
@@ -166,7 +166,7 @@ public class StoreReportConfigForm extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void validateAndSave() {
         /*
@@ -189,7 +189,7 @@ public class StoreReportConfigForm extends VerticalLayout {
         }
 
         /**
-         * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+         * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
          */
         public StoreReportConfig getConfig() {
             /*
@@ -218,7 +218,7 @@ public class StoreReportConfigForm extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public Registration addDeleteListener(ComponentEventListener<DeleteEvent> listener) {
         /*
@@ -228,7 +228,7 @@ public class StoreReportConfigForm extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public Registration addSaveListener(ComponentEventListener<SaveEvent> listener) {
         /*
@@ -238,7 +238,7 @@ public class StoreReportConfigForm extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public Registration addCloseListener(ComponentEventListener<CloseEvent> listener) {
         /*

@@ -64,7 +64,7 @@ public class LoginView extends VerticalLayout implements BeforeEnterObserver {
 
     @Override
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void beforeEnter(BeforeEnterEvent beforeEnterEvent) {
         // Se houver erro na URL (como ?error), habilita o estado de erro no formulário

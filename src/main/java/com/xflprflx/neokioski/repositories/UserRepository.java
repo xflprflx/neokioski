@@ -18,6 +18,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * @param username O nome de usuário a ser buscado.
      * @return Um Optional contendo o usuário, se encontrado.
      */
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"groups"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     @org.springframework.data.jpa.repository.QueryHints({
             @jakarta.persistence.QueryHint(name = "org.hibernate.cacheable", value = "true")
     })

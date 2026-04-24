@@ -47,7 +47,7 @@ import java.util.function.Consumer;
  * Layout principal da aplicação que define o cabeçalho (Header) e o menu lateral (Drawer).
  * Todas as outras vistas (@Route) são renderizadas dentro deste layout.
  */
-@PermitAll
+@com.vaadin.flow.server.auth.AnonymousAllowed
 public class MainLayout extends AppLayout implements AfterNavigationObserver, BeforeEnterObserver {
 
     private final transient AuthenticationContext authContext;

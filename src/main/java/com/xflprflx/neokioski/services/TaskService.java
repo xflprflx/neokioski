@@ -15,6 +15,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional(readOnly = true)
 /**
  * Serviço principal para gerenciar o ciclo de vida completo de uma tarefa (criação, edição, atualização de passos e deleção).
  */

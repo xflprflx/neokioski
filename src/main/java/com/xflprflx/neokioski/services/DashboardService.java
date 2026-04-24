@@ -11,6 +11,7 @@ import com.xflprflx.neokioski.repositories.TaskRepository;
 import com.xflprflx.neokioski.repositories.TaskSlaResultRepository;
 import com.xflprflx.neokioski.repositories.TaskTemplateRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -41,6 +42,7 @@ public class DashboardService {
         this.stepRelationRepository = stepRelationRepository;
     }
 
+    @Transactional(readOnly = true)
     /**
      * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
@@ -66,6 +68,9 @@ public class DashboardService {
                     relCache.put(r.getTaskTemplate().getId() + "-" + r.getTaskStepDefinition().getId(), r);
                 }
             }
+        } else {
+            // Se não há tasks, podemos pular o processamento pesado
+            return new DashboardData(new DashboardStats(0, 0, 0, 0, 0, 0), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
         }
 
         // 2. Ranking Base (Menu de Criadores) -> Afetado por Tipo, Concluidor e Data Clique. Ignora clique em Criador.
@@ -281,23 +286,12 @@ public class DashboardService {
             String cacheKey = t.getTaskTemplate().getId() + "-" + event.getTaskStepDefinition().getId();
 
             TemplateStepRelation relation = relCache.get(cacheKey);
-            if (relation == null && !relCache.containsKey(cacheKey)) {
-                var relOpt = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
-                    t.getTaskTemplate().getId(), event.getTaskStepDefinition().getId());
-                relation = relOpt.orElse(null);
-                relCache.put(cacheKey, relation);
-            }
-                
-            /*
-             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-             */
+            
+            // #improve_n+1 - Remoção da query de fallback. O cache deve ser populado integralmente no início.
             if (relation != null && relation.isHasResponseField() &&
                 relation.getResponseFieldLabel() != null &&
                 relation.getResponseFieldLabel().toUpperCase().contains("DELIVERY")) {
                 
-                /*
-                 * Retorna o resultado final processado pelo método.
-                 */
                 return event.getUser() != null ? event.getUser().getName() : null;
             }
         }

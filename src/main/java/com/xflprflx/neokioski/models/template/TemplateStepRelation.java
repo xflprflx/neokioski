@@ -46,8 +46,8 @@ public class TemplateStepRelation {
     @Column(name = "response_input_type")
     private InputType responseInputType = InputType.TEXT;
 
-    // #improve_n+1 - Revertendo LAZY para coleções que geravam N+1 quando forçadas no LOAD de EntityGraph. SUBSELECT é suficiente.
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    // #improve_n+1 - LAZY para evitar carregamento desnecessário no Dashboard. SUBSELECT garante eficiência quando acessado.
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JoinColumn(name = "template_step_relation_id")
     @OrderBy("id ASC")
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
@@ -60,7 +60,7 @@ public class TemplateStepRelation {
     @JoinColumn(name = "task_step_definition_id")
     private TaskStepDefinition taskStepDefinition;
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "tb_template_step_next_allowed",
             joinColumns = @JoinColumn(name = "template_step_relation_id"),
@@ -75,7 +75,7 @@ public class TemplateStepRelation {
     @Column(name = "responsible_role")
     private Role responsibleRole;
 
-    @ElementCollection(fetch = FetchType.EAGER)
+    @ElementCollection(fetch = FetchType.LAZY)
     @Enumerated(EnumType.STRING)
     @CollectionTable(name = "tb_template_step_relation_alert_roles", joinColumns = @JoinColumn(name = "relation_id"))
     @Column(name = "role")

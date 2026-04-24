@@ -2,10 +2,12 @@ package com.xflprflx.neokioski.models.template;
 
 import jakarta.persistence.*;
 
+import org.hibernate.annotations.BatchSize;
 import java.util.Objects;
 
 @Entity
 @Table(name = "tb_task_step_definitions")
+@BatchSize(size = 100)
 /**
  * Entidade que define um passo específico no fluxo (pipeline) de um template de tarefa.
  */

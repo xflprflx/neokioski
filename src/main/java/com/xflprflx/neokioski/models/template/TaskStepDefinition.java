@@ -7,6 +7,8 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "tb_task_step_definitions")
+@Cacheable
+@org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
 @org.hibernate.annotations.BatchSize(size = 50)
 /**
  * Entidade que define um passo específico no fluxo (pipeline) de um template de tarefa.

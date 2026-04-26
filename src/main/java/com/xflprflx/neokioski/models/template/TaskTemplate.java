@@ -14,6 +14,9 @@ import java.util.LinkedHashSet;
 
 @Entity
 @Table(name = "tb_task_templates")
+@Cacheable
+@org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
+@org.hibernate.annotations.BatchSize(size = 50)
 /**
  * Entidade que define o modelo ou gabarito estrutural utilizado na criação de novas tarefas.
  */
@@ -47,6 +50,7 @@ public class TaskTemplate {
     @Enumerated(EnumType.STRING)
     @CollectionTable(name = "tb_task_template_alert_roles", joinColumns = @JoinColumn(name = "task_template_id"))
     @Column(name = "role")
+    @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
     @org.hibernate.annotations.BatchSize(size = 50)
     private Set<Role> alertRoles = new HashSet<>();
 
@@ -61,10 +65,12 @@ public class TaskTemplate {
 
     @OneToMany(mappedBy = "taskTemplate")
     @OrderBy("order ASC")
+    @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
     @org.hibernate.annotations.BatchSize(size = 50)
     private Set<TemplateStepRelation> templateStepRelation = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "taskTemplate")
+    @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
     @org.hibernate.annotations.BatchSize(size = 50)
     private Set<TemplateFieldRelation> templateFieldRelation = new LinkedHashSet<>();
 
@@ -79,6 +85,7 @@ public class TaskTemplate {
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
+    @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
     @org.hibernate.annotations.BatchSize(size = 50)
     private Set<User> authorizingUsers = new HashSet<>();
 

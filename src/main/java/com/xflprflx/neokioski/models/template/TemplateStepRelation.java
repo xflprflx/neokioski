@@ -13,6 +13,9 @@ import java.util.LinkedHashSet;
 
 @Entity
 @Table(name = "tb_template_step_relations")
+@Cacheable
+@org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
+@org.hibernate.annotations.BatchSize(size = 50)
 /**
  * Entidade que mapeia o relacionamento de ordenação dos passos predefinidos dentro de um template de tarefa.
  */
@@ -52,6 +55,7 @@ public class TemplateStepRelation {
     @JoinColumn(name = "template_step_relation_id")
     @OrderBy("id ASC")
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
+    @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
     @org.hibernate.annotations.BatchSize(size = 50)
     private Set<TaskFieldOption> responseOptions = new LinkedHashSet<>();
 
@@ -69,6 +73,7 @@ public class TemplateStepRelation {
             inverseJoinColumns = @JoinColumn(name = "next_step_definition_id")
     )
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
+    @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
     @org.hibernate.annotations.BatchSize(size = 50)
     private Set<TaskStepDefinition> allowedNextSteps = new LinkedHashSet<>();
 
@@ -83,6 +88,7 @@ public class TemplateStepRelation {
     @CollectionTable(name = "tb_template_step_relation_alert_roles", joinColumns = @JoinColumn(name = "relation_id"))
     @Column(name = "role")
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
+    @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
     @org.hibernate.annotations.BatchSize(size = 50)
     private Set<Role> alertRoles = new HashSet<>();
 

@@ -59,21 +59,15 @@ public class TaskService {
     }
 
     public Optional<com.xflprflx.neokioski.models.enums.Role> getResponsibleRole(Task task) {
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
         if (task.getCurrentStep() == null) {
-            /*
-             * Retorna o resultado final processado pelo métodx.
-             */
             return Optional.ofNullable(task.getTaskTemplate().getDefaultResponsibleRole());
         }
-        /*
-         * Retorna o resultado final processado pelo métodx.
-         */
-        return stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
-                task.getTaskTemplate().getId(), task.getCurrentStep().getId()
-        ).map(TemplateStepRelation::getResponsibleRole);
+        // #improve_n+1 - Usar coleção em memória se disponível para evitar query secundária
+        return task.getTaskTemplate().getTemplateStepRelation().stream()
+                .filter(r -> r.getTaskStepDefinition() != null && 
+                            r.getTaskStepDefinition().getId().equals(task.getCurrentStep().getId()))
+                .findFirst()
+                .map(TemplateStepRelation::getResponsibleRole);
     }
 
     /**

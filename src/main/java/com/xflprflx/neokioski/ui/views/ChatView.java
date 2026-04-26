@@ -53,6 +53,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
     private Group group;
     private User currentUser;
+    private List<TaskTemplate> groupTemplates = new ArrayList<>();
     
     private final VerticalLayout messageContainer = new VerticalLayout();
     private final Scroller scroller = new Scroller(messageContainer);
@@ -242,7 +243,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         showTasksInChatCheckbox.getStyle().set("margin-left", "auto").set("margin-right", "var(--lumo-space-m)");
         showTasksInChatCheckbox.addValueChangeListener(e -> {
             showTasksInChat = e.getValue();
-            loadMessages(); // Recarregar mensagens para aplicar filtro
+            if (e.isFromClient()) loadMessages(); // Recarregar mensagens para aplicar filtro
         });
 
         // Controles de áudio
@@ -279,12 +280,16 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         startDatePicker = new com.vaadin.flow.component.datepicker.DatePicker("Início");
         startDatePicker.setValue(java.time.LocalDate.now());
         startDatePicker.setWidth("140px");
-        startDatePicker.addValueChangeListener(e -> refreshAllComponents());
+        startDatePicker.addValueChangeListener(e -> {
+            if (e.isFromClient()) refreshAllComponents();
+        });
 
         endDatePicker = new com.vaadin.flow.component.datepicker.DatePicker("Fim");
         endDatePicker.setValue(java.time.LocalDate.now());
         endDatePicker.setWidth("140px");
-        endDatePicker.addValueChangeListener(e -> refreshAllComponents());
+        endDatePicker.addValueChangeListener(e -> {
+            if (e.isFromClient()) refreshAllComponents();
+        });
 
         HorizontalLayout dateFilters = new HorizontalLayout(startDatePicker, endDatePicker);
         dateFilters.setSpacing(true);
@@ -357,10 +362,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         ownerFilter.setWidthFull();
         ownerFilter.setClearButtonVisible(true);
         ownerFilter.addValueChangeListener(e -> {
+            if (!e.isFromClient()) return;
             String val = e.getValue();
-            /*
-             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-             */
             if (val == null || val.equals("Todas")) filterOwner = "todas";
             else if (val.equals("Minhas")) filterOwner = "minhas";
             else filterOwner = val;
@@ -371,6 +374,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         statusFilter.setWidthFull();
         statusFilter.setClearButtonVisible(true);
         statusFilter.addValueChangeListener(e -> {
+            if (!e.isFromClient()) return;
             String val = e.getValue();
             filterStatus = (val == null || val.equals("Todos")) ? "todos" : val;
             refreshTaskList();
@@ -380,6 +384,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         sectorFilter.setWidthFull();
         sectorFilter.setClearButtonVisible(true);
         sectorFilter.addValueChangeListener(e -> {
+            if (!e.isFromClient()) return;
             String val = e.getValue();
             filterSector = (val == null || val.equals("Todos")) ? "todos" : val;
             refreshTaskList();
@@ -571,7 +576,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         stepOptions.add("Pendentes");
         stepOptions.add("Finalizadas");
         
-        taskTemplateService.getTemplatesByGroupId(group.getId()).stream()
+        groupTemplates.stream()
                 .flatMap(template -> template.getTemplateStepRelation().stream())
                 .filter(rel -> rel.getTaskStepDefinition() != null)
                 .map(rel -> rel.getTaskStepDefinition().getLabel())
@@ -617,11 +622,9 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
      */
     private void loadTemplates() {
         templateBar.removeAll();
-        List<TaskTemplate> templates = taskTemplateService.getTemplatesByGroupId(group.getId());
-        /*
-         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-         */
-        if (templates.isEmpty()) {
+        this.groupTemplates = taskTemplateService.getTemplatesByGroupId(group.getId());
+        
+        if (groupTemplates.isEmpty()) {
             templateScroller.setVisible(false);
             return;
         }
@@ -629,7 +632,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         /*
          * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
          */
-        for (TaskTemplate t : templates) {
+        for (TaskTemplate t : groupTemplates) {
             templateBar.add(createTemplateFormCard(t));
         }
         templateScroller.setVisible(true);
@@ -651,7 +654,11 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         title.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-s)");
         card.add(title);
 
-        List<TemplateFieldRelation> fields = taskTemplateService.getFieldRelationsByTemplateId(template.getId());
+        // #improve_n+1 - Usar coleção já carregada no EntityGraph em vez de chamar o serviço
+        List<TemplateFieldRelation> fields = template.getTemplateFieldRelation().stream()
+                .sorted(Comparator.comparingInt(TemplateFieldRelation::getOrder))
+                .collect(Collectors.toList());
+                
         java.util.LinkedHashMap<com.xflprflx.neokioski.models.template.TaskFieldDefinition, com.vaadin.flow.component.Component> fieldComponents = new java.util.LinkedHashMap<>();
 
         /*
@@ -1108,12 +1115,13 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         replyBar.setVisible(false);
     }
 
+    private Long lastLoadedGroupId;
+
     @Override
-    /**
-     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
-     */
     public void setParameter(BeforeEvent event, Long groupId) {
-        Optional<Group> groupOpt = groupService.findById(groupId);
+        if (groupId != null && !groupId.equals(lastLoadedGroupId)) {
+            this.lastLoadedGroupId = groupId;
+            Optional<Group> groupOpt = groupService.findById(groupId);
         /*
          * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
          */
@@ -1165,6 +1173,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         updateFilterOptions();
         refreshTaskList();
         setupRealTimeUpdate();
+        }
     }
 
     /**
@@ -2692,11 +2701,10 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
      */
     protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
         super.onAttach(attachEvent);
+
         presenceListener = event -> {
             getUI().ifPresent(ui -> ui.access(() -> {
-                // Ao mudar status, recarregar mensagens para atualizar indicadores visuais
-                loadMessages();
-                // E atualizar a lista de avatares
+                // Apenas atualizar avatares visuais, sem recarregar mensagens do banco
                 updateOnlineUserAvatars();
             }));
         };
@@ -2959,15 +2967,12 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private void updateOnlineUserAvatars() {
         getUI().ifPresent(ui -> ui.access(() -> {
             onlineUsersAvatars.removeAll();
+            if (group == null) return;
             Set<Long> onlineIds = presenceService.getOnlineUserIds();
             
-            // #improve_n+1
-            List<User> onlineUsers = userService.findAllById(onlineIds);
-
-            /*
-             * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
-             */
-            for (User user : onlineUsers) {
+            // Usar os usuários do grupo já em memória, sem ir ao banco
+            for (User user : group.getUsers()) {
+                if (!onlineIds.contains(user.getId())) continue;
                 com.vaadin.flow.component.avatar.Avatar avatar = new com.vaadin.flow.component.avatar.Avatar(user.getName());
                 avatar.getStyle()
                     .set("width", "24px")
@@ -2976,9 +2981,6 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     .set("border-radius", "50%")
                     .set("margin-left", "-8px"); // Sobreposição para visual Google Docs
 
-                /*
-                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                 */
                 if (onlineUsersAvatars.getComponentCount() == 0) {
                     avatar.getStyle().set("margin-left", "0");
                 }

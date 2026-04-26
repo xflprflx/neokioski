@@ -8,6 +8,8 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "tb_task_field_definitions")
+@Cacheable
+@org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
 @org.hibernate.annotations.BatchSize(size = 50)
 /**
  * Entidade que representa a definição estrutural de um campo customizável pertencente a um template.
@@ -24,6 +26,7 @@ public class TaskFieldDefinition {
     private InputType inputType;
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "task_field_definition_id")
+    @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
     @org.hibernate.annotations.BatchSize(size = 50)
     private List<TaskFieldOption> taskFieldOptions = new ArrayList<>();
 

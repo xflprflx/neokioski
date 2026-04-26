@@ -6,6 +6,8 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "tb_template_field_relations")
+@Cacheable
+@org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
 @org.hibernate.annotations.BatchSize(size = 50)
 /**
  * Entidade que mapeia o relacionamento entre um template de tarefa e a definição de um campo de entrada.

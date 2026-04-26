@@ -5,6 +5,8 @@ import com.xflprflx.neokioski.models.template.*;
 import com.xflprflx.neokioski.repositories.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import org.springframework.data.jpa.domain.Specification;
 import jakarta.persistence.criteria.*;
@@ -708,38 +710,36 @@ public class TaskService {
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void broadcast(Long groupId, Task task) {
-        List<Consumer<Task>> groupListeners = listeners.get(groupId);
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
-        if (groupListeners != null) {
-            /*
-             * Inicia um laço de repetição (for) para iterar sobre os elementos.
-             */
-            for (Consumer<Task> l : groupListeners) {
-                /*
-                 * Inicia um bloco try-catch para tratar possíveis exceções.
-                 */
+        Runnable doBroadcast = () -> {
+            List<Consumer<Task>> groupListeners = listeners.get(groupId);
+            if (groupListeners != null) {
+                for (Consumer<Task> l : groupListeners) {
+                    try {
+                        l.accept(task);
+                    } catch (Exception e) {
+                        System.err.println("Erro ao notificar listener de Task no grupo " + groupId + ": " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                }
+            }
+            for (Consumer<Task> l : globalListeners) {
                 try {
                     l.accept(task);
                 } catch (Exception e) {
-                    System.err.println("Erro ao notificar listener de Task no grupo " + groupId + ": " + e.getMessage());
-                    e.printStackTrace();
+                    System.err.println("Erro ao notificar listener global de Task: " + e.getMessage());
                 }
             }
-        }
-        /*
-         * Inicia um laço de repetição (for) para iterar sobre os elementos.
-         */
-        for (Consumer<Task> l : globalListeners) {
-            /*
-             * Inicia um bloco try-catch para tratar possíveis exceções.
-             */
-            try {
-                l.accept(task);
-            } catch (Exception e) {
-                System.err.println("Erro ao notificar listener global de Task: " + e.getMessage());
-            }
+        };
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    doBroadcast.run();
+                }
+            });
+        } else {
+            doBroadcast.run();
         }
     }
 

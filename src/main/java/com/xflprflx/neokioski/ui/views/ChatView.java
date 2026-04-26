@@ -2490,9 +2490,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                          * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
                          */
                         if (messageId != null) {
-                            chatService.getMessagesByGroup(group).stream()
-                                .filter(m -> m.getId().equals(messageId))
-                                .findFirst()
+                            chatService.getMessageById(messageId)
                                 .ifPresent(this::addOrUpdateMessageInUI);
                         }
                         // Atualizar a lista de tarefas lateral sempre

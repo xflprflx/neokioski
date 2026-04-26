@@ -207,6 +207,17 @@ public class ChatService {
         return messages;
     }
 
+    @Transactional(readOnly = true)
+    public java.util.Optional<ChatMessage> getMessageById(Long id) {
+        java.util.Optional<ChatMessage> msgOpt = repository.findByIdWithFullGraph(id);
+        msgOpt.ifPresent(m -> {
+            if (m.getTask() != null) {
+                taskService.initializeTaskData(m.getTask());
+            }
+        });
+        return msgOpt;
+    }
+
 
     @Transactional(readOnly = true)
     /**

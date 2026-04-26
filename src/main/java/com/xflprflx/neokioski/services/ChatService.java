@@ -26,11 +26,15 @@ public class ChatService {
 
     private final ChatMessageRepository repository;
     private final MessageReactionRepository reactionRepository;
+    private final TaskService taskService;
     private final Map<Long, List<Consumer<ChatMessage>>> listeners = Collections.synchronizedMap(new HashMap<>());
-
-    public ChatService(ChatMessageRepository repository, MessageReactionRepository reactionRepository) {
+ 
+    public ChatService(ChatMessageRepository repository, 
+                       MessageReactionRepository reactionRepository, 
+                       @org.springframework.context.annotation.Lazy TaskService taskService) {
         this.repository = repository;
         this.reactionRepository = reactionRepository;
+        this.taskService = taskService;
     }
 
     @Transactional
@@ -165,6 +169,7 @@ public class ChatService {
          */
         return repository.findById(messageId).map(msg -> {
             msg.setTask(task);
+            taskService.initializeTaskData(task);
             ChatMessage saved = repository.save(msg);
             broadcast(saved.getGroup().getId(), saved);
             /*
@@ -174,58 +179,53 @@ public class ChatService {
         }).orElse(null);
     }
 
-    /**
-     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
-     */
+    @Transactional(readOnly = true)
     public List<ChatMessage> getMessagesByGroup(Group group, java.time.Instant start, java.time.Instant end) {
-        // Busca todas as mensagens (sem fetch)
-        List<ChatMessage> all = repository.findByGroupAndTimestampBetweenOrderByTimestampAsc(group, start, end);
-        // Busca mensagens com task e suas coleções carregadas eagerly
-        List<ChatMessage> withTask = repository.findByGroupWithTaskAndTimestampBetweenOrderByTimestampAsc(group, start, end);
-        // Substitui os objetos com task pelo equivalente com coleções inicializadas
-        Map<Long, ChatMessage> taskMap = new HashMap<>();
-        /*
-         * Inicia um laço de repetição (for) para iterar sobre os elementos.
-         */
-        for (ChatMessage m : withTask) taskMap.put(m.getId(), m);
-        /*
-         * Retorna o resultado final processado pelo métodx.
-         */
-        return all.stream()
-                .map(m -> taskMap.getOrDefault(m.getId(), m))
-                .toList();
+        List<ChatMessage> messages = repository.findByGroupAndTimestampBetweenOrderByTimestampAsc(group, start, end);
+        
+        // #improve_n+1 - Graças ao @BatchSize nas entidades, este laço disparará apenas 
+        // uma query por tipo de coleção para o lote todo, garantindo performance e evitando LazyInitializationException.
+        messages.forEach(m -> {
+            if (m.getTask() != null) {
+                taskService.initializeTaskData(m.getTask());
+            }
+        });
+        
+        return messages;
     }
 
-    /**
-     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
-     */
+    @Transactional(readOnly = true)
     public List<ChatMessage> getMessagesByGroup(Group group) {
-        // Busca todas as mensagens (sem fetch)
-        List<ChatMessage> all = repository.findByGroupOrderByTimestampAsc(group);
-        // Busca mensagens com task e suas coleções carregadas eagerly
-        List<ChatMessage> withTask = repository.findByGroupWithTaskOrderByTimestampAsc(group);
-        // Substitui os objetos com task pelo equivalente com coleções inicializadas
-        Map<Long, ChatMessage> taskMap = new HashMap<>();
-        /*
-         * Inicia um laço de repetição (for) para iterar sobre os elementos.
-         */
-        for (ChatMessage m : withTask) taskMap.put(m.getId(), m);
-        /*
-         * Retorna o resultado final processado pelo métodx.
-         */
-        return all.stream()
-                .map(m -> taskMap.getOrDefault(m.getId(), m))
-                .toList();
+        List<ChatMessage> messages = repository.findByGroupOrderByTimestampAsc(group);
+        
+        messages.forEach(m -> {
+            if (m.getTask() != null) {
+                taskService.initializeTaskData(m.getTask());
+            }
+        });
+        
+        return messages;
     }
 
+
+    @Transactional(readOnly = true)
     /**
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<ChatMessage> searchMessages(Group group, String query, int page, int size) {
+        List<ChatMessage> results = repository.searchMessages(group, query, org.springframework.data.domain.PageRequest.of(page, size));
+        
+        // #improve_n+1 - Inicializar profundamente os dados da tarefa para o preview na UI
+        results.forEach(m -> {
+            if (m.getTask() != null) {
+                taskService.initializeTaskData(m.getTask());
+            }
+        });
+        
         /*
          * Retorna o resultado final processado pelo métodx.
          */
-        return repository.searchMessages(group, query, org.springframework.data.domain.PageRequest.of(page, size));
+        return results;
     }
 
     @Transactional
@@ -313,6 +313,15 @@ public class ChatService {
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private void broadcast(Long groupId, ChatMessage message) {
+        // #improve_n+1 - Se a mensagem tem task e já foi salva (ID > 0), recarregamos com o grafo completo
+        // para garantir que os listeners recebam o objeto totalmente inicializado, evitando LazyInitializationException na UI
+        ChatMessage effectiveMessage = message;
+        if (message.getTask() != null && message.getId() != null && message.getId() > 0) {
+            effectiveMessage = repository.findByIdWithFullGraph(message.getId()).orElse(message);
+            // #improve_n+1 - Deep touch para garantir que o objeto transmitido esteja 100% pronto para a UI
+            taskService.initializeTaskData(effectiveMessage.getTask());
+        }
+
         List<Consumer<ChatMessage>> groupListeners = listeners.get(groupId);
         /*
          * Avalia uma condição (if) para desvio de fluxo da lógica principal.
@@ -326,7 +335,7 @@ public class ChatService {
                  * Inicia um bloco try-catch para tratar possíveis exceções.
                  */
                 try {
-                    listener.accept(message);
+                    listener.accept(effectiveMessage);
                 } catch (Exception e) {
                     System.err.println("Erro ao notificar listener de Chat no grupo " + groupId + ": " + e.getMessage());
                 }

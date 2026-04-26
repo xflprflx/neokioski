@@ -10,6 +10,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.Objects;
+import java.util.LinkedHashSet;
 
 @Entity
 @Table(name = "tb_task_templates")
@@ -46,6 +47,7 @@ public class TaskTemplate {
     @Enumerated(EnumType.STRING)
     @CollectionTable(name = "tb_task_template_alert_roles", joinColumns = @JoinColumn(name = "task_template_id"))
     @Column(name = "role")
+    @org.hibernate.annotations.BatchSize(size = 50)
     private Set<Role> alertRoles = new HashSet<>();
 
     @ManyToMany(fetch = FetchType.LAZY)
@@ -58,10 +60,12 @@ public class TaskTemplate {
     private List<Group> groups = new ArrayList<>();
 
     @OneToMany(mappedBy = "taskTemplate")
-    private List<TemplateStepRelation> templateStepRelation = new ArrayList<>();
+    @OrderBy("order ASC")
+    @org.hibernate.annotations.BatchSize(size = 50)
+    private Set<TemplateStepRelation> templateStepRelation = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "taskTemplate")
-    private List<TemplateFieldRelation> templateFieldRelation = new ArrayList<>();
+    private Set<TemplateFieldRelation> templateFieldRelation = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "taskTemplate", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TaskAlert> alerts = new ArrayList<>();
@@ -73,7 +77,8 @@ public class TaskTemplate {
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
-    private List<User> authorizingUsers = new ArrayList<>();
+    @org.hibernate.annotations.BatchSize(size = 50)
+    private Set<User> authorizingUsers = new HashSet<>();
 
     public TaskTemplate() {
     }
@@ -166,19 +171,19 @@ public class TaskTemplate {
         this.groups.add(group);
     }
 
-    public List<TemplateStepRelation> getTemplateStepRelation() {
+    public Set<TemplateStepRelation> getTemplateStepRelation() {
         return templateStepRelation;
     }
 
-    public List<TemplateFieldRelation> getTemplateFieldRelation() {
+    public Set<TemplateFieldRelation> getTemplateFieldRelation() {
         return templateFieldRelation;
     }
 
-    public List<User> getAuthorizingUsers() {
+    public Set<User> getAuthorizingUsers() {
         return authorizingUsers;
     }
 
-    public void setAuthorizingUsers(List<User> authorizingUsers) {
+    public void setAuthorizingUsers(Set<User> authorizingUsers) {
         this.authorizingUsers = authorizingUsers;
     }
 

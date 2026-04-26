@@ -32,7 +32,7 @@ public class TaskAlertService {
     private final Map<String, ScheduledFuture<?>> scheduledAlerts = new ConcurrentHashMap<>();
 
     public TaskAlertService(TaskRepository taskRepository, 
-                            ChatService chatService, 
+                            @org.springframework.context.annotation.Lazy ChatService chatService, 
                             TaskScheduler taskScheduler, 
                             TransactionTemplate transactionTemplate,
                             com.xflprflx.neokioski.repositories.TaskTemplateRepository taskTemplateRepository,
@@ -60,9 +60,8 @@ public class TaskAlertService {
              * Avalia uma condição (if) para desvio de fluxo da lógica principal.
              */
             if (freshTask == null || freshTask.getTaskTemplate() == null) return;
-            
             com.xflprflx.neokioski.models.template.TaskTemplate attachedTemplate = 
-                taskTemplateRepository.findById(freshTask.getTaskTemplate().getId()).orElse(null);
+                taskTemplateRepository.findByIdWithAlerts(freshTask.getTaskTemplate().getId()).orElse(null);
                 
             /*
              * Avalia uma condição (if) para desvio de fluxo da lógica principal.
@@ -285,7 +284,7 @@ public class TaskAlertService {
             message = "ALERTA: A tarefa '" + task.getTaskTemplate().getName() + "' está pendente há mais de " + alert.getTimeoutMinutes() + " minutos!";
         }
 
-        List<com.xflprflx.neokioski.models.User> authorizers = task.getTaskTemplate().getAuthorizingUsers();
+        java.util.Collection<com.xflprflx.neokioski.models.User> authorizers = task.getTaskTemplate().getAuthorizingUsers();
         /*
          * Avalia uma condição (if) para desvio de fluxo da lógica principal.
          */

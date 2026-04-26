@@ -9,6 +9,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.Objects;
+import java.util.LinkedHashSet;
 
 @Entity
 @Table(name = "tb_template_step_relations")
@@ -51,7 +52,8 @@ public class TemplateStepRelation {
     @JoinColumn(name = "template_step_relation_id")
     @OrderBy("id ASC")
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
-    private List<TaskFieldOption> responseOptions = new ArrayList<>();
+    @org.hibernate.annotations.BatchSize(size = 50)
+    private Set<TaskFieldOption> responseOptions = new LinkedHashSet<>();
 
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "task_template_id")
@@ -67,7 +69,8 @@ public class TemplateStepRelation {
             inverseJoinColumns = @JoinColumn(name = "next_step_definition_id")
     )
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
-    private List<TaskStepDefinition> allowedNextSteps = new ArrayList<>();
+    @org.hibernate.annotations.BatchSize(size = 50)
+    private Set<TaskStepDefinition> allowedNextSteps = new LinkedHashSet<>();
 
     private String alertSound;
 
@@ -80,6 +83,7 @@ public class TemplateStepRelation {
     @CollectionTable(name = "tb_template_step_relation_alert_roles", joinColumns = @JoinColumn(name = "relation_id"))
     @Column(name = "role")
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
+    @org.hibernate.annotations.BatchSize(size = 50)
     private Set<Role> alertRoles = new HashSet<>();
 
     public TemplateStepRelation() {
@@ -141,11 +145,11 @@ public class TemplateStepRelation {
         this.taskStepDefinition = taskStepDefinition;
     }
 
-    public List<TaskStepDefinition> getAllowedNextSteps() {
+    public Set<TaskStepDefinition> getAllowedNextSteps() {
         return allowedNextSteps;
     }
 
-    public void setAllowedNextSteps(List<TaskStepDefinition> allowedNextSteps) {
+    public void setAllowedNextSteps(Set<TaskStepDefinition> allowedNextSteps) {
         this.allowedNextSteps = allowedNextSteps;
     }
 
@@ -206,11 +210,11 @@ public class TemplateStepRelation {
         this.responseInputType = responseInputType;
     }
 
-    public List<TaskFieldOption> getResponseOptions() {
+    public Set<TaskFieldOption> getResponseOptions() {
         return responseOptions;
     }
 
-    public void setResponseOptions(List<TaskFieldOption> responseOptions) {
+    public void setResponseOptions(Set<TaskFieldOption> responseOptions) {
         this.responseOptions = responseOptions;
     }
 

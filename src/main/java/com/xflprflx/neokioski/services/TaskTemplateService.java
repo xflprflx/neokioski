@@ -212,7 +212,7 @@ public class TaskTemplateService {
         /*
          * Retorna o resultado final processado pelo métodx.
          */
-        return taskTemplateRepository.findByIdWithGroups(id).orElse(null);
+        return taskTemplateRepository.findByIdWithAlerts(id).orElse(null);
     }
 
 

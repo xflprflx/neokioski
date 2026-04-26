@@ -14,6 +14,10 @@ import java.util.List;
  * Repositório de acesso a dados para gerenciamento principal da entidade de tarefas (Task).
  */
 public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificationExecutor<Task> {
+    
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
+    @Query("SELECT t FROM Task t WHERE t.id = :id")
+    java.util.Optional<Task> findByIdWithCollections(@Param("id") Long id);
 
     // #improve_n+1
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)

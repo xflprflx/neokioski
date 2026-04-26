@@ -15,11 +15,19 @@ import java.util.List;
  */
 public interface TaskTemplateRepository extends JpaRepository<TaskTemplate, Long> {
     
-    // #improve_n+1 - Múltiplos FETCH para Lists geram MultipleBagFetchException. Removemos o Graph amplo.
+    // #improve_n+1 - Múltiplos FETCH para Lists geram MultipleBagFetchException. Mas para Sets e To-Ones é seguro.
+    @Query("SELECT t FROM TaskTemplate t " +
+           "LEFT JOIN FETCH t.alerts " +
+           "LEFT JOIN FETCH t.templateStepRelation r " +
+           "LEFT JOIN FETCH r.taskStepDefinition " +
+           "WHERE t.id = :id")
+    Optional<TaskTemplate> findByIdWithMetadata(@Param("id") Long id);
+
     @Query("SELECT t FROM TaskTemplate t LEFT JOIN FETCH t.alerts WHERE t.id = :id")
-    Optional<TaskTemplate> findByIdWithGroups(@Param("id") Long id);
+    Optional<TaskTemplate> findByIdWithAlerts(@Param("id") Long id);
 
     // #improve_n+1 - Evitar que a lista geral carregue sub-colecoes lazy e cause queries secundárias
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"alertRoles", "authorizingUsers"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     @Query("SELECT t FROM TaskTemplate t JOIN t.groups g WHERE g.id = :groupId ORDER BY t.sortOrder ASC, t.name ASC")
     List<TaskTemplate> findByGroupId(@Param("groupId") Long groupId);
 

@@ -37,9 +37,9 @@ public class TaskService {
 
     public TaskService(TaskRepository taskRepository,
                        TemplateStepRelationRepository stepRelationRepository,
-                       ChatService chatService,
+                       @org.springframework.context.annotation.Lazy ChatService chatService,
                        ChatMessageRepository chatMessageRepository,
-                       TaskAlertService taskAlertService,
+                       @org.springframework.context.annotation.Lazy TaskAlertService taskAlertService,
                        TaskTemplateRepository taskTemplateRepository,
                        TaskFieldDefinitionRepository taskFieldDefinitionRepository,
                        TaskStepDefinitionRepository taskStepDefinitionRepository,
@@ -73,16 +73,20 @@ public class TaskService {
         ).map(TemplateStepRelation::getResponsibleRole);
     }
 
-    @Transactional
     /**
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
+    @Transactional
     public Task createTask(TaskTemplate template,
                            Map<TaskFieldDefinition, String> fieldValues,
                            User creator,
                            Group group) {
+        // #improve_n+1 - Recarregar o template com metadados completos para garantir que ele esteja atachado e pronto
+        TaskTemplate attachedTemplate = taskTemplateRepository.findByIdWithMetadata(template.getId())
+                .orElseThrow(() -> new RuntimeException("Template não encontrado: " + template.getId()));
+
         Task task = new Task();
-        task.setTaskTemplate(template);
+        task.setTaskTemplate(attachedTemplate);
         task.setCreator(creator);
         task.setGroup(group);
         task.setCreatedAt(Instant.now());
@@ -111,6 +115,8 @@ public class TaskService {
         task.getTaskEvents().add(event);
 
         Task saved = taskRepository.save(task);
+        // #improve_n+1 - Deep touch para garantir que a task transmitida esteja 100% pronta para a UI
+        initializeTaskData(saved);
         taskAlertService.scheduleAlertsForTask(saved);
         broadcast(group.getId(), saved);
         /*
@@ -124,7 +130,7 @@ public class TaskService {
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public Task executeStep(Long taskId, TaskStepDefinition step, User user, String response) {
-        Task task = taskRepository.findById(taskId).orElseThrow(() -> new RuntimeException("Task não encontrada: " + taskId));
+        Task task = taskRepository.findByIdWithCollections(taskId).orElseThrow(() -> new RuntimeException("Task não encontrada: " + taskId));
 
         /*
          * Avalia uma condição (if) para desvio de fluxo da lógica principal.
@@ -199,7 +205,7 @@ public class TaskService {
                     }
 
                     // 2. Processar @autorizadores
-                    List<User> authorizers = task.getTaskTemplate().getAuthorizingUsers();
+                    java.util.Collection<User> authorizers = task.getTaskTemplate().getAuthorizingUsers();
                     /*
                      * Avalia uma condição (if) para desvio de fluxo da lógica principal.
                      */
@@ -256,7 +262,7 @@ public class TaskService {
             taskAlertService.cancelAlertByTargetStep(saved, step);
             taskAlertService.scheduleAlertsForTask(saved);
         }
-
+        initializeTaskData(saved);
         broadcast(task.getGroup().getId(), saved);
         /*
          * Retorna o resultado final processado pelo métodx.
@@ -278,40 +284,36 @@ public class TaskService {
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<Task> getTasksByGroup(Group group) {
-        /*
-         * Retorna o resultado final processado pelo métodx.
-         */
-        return taskRepository.findByGroupWithCollections(group);
+        List<Task> tasks = taskRepository.findByGroupWithCollections(group);
+        tasks.forEach(this::initializeTaskData);
+        return tasks;
     }
 
     /**
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<Task> getTasksByGroup(Group group, Instant start, Instant end) {
-        /*
-         * Retorna o resultado final processado pelo métodx.
-         */
-        return taskRepository.findByGroupAndCreatedAtBetweenOrderByCreatedAtDesc(group, start, end);
+        List<Task> tasks = taskRepository.findByGroupAndCreatedAtBetweenOrderByCreatedAtDesc(group, start, end);
+        tasks.forEach(this::initializeTaskData);
+        return tasks;
     }
 
     /**
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<Task> getMyTasks(Group group, User user) {
-        /*
-         * Retorna o resultado final processado pelo métodx.
-         */
-        return taskRepository.findMyTasksByGroup(group, user);
+        List<Task> tasks = taskRepository.findMyTasksByGroup(group, user);
+        tasks.forEach(this::initializeTaskData);
+        return tasks;
     }
 
     /**
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<Task> getPendingTasks(Group group) {
-        /*
-         * Retorna o resultado final processado pelo métodx.
-         */
-        return taskRepository.findPendingByGroup(group);
+        List<Task> tasks = taskRepository.findPendingByGroup(group);
+        tasks.forEach(this::initializeTaskData);
+        return tasks;
     }
 
     /**
@@ -409,6 +411,9 @@ public class TaskService {
          */
         if (isTaskFinalized(task)) return Collections.emptyList();
 
+        // #fix - Consultar relations a partir do repositório (entidades managed na transação atual)
+        // garante que cada sessão receptora do broadcast veja todos os steps, sem depender do estado
+        // de inicialização da coleção em memória do TaskTemplate transmitido via push.
         List<TemplateStepRelation> allRels = stepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(task.getTaskTemplate().getId());
         
         List<TaskStepDefinition> globalSteps = allRels.stream()
@@ -454,7 +459,9 @@ public class TaskService {
         }
 
         // Identificar passos que são destinos de alguma transição (restritos)
+        // #fix - Passos globais não devem restringir pontos de entrada
         Set<Long> restrictedStepIds = allRels.stream()
+                .filter(r -> !r.isGlobal())
                 .flatMap(r -> r.getAllowedNextSteps().stream())
                 .map(TaskStepDefinition::getId)
                 .collect(Collectors.toSet());
@@ -468,7 +475,7 @@ public class TaskService {
                     .filter(r -> !r.isGlobal() && !restrictedStepIds.contains(r.getTaskStepDefinition().getId()))
                     .map(TemplateStepRelation::getTaskStepDefinition)
                     .collect(Collectors.toList());
-            
+
             List<TaskStepDefinition> result = new ArrayList<>(entrySteps);
             /*
              * Inicia um laço de repetição (for) para iterar sobre os elementos.
@@ -494,7 +501,7 @@ public class TaskService {
          */
         if (currentRelOpt.isPresent()) {
             TemplateStepRelation rel = currentRelOpt.get();
-            List<TaskStepDefinition> nextSteps = rel.getAllowedNextSteps();
+            java.util.Collection<TaskStepDefinition> nextSteps = rel.getAllowedNextSteps();
             
             List<TaskStepDefinition> result;
             /*
@@ -580,40 +587,15 @@ public class TaskService {
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public boolean isTaskFinalized(Task task) {
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
         if (task.getFinalizedAt() != null) return true;
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
         if (task.getCurrentStep() == null) return false;
         
-        // Tentar encontrar a relação exata pelo ID do Step
-        Optional<TemplateStepRelation> relationOpt = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
-                task.getTaskTemplate().getId(), task.getCurrentStep().getId()
-        );
-
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
-        if (relationOpt.isPresent()) {
-            /*
-             * Retorna o resultado final processado pelo métodx.
-             */
-            return relationOpt.get().isFinalizer();
-        }
-
-        // Fallback: Se a relação exata não existe (ex: template atualizado), 
-        // buscar por Label no template atual
-        String currentLabel = task.getCurrentStep().getLabel();
-        /*
-         * Retorna o resultado final processado pelo métodx.
-         */
-        return stepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(task.getTaskTemplate().getId())
-                .stream()
-                .filter(r -> r.getTaskStepDefinition().getLabel().equals(currentLabel))
-                .anyMatch(TemplateStepRelation::isFinalizer);
+        // Usar a coleção já carregada do template para evitar query N+1
+        return task.getTaskTemplate().getTemplateStepRelation().stream()
+                .filter(r -> r.getTaskStepDefinition().getId().equals(task.getCurrentStep().getId()))
+                .findFirst()
+                .map(TemplateStepRelation::isFinalizer)
+                .orElse(false);
     }
 
     /**
@@ -642,33 +624,14 @@ public class TaskService {
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public boolean shouldTaskPulse(Task task) {
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
         if (task.getCurrentStep() == null) return false;
 
-        Optional<TemplateStepRelation> relationOpt = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
-                task.getTaskTemplate().getId(), task.getCurrentStep().getId()
-        );
-
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
-        if (relationOpt.isPresent()) {
-            /*
-             * Retorna o resultado final processado pelo métodx.
-             */
-            return relationOpt.get().isShouldPulse();
-        }
-
-        String currentLabel = task.getCurrentStep().getLabel();
-        /*
-         * Retorna o resultado final processado pelo métodx.
-         */
-        return stepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(task.getTaskTemplate().getId())
-                .stream()
-                .filter(r -> r.getTaskStepDefinition().getLabel().equals(currentLabel))
-                .anyMatch(TemplateStepRelation::isShouldPulse);
+        // Usar a coleção já carregada do template para evitar query N+1
+        return task.getTaskTemplate().getTemplateStepRelation().stream()
+                .filter(r -> r.getTaskStepDefinition().getId().equals(task.getCurrentStep().getId()))
+                .findFirst()
+                .map(TemplateStepRelation::isShouldPulse)
+                .orElse(false);
     }
 
     /**
@@ -703,7 +666,8 @@ public class TaskService {
             /*
              * Retorna o resultado final processado pelo métodx.
              */
-            return template.getAuthorizingUsers().contains(user);
+            return template.getAuthorizingUsers().stream()
+                    .anyMatch(u -> u.getId().equals(user.getId()));
         }
         /*
          * Retorna o resultado final processado pelo métodx.
@@ -729,7 +693,8 @@ public class TaskService {
             /*
              * Retorna o resultado final processado pelo métodx.
              */
-            return template.getAuthorizingUsers().contains(user);
+            return template.getAuthorizingUsers().stream()
+                    .anyMatch(u -> u.getId().equals(user.getId()));
         }
 
         // Caso padrão (já autorizado ou sem requerimento): No NeoKioski quem vê o grupo pode agir.
@@ -1111,4 +1076,92 @@ public class TaskService {
             String deliveryNumber,
             Task task
     ) {}
+    /**
+     * Inicializa profundamente os dados de uma tarefa e seu template associado para uso seguro na interface (Vaadin).
+     * Este método deve ser chamado dentro de uma transação ativa.
+     */
+    @Transactional(readOnly = true)
+    public void initializeTaskData(Task task) {
+        if (task == null) return;
+
+        // #improve_n+1 - Recarregamos o template com metadados completos (Passos, Definições, Alertas).
+        // Graças ao Cache de Primeiro Nível (L1), se houver múltiplas tarefas do mesmo template na mesma 
+        // transação (ex: no refresh do chat), o Hibernate disparará apenas uma query JOIN FETCH.
+        if (task.getTaskTemplate() != null) {
+            taskTemplateRepository.findByIdWithMetadata(task.getTaskTemplate().getId())
+                    .ifPresent(task::setTaskTemplate);
+        }
+
+        // Tocar profundamente no template recarregado para garantir que sub-coleções Lazy (como allowedNextSteps)
+        // também sejam inicializadas via Batch Loading.
+        if (task.getTaskTemplate() != null) {
+            task.getTaskTemplate().getTemplateStepRelation().forEach(rel -> {
+                // Tocar no passo e suas propriedades básicas
+                if (rel.getTaskStepDefinition() != null) {
+                    rel.getTaskStepDefinition().getLabel();
+                    rel.getTaskStepDefinition().getColorTheme();
+                }
+                
+                // Tocar nos passos permitidos seguintes (inicializa via BatchSize)
+                rel.getAllowedNextSteps().forEach(ans -> {
+                    if (ans != null) ans.getLabel();
+                });
+
+                // Tocar nas opções de resposta (inicializa via BatchSize)
+                rel.getResponseOptions().forEach(opt -> {
+                    if (opt != null) opt.getOptionLabel();
+                });
+                
+                // Tocar nos papéis de alerta do passo
+                rel.getAlertRoles().size();
+            });
+            task.getTaskTemplate().getAuthorizingUsers().size();
+            task.getTaskTemplate().getAlertRoles().size();
+        }
+        
+        // Inicializar resultados de SLA e configurações relacionadas
+        task.getSlaResults().forEach(sr -> {
+            if (sr.getSlaConfig() != null) sr.getSlaConfig().getName();
+        });
+        
+        // Inicializar histórico de eventos e autores
+        task.getTaskEvents().forEach(ev -> {
+            if (ev.getUser() != null) ev.getUser().getName();
+            if (ev.getTaskStepDefinition() != null) ev.getTaskStepDefinition().getLabel();
+        });
+        
+        // Inicializar valores de campos e definições
+        task.getTaskFieldValues().forEach(fv -> {
+            if (fv.getTaskFieldDefinition() != null) fv.getTaskFieldDefinition().getLabel();
+        });
+        
+        // Inicializar definições de passos percorridos
+        task.getTaskStepDefinitions().size();
+        
+        // Inicializar o Template e todas as suas regras de transição (crucial para UI de botões)
+        if (task.getTaskTemplate() != null) {
+            task.getTaskTemplate().getTemplateStepRelation().forEach(rel -> {
+                // Tocar no passo e suas propriedades básicas
+                if (rel.getTaskStepDefinition() != null) {
+                    rel.getTaskStepDefinition().getLabel();
+                    rel.getTaskStepDefinition().getColorTheme();
+                }
+                
+                // Tocar nos passos permitidos seguintes
+                rel.getAllowedNextSteps().forEach(ans -> {
+                    if (ans != null) ans.getLabel();
+                });
+
+                // Tocar nas opções de resposta (se houver campo de input)
+                rel.getResponseOptions().forEach(opt -> {
+                    if (opt != null) opt.getOptionLabel();
+                });
+                
+                // Tocar nos papéis de alerta do passo
+                rel.getAlertRoles().size();
+            });
+            task.getTaskTemplate().getAuthorizingUsers().size();
+            task.getTaskTemplate().getAlertRoles().size();
+        }
+    }
 }

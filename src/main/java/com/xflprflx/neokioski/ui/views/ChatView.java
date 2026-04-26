@@ -1932,7 +1932,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             card.add(fieldsDiv);
         }
 
-        List<TemplateStepRelation> allRelations = taskTemplateService.getStepRelationsByTemplateId(task.getTaskTemplate().getId());
+        java.util.Collection<TemplateStepRelation> allRelations = task.getTaskTemplate().getTemplateStepRelation();
         List<TaskStepDefinition> allowedSteps = taskService.getAllowedNextSteps(task);
         
         // Mapear os steps permitidos de volta para suas relações para ter acesso aos metadados (cores, campos de resposta, etc)
@@ -2064,7 +2064,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         return wrapper;
     }
 
-    private com.vaadin.flow.component.Component createInputComponent(InputType type, String label, String desc, boolean required, List<TaskFieldOption> optionsObj, String placeholder, boolean isCompact) {
+    private com.vaadin.flow.component.Component createInputComponent(InputType type, String label, String desc, boolean required, java.util.Collection<TaskFieldOption> optionsObj, String placeholder, boolean isCompact) {
         List<String> options = optionsObj != null ? optionsObj.stream().map(TaskFieldOption::getOptionLabel).toList() : new ArrayList<>();
         com.vaadin.flow.component.Component fieldComponent = null;
 

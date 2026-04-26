@@ -40,6 +40,7 @@ public class Task {
     @JoinColumn(name = "task_id")
     @OrderBy("id ASC")
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
+    @org.hibernate.annotations.BatchSize(size = 50)
     private Set<TaskEvent> taskEvents = new LinkedHashSet<>();
 
     @ManyToMany(fetch = FetchType.LAZY)
@@ -49,11 +50,13 @@ public class Task {
             inverseJoinColumns = @JoinColumn(name = "task_step_definition_id")
     )
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
+    @org.hibernate.annotations.BatchSize(size = 50)
     private List<TaskStepDefinition> taskStepDefinitions = new ArrayList<>();
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("id ASC")
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
+    @org.hibernate.annotations.BatchSize(size = 50)
     private Set<TaskFieldValue> taskFieldValues = new LinkedHashSet<>();
 
     @ElementCollection(fetch = FetchType.LAZY)
@@ -69,6 +72,7 @@ public class Task {
 
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
+    @org.hibernate.annotations.BatchSize(size = 50)
     private Set<TaskSlaResult> slaResults = new LinkedHashSet<>();
 
     public Task() {

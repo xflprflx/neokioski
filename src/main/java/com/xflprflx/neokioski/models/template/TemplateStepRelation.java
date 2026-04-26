@@ -256,31 +256,14 @@ public class TemplateStepRelation {
 
     @Override
     public boolean equals(Object o) {
-        if (o == null || getClass() != o.getClass()) return false;
-        TemplateStepRelation that = (TemplateStepRelation) o;
-        return order == that.order && isFinalizer == that.isFinalizer && 
-               sendNotification == that.sendNotification && 
-               shouldPulse == that.shouldPulse &&
-               isGlobal == that.isGlobal &&
-               hasResponseField == that.hasResponseField &&
-               isResponseRequired == that.isResponseRequired &&
-               responseIsCompact == that.responseIsCompact &&
-               Objects.equals(id, that.id) && 
-               Objects.equals(notificationMessage, that.notificationMessage) && 
-               Objects.equals(taskTemplate, that.taskTemplate) && 
-               Objects.equals(taskStepDefinition, that.taskStepDefinition) &&
-               responseInputType == that.responseInputType &&
-               Objects.equals(responseOptions, that.responseOptions) &&
-               Objects.equals(responseFieldLabel, that.responseFieldLabel) &&
-               responsibleRole == that.responsibleRole;
+        if (this == o) return true;
+        if (!(o instanceof TemplateStepRelation that)) return false;
+        return id != null && id.equals(that.getId());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, order, isFinalizer, sendNotification, shouldPulse, isGlobal, 
-                            hasResponseField, isResponseRequired, responseIsCompact,
-                            getNotificationMessage(), 
-                            taskTemplate, taskStepDefinition, responseFieldLabel, responsibleRole);
+        return Objects.hash(id);
     }
 
 }

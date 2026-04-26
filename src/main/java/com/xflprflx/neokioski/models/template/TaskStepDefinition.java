@@ -52,13 +52,13 @@ public class TaskStepDefinition {
 
     @Override
     public boolean equals(Object o) {
-        if (o == null || getClass() != o.getClass()) return false;
-        TaskStepDefinition that = (TaskStepDefinition) o;
-        return Objects.equals(id, that.id) && Objects.equals(label, that.label) && Objects.equals(colorTheme, that.colorTheme);
+        if (this == o) return true;
+        if (!(o instanceof TaskStepDefinition that)) return false;
+        return id != null && id.equals(that.getId());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, label, colorTheme);
+        return Objects.hash(id);
     }
 }

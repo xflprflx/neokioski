@@ -3,6 +3,7 @@ package com.xflprflx.neokioski.services;
 import com.xflprflx.neokioski.models.*;
 import com.xflprflx.neokioski.models.template.*;
 import com.xflprflx.neokioski.repositories.*;
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -413,10 +414,13 @@ public class TaskService {
          */
         if (isTaskFinalized(task)) return Collections.emptyList();
 
-        // #fix - Consultar relations a partir do repositório (entidades managed na transação atual)
-        // garante que cada sessão receptora do broadcast veja todos os steps, sem depender do estado
-        // de inicialização da coleção em memória do TaskTemplate transmitido via push.
-        List<TemplateStepRelation> allRels = stepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(task.getTaskTemplate().getId());
+        // Otimização: Tentar usar a coleção já carregada no template para evitar N+1 no broadcast
+        java.util.Collection<TemplateStepRelation> allRels;
+        if (task.getTaskTemplate() != null && Hibernate.isInitialized(task.getTaskTemplate().getTemplateStepRelation())) {
+            allRels = task.getTaskTemplate().getTemplateStepRelation();
+        } else {
+            allRels = stepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(task.getTaskTemplate().getId());
+        }
         
         List<TaskStepDefinition> globalSteps = allRels.stream()
                 .filter(TemplateStepRelation::isGlobal)
@@ -428,36 +432,14 @@ public class TaskService {
          * Avalia uma condição (if) para desvio de fluxo da lógica principal.
          */
         if (task.getTaskTemplate().isRequiresSignature()) {
-            /*
-             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-             */
             if (task.getCurrentStep() == null) {
                 // Se ainda não autorizado, apenas AUTORIZADO e REJEITADO são permitidos
-                /*
-                 * Retorna o resultado final processado pelo métodx.
-                 */
                 return allRels.stream()
                         .map(TemplateStepRelation::getTaskStepDefinition)
                         .filter(s -> s.getLabel().equalsIgnoreCase("AUTORIZADO") || s.getLabel().equalsIgnoreCase("REJEITADO"))
                         .collect(Collectors.toList());
-            } else if (task.getTaskStepDefinitions().size() == 1 && task.getCurrentStep().getLabel().equalsIgnoreCase("AUTORIZADO")) {
-                // Se acabou de autorizar (é o primeiro e único step executado), libera os passos reais iniciais
-                Set<Long> restrictedStepIds = allRels.stream()
-                        .flatMap(r -> r.getAllowedNextSteps().stream())
-                        .map(TaskStepDefinition::getId)
-                        .collect(Collectors.toSet());
-
-                /*
-                 * Retorna o resultado final processado pelo métodx.
-                 */
-                return allRels.stream()
-                        .filter(r -> !r.isGlobal() 
-                                     && !restrictedStepIds.contains(r.getTaskStepDefinition().getId())
-                                     && !r.getTaskStepDefinition().getLabel().equalsIgnoreCase("AUTORIZADO")
-                                     && !r.getTaskStepDefinition().getLabel().equalsIgnoreCase("REJEITADO"))
-                        .map(TemplateStepRelation::getTaskStepDefinition)
-                        .collect(Collectors.toList());
             }
+            // Se já foi autorizado ou rejeitado, o código segue o fluxo normal abaixo para encontrar os próximos passos do workflow
         }
 
         // Identificar passos que são destinos de alguma transição (restritos)
@@ -1136,7 +1118,11 @@ public class TaskService {
         });
         
         // Inicializar definições de passos percorridos
-        task.getTaskStepDefinitions().size();
+        if (task.getTaskStepDefinitions() != null) {
+            task.getTaskStepDefinitions().forEach(sd -> {
+                if (sd != null) sd.getLabel();
+            });
+        }
         
         // Inicializar o Template e todas as suas regras de transição (crucial para UI de botões)
         if (task.getTaskTemplate() != null) {

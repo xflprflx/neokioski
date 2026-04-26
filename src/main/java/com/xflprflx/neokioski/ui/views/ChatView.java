@@ -1937,7 +1937,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         
         // Mapear os steps permitidos de volta para suas relações para ter acesso aos metadados (cores, campos de resposta, etc)
         List<TemplateStepRelation> visibleRelations = allRelations.stream()
-                .filter(r -> allowedSteps.contains(r.getTaskStepDefinition()))
+                .filter(r -> r.getTaskStepDefinition() != null && allowedSteps.stream()
+                        .anyMatch(as -> as.getId().equals(r.getTaskStepDefinition().getId())))
                 .collect(Collectors.toList());
 
         // Mapeamento de StepId -> Campo de Resposta

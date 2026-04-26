@@ -324,33 +324,46 @@ public class ChatService {
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private void broadcast(Long groupId, ChatMessage message) {
-        // #improve_n+1 - Se a mensagem tem task e já foi salva (ID > 0), recarregamos com o grafo completo
-        // para garantir que os listeners recebam o objeto totalmente inicializado, evitando LazyInitializationException na UI
-        ChatMessage effectiveMessage = message;
-        if (message.getTask() != null && message.getId() != null && message.getId() > 0) {
-            effectiveMessage = repository.findByIdWithFullGraph(message.getId()).orElse(message);
-            // #improve_n+1 - Deep touch para garantir que o objeto transmitido esteja 100% pronto para a UI
-            taskService.initializeTaskData(effectiveMessage.getTask());
-        }
+        Runnable doBroadcast = () -> {
+            // #improve_n+1 - Se a mensagem tem task e já foi salva (ID > 0), recarregamos com o grafo completo
+            // para garantir que os listeners recebam o objeto totalmente inicializado, evitando LazyInitializationException na UI
+            ChatMessage effectiveMessage = message;
+            if (message.getTask() != null && message.getId() != null && message.getId() > 0) {
+                effectiveMessage = repository.findByIdWithFullGraph(message.getId()).orElse(message);
+                // #improve_n+1 - Deep touch para garantir que o objeto transmitido esteja 100% pronto para a UI
+                taskService.initializeTaskData(effectiveMessage.getTask());
+            }
 
-        List<Consumer<ChatMessage>> groupListeners = listeners.get(groupId);
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
-        if (groupListeners != null) {
+            List<Consumer<ChatMessage>> groupListeners = listeners.get(groupId);
             /*
-             * Inicia um laço de repetição (for) para iterar sobre os elementos.
+             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
              */
-            for (Consumer<ChatMessage> listener : groupListeners) {
+            if (groupListeners != null) {
                 /*
-                 * Inicia um bloco try-catch para tratar possíveis exceções.
+                 * Inicia um laço de repetição (for) para iterar sobre os elementos.
                  */
-                try {
-                    listener.accept(effectiveMessage);
-                } catch (Exception e) {
-                    System.err.println("Erro ao notificar listener de Chat no grupo " + groupId + ": " + e.getMessage());
+                for (Consumer<ChatMessage> listener : groupListeners) {
+                    /*
+                     * Inicia um bloco try-catch para tratar possíveis exceções.
+                     */
+                    try {
+                        listener.accept(effectiveMessage);
+                    } catch (Exception e) {
+                        System.err.println("Erro ao notificar listener de Chat no grupo " + groupId + ": " + e.getMessage());
+                    }
                 }
             }
+        };
+
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    doBroadcast.run();
+                }
+            });
+        } else {
+            doBroadcast.run();
         }
     }
 }

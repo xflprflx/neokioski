@@ -98,16 +98,22 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
     long countPendingByGroups(@Param("groups") List<Group> groups);
 
     // #improve_n+1 - EntityGraph no Dashboard focado em ManyToOne. Coleções (taskEvents, slaResults) são carregadas via SUBSELECT configurado nas entidades.
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
+    // #improve_n+1 - EntityGraph no Dashboard focado em ManyToOne e principais ToMany via SUBSELECT
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {
+            "taskTemplate", "creator", "group", "currentStep", 
+            "taskFieldValues", "taskFieldValues.taskFieldDefinition",
+            "slaResults", "slaResults.slaConfig",
+            "taskEvents", "taskEvents.user", "taskEvents.taskStepDefinition"
+    }, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     @Query("SELECT DISTINCT t FROM Task t WHERE t.group = :group AND t.createdAt BETWEEN :start AND :end ORDER BY t.createdAt DESC")
     List<Task> findByGroupAndCreatedAtBetweenOrderByCreatedAtDesc(@Param("group") Group group, @Param("start") java.time.Instant start, @Param("end") java.time.Instant end);
 
     // #improve_n+1 - EntityGraph focado em ManyToOne para evitar produto cartesiano massivo em listagens de Dashboard/Relatórios
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep", "taskFieldValues", "taskFieldValues.taskFieldDefinition", "slaResults", "slaResults.slaConfig", "taskEvents", "taskEvents.user", "taskEvents.taskStepDefinition"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     List<Task> findAllByCreatedAtBetween(java.time.Instant start, java.time.Instant end);
 
-    // #improve_n+1 - EntityGraph focado em ManyToOne. ToMany collections carregadas via SUBSELECT + @Transactional.
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
+    // #improve_n+1 - EntityGraph focado em ManyToOne e coleções via SUBSELECT + @Transactional.
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep", "taskFieldValues", "slaResults"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     List<Task> findAll(org.springframework.data.jpa.domain.Specification<Task> spec, org.springframework.data.domain.Sort sort);
 
     @Query("SELECT t.group.name, COUNT(t) FROM Task t GROUP BY t.group.name")

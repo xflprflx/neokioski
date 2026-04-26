@@ -7,7 +7,7 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "tb_task_step_definitions")
-@BatchSize(size = 100)
+@org.hibernate.annotations.BatchSize(size = 50)
 /**
  * Entidade que define um passo específico no fluxo (pipeline) de um template de tarefa.
  */

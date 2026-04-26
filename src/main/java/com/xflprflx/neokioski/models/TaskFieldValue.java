@@ -6,6 +6,7 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "tb_task_field_values")
+@org.hibernate.annotations.BatchSize(size = 50)
 /**
  * Entidade que armazena o valor preenchido em um campo dinâmico de uma tarefa específica.
  */

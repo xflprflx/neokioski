@@ -7,6 +7,7 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "tb_task_sla_configs")
+@org.hibernate.annotations.BatchSize(size = 50)
 /**
  * Entidade de configuração que define os parâmetros de limite de tempo (SLA) para os passos de um template de tarefa.
  */

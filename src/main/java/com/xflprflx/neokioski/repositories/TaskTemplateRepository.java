@@ -27,7 +27,7 @@ public interface TaskTemplateRepository extends JpaRepository<TaskTemplate, Long
     Optional<TaskTemplate> findByIdWithAlerts(@Param("id") Long id);
 
     // #improve_n+1 - Evitar que a lista geral carregue sub-colecoes lazy e cause queries secundárias
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"alertRoles", "authorizingUsers"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"alertRoles", "authorizingUsers", "templateStepRelation", "templateStepRelation.taskStepDefinition", "templateFieldRelation", "templateFieldRelation.taskFieldDefinition"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     @Query("SELECT t FROM TaskTemplate t JOIN t.groups g WHERE g.id = :groupId ORDER BY t.sortOrder ASC, t.name ASC")
     List<TaskTemplate> findByGroupId(@Param("groupId") Long groupId);
 

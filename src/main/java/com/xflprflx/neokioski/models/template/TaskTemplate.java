@@ -65,9 +65,11 @@ public class TaskTemplate {
     private Set<TemplateStepRelation> templateStepRelation = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "taskTemplate")
+    @org.hibernate.annotations.BatchSize(size = 50)
     private Set<TemplateFieldRelation> templateFieldRelation = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "taskTemplate", cascade = CascadeType.ALL, orphanRemoval = true)
+    @org.hibernate.annotations.BatchSize(size = 50)
     private List<TaskAlert> alerts = new ArrayList<>();
 
     @ManyToMany(fetch = FetchType.LAZY)

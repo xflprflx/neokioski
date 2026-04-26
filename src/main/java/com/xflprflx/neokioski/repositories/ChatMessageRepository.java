@@ -17,7 +17,12 @@ import java.util.List;
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
 
     // #improve_n+1 - Carregamento otimizado via EntityGraph (To-Ones) + BatchSize (Coleções)
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"user", "group", "task", "task.taskTemplate", "task.currentStep"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {
+        "user", "group", "task", "task.taskTemplate", "task.currentStep", 
+        "task.slaResults", "task.slaResults.slaConfig",
+        "task.taskFieldValues", "task.taskFieldValues.taskFieldDefinition",
+        "replyTo", "replyTo.user", "replyTo.task", "replyTo.task.taskTemplate"
+    }, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     List<ChatMessage> findByGroupAndTimestampBetweenOrderByTimestampAsc(
             @Param("group") Group group, 
             @Param("start") Instant start, 

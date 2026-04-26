@@ -1066,15 +1066,11 @@ public class TaskService {
     public void initializeTaskData(Task task) {
         if (task == null) return;
 
-        // #improve_n+1 - Recarregamos o template com metadados completos (Passos, Definições, Alertas).
-        // Graças ao Cache de Primeiro Nível (L1), se houver múltiplas tarefas do mesmo template na mesma 
-        // transação (ex: no refresh do chat), o Hibernate disparará apenas uma query JOIN FETCH.
-        if (task.getTaskTemplate() != null) {
-            taskTemplateRepository.findByIdWithMetadata(task.getTaskTemplate().getId())
-                    .ifPresent(task::setTaskTemplate);
-        }
-
-        // Tocar profundamente no template recarregado para garantir que sub-coleções Lazy (como allowedNextSteps)
+        // #improve_n+1 - Removido o recarregamento manual individual (findByIdWithMetadata).
+        // Agora confiamos no @BatchSize anotado nos modelos, o que permite ao Hibernate carregar
+        // os metadados de TODOS os templates de uma só vez quando o primeiro 'Deep Touch' ocorrer abaixo.
+        
+        // Tocar profundamente no template associado para garantir que sub-coleções Lazy (como allowedNextSteps)
         // também sejam inicializadas via Batch Loading.
         if (task.getTaskTemplate() != null) {
             task.getTaskTemplate().getTemplateStepRelation().forEach(rel -> {
@@ -1112,9 +1108,12 @@ public class TaskService {
             if (ev.getTaskStepDefinition() != null) ev.getTaskStepDefinition().getLabel();
         });
         
-        // Inicializar valores de campos e definições
+        // Inicializar valores de campos e definições (dispara Batch Loading de TaskFieldDefinition)
         task.getTaskFieldValues().forEach(fv -> {
-            if (fv.getTaskFieldDefinition() != null) fv.getTaskFieldDefinition().getLabel();
+            if (fv.getTaskFieldDefinition() != null) {
+                fv.getTaskFieldDefinition().getLabel();
+                fv.getTaskFieldDefinition().getInputType();
+            }
         });
         
         // Inicializar definições de passos percorridos

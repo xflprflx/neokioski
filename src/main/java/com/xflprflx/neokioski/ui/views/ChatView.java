@@ -251,7 +251,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             /*
              * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
              */
-            if (currentUser != null) {
+            if (currentUser != null && e.isFromClient()) {
                 userService.updateNotifyStoreOrder(currentUser.getId(), e.getValue());
                 currentUser.setNotifyStoreOrder(e.getValue());
                 Notification.show("Alerta de pedidos " + (e.getValue() ? "ativado" : "desativado"), 2000, Notification.Position.BOTTOM_END);
@@ -263,7 +263,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             /*
              * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
              */
-            if (currentUser != null) {
+            if (currentUser != null && e.isFromClient()) {
                 userService.updateNotifyChatSounds(currentUser.getId(), e.getValue());
                 currentUser.setNotifyChatSounds(e.getValue());
                 Notification.show("Sons do chat " + (e.getValue() ? "ativados" : "desativados"), 2000, Notification.Position.BOTTOM_END);
@@ -565,18 +565,20 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         ownerFilter.setItems(ownerOptions);
         ownerFilter.setValue("Todas");
 
-        // Status
+        // Status (Baseado nos passos possíveis dos templates do grupo para ser performático)
         List<String> stepOptions = new ArrayList<>();
         stepOptions.add("Todos");
         stepOptions.add("Pendentes");
         stepOptions.add("Finalizadas");
         
-        taskService.getTasksByGroup(group).stream()
-                .filter(t -> t.getCurrentStep() != null)
-                .map(t -> t.getCurrentStep().getLabel())
+        taskTemplateService.getTemplatesByGroupId(group.getId()).stream()
+                .flatMap(template -> template.getTemplateStepRelation().stream())
+                .filter(rel -> rel.getTaskStepDefinition() != null)
+                .map(rel -> rel.getTaskStepDefinition().getLabel())
                 .distinct()
                 .sorted()
                 .forEach(stepOptions::add);
+        
         statusFilter.setItems(stepOptions);
         statusFilter.setValue("Todos");
 

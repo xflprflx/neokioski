@@ -23,6 +23,7 @@ public class TaskFieldValue {
     @JoinColumn(name = "task_field_definition_id")
     private TaskFieldDefinition taskFieldDefinition;
 
+
     public TaskFieldValue() {
     }
 
@@ -49,6 +50,7 @@ public class TaskFieldValue {
     public void setTaskFieldDefinition(TaskFieldDefinition taskFieldDefinition) {
         this.taskFieldDefinition = taskFieldDefinition;
     }
+
 
     @Override
     public boolean equals(Object o) {

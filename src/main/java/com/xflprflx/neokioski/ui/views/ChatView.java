@@ -113,6 +113,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
             .withZone(ZoneId.systemDefault());
 
+    private final Map<Long, HorizontalLayout> taskCardWrappersInSideList = new HashMap<>();
+
     public ChatView(ChatService chatService, GroupService groupService, SecurityService securityService, UserService userService, TaskTemplateService taskTemplateService, TaskService taskService, PresenceService presenceService) {
         this.chatService = chatService;
         this.groupService = groupService;
@@ -421,91 +423,98 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
      * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void refreshTaskList() {
-        /*
-         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-         */
         if (group == null || startDatePicker == null || endDatePicker == null || startDatePicker.getValue() == null || endDatePicker.getValue() == null) return;
-        taskListArea.removeAll();
-
+        
         // Converter LocalDate para Instant (Início e Fim do dia)
         java.time.Instant start = startDatePicker.getValue().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant();
         java.time.Instant end = endDatePicker.getValue().atTime(23, 59, 59, 999_000_000).atZone(java.time.ZoneId.systemDefault()).toInstant();
 
         List<Task> tasks = taskService.getTasksByGroup(group, start, end);
         
-        // Filtro de Autorização
-        tasks = tasks.stream()
+        // Aplicar filtros e atualizar a UI de forma granular
+        Set<Long> tasksThatShouldBeVisible = tasks.stream()
                 .filter(t -> taskService.canUserViewTask(t, currentUser))
-                .collect(Collectors.toList());
+                .filter(this::matchesFilters)
+                .map(Task::getId)
+                .collect(Collectors.toSet());
 
-        // Filtrar por responsável
-        tasks = tasks.stream().filter(t -> {
-            /*
-             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-             */
-            if (filterOwner.equals("todas")) return true;
-            /*
-             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-             */
+        // Remover cards que não devem mais estar visíveis
+        List<Long> toRemove = taskCardWrappersInSideList.keySet().stream()
+                .filter(id -> !tasksThatShouldBeVisible.contains(id))
+                .toList();
+        toRemove.forEach(id -> {
+            HorizontalLayout wrapper = taskCardWrappersInSideList.remove(id);
+            if (wrapper != null) taskListArea.remove(wrapper);
+        });
+
+        // Adicionar ou Atualizar cards
+        tasks.stream()
+                .filter(t -> tasksThatShouldBeVisible.contains(t.getId()))
+                .sorted(java.util.Comparator.comparing(Task::getCreatedAt))
+                .forEach(this::addOrUpdateTaskInSideList);
+
+        updateEmptyState();
+    }
+
+    private boolean matchesFilters(Task t) {
+        // Filtro de Responsável
+        if (!filterOwner.equals("todas")) {
             if (filterOwner.equals("minhas")) {
-                /*
-                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                 */
                 if (currentUser == null) return true;
                 boolean isCreator = t.getCreator() != null && t.getCreator().getId().equals(currentUser.getId());
                 boolean participated = t.getTaskEvents().stream()
                         .anyMatch(ev -> ev.getUser() != null && ev.getUser().getId().equals(currentUser.getId()));
-                /*
-                 * Retorna o componente renderizado ou o valor da operação atual.
-                 */
-                return isCreator || participated;
+                if (!isCreator && !participated) return false;
+            } else {
+                if (t.getCreator() == null || !t.getCreator().getUsername().equals(filterOwner)) return false;
             }
-            /*
-             * Retorna o componente renderizado ou o valor da operação atual.
-             */
-            return t.getCreator() != null && t.getCreator().getUsername().equals(filterOwner);
-        }).collect(Collectors.toList());
+        }
 
-        // Filtrar por status
-        /*
-         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-         */
+        // Filtro de Status
         if (!filterStatus.equals("todos")) {
-            tasks = tasks.stream()
-                    .filter(t -> {
-                        /*
-                         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                         */
-                        if (filterStatus.equals("Pendentes")) return !taskService.isTaskFinalized(t);
-                        /*
-                         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                         */
-                        if (filterStatus.equals("Finalizadas")) return taskService.isTaskFinalized(t);
-                        /*
-                         * Retorna o componente renderizado ou o valor da operação atual.
-                         */
-                        return t.getCurrentStep() != null && t.getCurrentStep().getLabel().equals(filterStatus);
-                    })
-                    .collect(Collectors.toList());
+            if (filterStatus.equals("Pendentes")) {
+                if (taskService.isTaskFinalized(t)) return false;
+            } else if (filterStatus.equals("Finalizadas")) {
+                if (!taskService.isTaskFinalized(t)) return false;
+            } else {
+                if (t.getCurrentStep() == null || !t.getCurrentStep().getLabel().equals(filterStatus)) return false;
+            }
         }
 
-        // Filtrar por setor (Apenas se não for "Todos" e se a tarefa estiver pendente)
-        /*
-         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-         */
+        // Filtro de Setor
         if (!filterSector.equals("todos")) {
-            tasks = tasks.stream()
-                    .filter(t -> !taskService.isTaskFinalized(t))
-                    .filter(t -> taskService.getResponsibleRole(t)
-                            .map(r -> r.getDescription().equals(filterSector))
-                            .orElse(false))
-                    .collect(Collectors.toList());
+            if (taskService.isTaskFinalized(t)) return false;
+            if (!taskService.getResponsibleRole(t)
+                    .map(r -> r.getDescription().equals(filterSector))
+                    .orElse(false)) return false;
         }
 
-        /*
-         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-         */
-        if (tasks.isEmpty()) {
+        return true;
+    }
+
+    private void addOrUpdateTaskInSideList(Task task) {
+        HorizontalLayout existing = taskCardWrappersInSideList.get(task.getId());
+        HorizontalLayout newCard = createTaskCardLayout(task, null);
+        newCard.setWidth("auto");
+        newCard.setId("side-task-" + task.getId());
+
+        if (existing != null) {
+            taskListArea.replace(existing, newCard);
+        } else {
+            // Tentar manter a ordem cronológica na inserção
+            taskListArea.add(newCard);
+        }
+        taskCardWrappersInSideList.put(task.getId(), newCard);
+    }
+
+    private void updateEmptyState() {
+        // Remover estado vazio se existir
+        taskListArea.getChildren()
+                .filter(c -> c instanceof VerticalLayout && c.getElement().getChildCount() > 0 && c.getElement().getChild(1).getText().equals("Painel Zerado!"))
+                .findFirst()
+                .ifPresent(taskListArea::remove);
+
+        if (taskCardWrappersInSideList.isEmpty()) {
             VerticalLayout emptyState = new VerticalLayout();
             emptyState.setWidthFull();
             emptyState.setDefaultHorizontalComponentAlignment(FlexComponent.Alignment.CENTER);
@@ -531,16 +540,6 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             
             emptyState.add(img, title, subtitle);
             taskListArea.add(emptyState);
-        } else {
-            tasks.sort(java.util.Comparator.comparing(Task::getCreatedAt));
-            /*
-             * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
-             */
-            for (Task task : tasks) {
-                HorizontalLayout cardWrapper = createTaskCardLayout(task, null);
-                cardWrapper.setWidth("auto");
-                taskListArea.add(cardWrapper);
-            }
         }
     }
 
@@ -2501,12 +2500,22 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                         /*
                          * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
                          */
-                        if (messageId != null) {
-                            chatService.getMessageById(messageId)
-                                .ifPresent(this::addOrUpdateMessageInUI);
+                        if (messageId != null && messageWrappers.containsKey(messageId)) {
+                            // Atualizar o card no chat usando a task já inicializada (sem re-fetch)
+                            HorizontalLayout oldWrapper = messageWrappers.get(messageId);
+                            HorizontalLayout newWrapper = createTaskCardLayout(task, null);
+                            newWrapper.setId("msg-" + messageId);
+                            messageContainer.replace(oldWrapper, newWrapper);
+                            messageWrappers.put(messageId, newWrapper);
                         }
-                        // Atualizar a lista de tarefas lateral sempre
-                        refreshTaskList();
+                        // Atualizar a lista de tarefas lateral de forma granular
+                        if (taskService.canUserViewTask(task, currentUser) && matchesFilters(task)) {
+                            addOrUpdateTaskInSideList(task);
+                        } else {
+                            HorizontalLayout existing = taskCardWrappersInSideList.remove(task.getId());
+                            if (existing != null) taskListArea.remove(existing);
+                        }
+                        updateEmptyState();
                     } catch (Exception e) {
                         System.err.println("Erro no taskListener do ChatView: " + e.getMessage());
                     }

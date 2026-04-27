@@ -36,8 +36,7 @@ public class Task {
     private TaskStepDefinition currentStep;
 
     // #improve_n+1 - Remoção do EAGER nativo de todas as coleções do Core da Task (Mitiga select gigante no start)
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @JoinColumn(name = "task_id")
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("id ASC")
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
     @org.hibernate.annotations.BatchSize(size = 50)
@@ -51,9 +50,14 @@ public class Task {
     )
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
     @org.hibernate.annotations.BatchSize(size = 50)
-    private List<TaskStepDefinition> taskStepDefinitions = new ArrayList<>();
+    private Set<TaskStepDefinition> taskStepDefinitions = new LinkedHashSet<>();
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "tb_tasks_task_field_values",
+            joinColumns = @JoinColumn(name = "task_id"),
+            inverseJoinColumns = @JoinColumn(name = "task_field_values_id")
+    )
     @OrderBy("id ASC")
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
     @org.hibernate.annotations.BatchSize(size = 50)
@@ -136,11 +140,11 @@ public class Task {
         this.taskEvents = taskEvents;
     }
 
-    public List<TaskStepDefinition> getTaskStepDefinitions() {
+    public Set<TaskStepDefinition> getTaskStepDefinitions() {
         return taskStepDefinitions;
     }
 
-    public void setTaskStepDefinitions(List<TaskStepDefinition> taskStepDefinitions) {
+    public void setTaskStepDefinitions(Set<TaskStepDefinition> taskStepDefinitions) {
         this.taskStepDefinitions = taskStepDefinitions;
     }
 

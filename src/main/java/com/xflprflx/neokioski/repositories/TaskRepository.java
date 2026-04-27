@@ -19,6 +19,18 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
     @Query("SELECT t FROM Task t WHERE t.id = :id")
     java.util.Optional<Task> findByIdWithCollections(@Param("id") Long id);
 
+    // Query otimizada para executeStep: carrega task + TODAS as coleções numa única ida ao banco
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {
+        "taskTemplate", "creator", "group", "currentStep",
+        "taskEvents", "taskEvents.user", "taskEvents.taskStepDefinition",
+        "taskStepDefinitions",
+        "taskFieldValues", "taskFieldValues.taskFieldDefinition",
+        "slaResults", "slaResults.slaConfig",
+        "triggeredAlertIds"
+    }, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
+    @Query("SELECT t FROM Task t WHERE t.id = :id")
+    java.util.Optional<Task> findByIdForExecution(@Param("id") Long id);
+
     // #improve_n+1
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     @Query("SELECT DISTINCT t FROM Task t WHERE t.group = :group ORDER BY t.createdAt DESC")

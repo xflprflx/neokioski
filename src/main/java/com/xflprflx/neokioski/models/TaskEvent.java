@@ -1,6 +1,7 @@
 package com.xflprflx.neokioski.models;
 
 import com.xflprflx.neokioski.models.template.TaskStepDefinition;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import org.hibernate.annotations.BatchSize;
 import java.time.Instant;
@@ -29,6 +30,11 @@ public class TaskEvent {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "task_step_definition_id")
     private TaskStepDefinition taskStepDefinition;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "task_id")
+    @JsonIgnore
+    private Task task;
 
     public TaskEvent() {
     }
@@ -71,6 +77,14 @@ public class TaskEvent {
 
     public void setTaskStepDefinition(TaskStepDefinition taskStepDefinition) {
         this.taskStepDefinition = taskStepDefinition;
+    }
+
+    public Task getTask() {
+        return task;
+    }
+
+    public void setTask(Task task) {
+        this.task = task;
     }
 
     @Override

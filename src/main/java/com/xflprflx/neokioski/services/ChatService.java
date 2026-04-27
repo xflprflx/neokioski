@@ -244,7 +244,7 @@ public class ChatService {
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void toggleReaction(Long messageId, User user, String emoji) {
-        repository.findById(messageId).ifPresent(message -> {
+        repository.findByIdWithFullGraph(messageId).ifPresent(message -> {
             reactionRepository.findByChatMessageAndUserAndEmoji(message, user, emoji)
                     .ifPresentOrElse(
                             reaction -> {
@@ -266,7 +266,7 @@ public class ChatService {
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void editMessage(Long messageId, String newContent, User user) {
-        repository.findById(messageId).ifPresent(message -> {
+        repository.findByIdWithFullGraph(messageId).ifPresent(message -> {
             // Apenas o autor pode editar (ou sistema se necessário, mas aqui assumimos autor)
             /*
              * Avalia uma condição (if) para desvio de fluxo da lógica principal.
@@ -286,7 +286,7 @@ public class ChatService {
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void deleteMessage(Long messageId, User user) {
-        repository.findById(messageId).ifPresent(message -> {
+        repository.findByIdWithFullGraph(messageId).ifPresent(message -> {
             // Apenas o autor ou ADMIN (opcional, mas foco no autor por enquanto) pode excluir
             boolean isAdmin = user.getRole() == com.xflprflx.neokioski.models.enums.Role.ADMIN;
             /*
@@ -324,30 +324,24 @@ public class ChatService {
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private void broadcast(Long groupId, ChatMessage message) {
-        Runnable doBroadcast = () -> {
-            // #improve_n+1 - Se a mensagem tem task e já foi salva (ID > 0), recarregamos com o grafo completo
-            // para garantir que os listeners recebam o objeto totalmente inicializado, evitando LazyInitializationException na UI
-            ChatMessage effectiveMessage = message;
-            if (message.getTask() != null && message.getId() != null && message.getId() > 0) {
-                effectiveMessage = repository.findByIdWithFullGraph(message.getId()).orElse(message);
-                // #improve_n+1 - Deep touch para garantir que o objeto transmitido esteja 100% pronto para a UI
-                taskService.initializeTaskData(effectiveMessage.getTask());
+        // Inicializar a tarefa enquanto a transação ainda está ativa (se houver uma)
+        if (message.getTask() != null) {
+            try {
+                taskService.initializeTaskData(message.getTask());
+            } catch (Exception e) {
+                // Se falhar (ex: fora de transação), o objeto pode já estar inicializado pelo caller
             }
+        }
 
+        // Capturar a referência final para uso no lambda
+        final ChatMessage readyMessage = message;
+
+        Runnable doBroadcast = () -> {
             List<Consumer<ChatMessage>> groupListeners = listeners.get(groupId);
-            /*
-             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-             */
             if (groupListeners != null) {
-                /*
-                 * Inicia um laço de repetição (for) para iterar sobre os elementos.
-                 */
                 for (Consumer<ChatMessage> listener : groupListeners) {
-                    /*
-                     * Inicia um bloco try-catch para tratar possíveis exceções.
-                     */
                     try {
-                        listener.accept(effectiveMessage);
+                        listener.accept(readyMessage);
                     } catch (Exception e) {
                         System.err.println("Erro ao notificar listener de Chat no grupo " + groupId + ": " + e.getMessage());
                     }

@@ -49,93 +49,83 @@ public class TaskAlertService {
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void scheduleAlertsForTask(Task task) {
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
         if (task == null || task.getId() == null) return;
         
-        transactionTemplate.executeWithoutResult(status -> {
-            Task freshTask = taskRepository.findById(task.getId()).orElse(null);
-            /*
-             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-             */
-            if (freshTask == null || freshTask.getTaskTemplate() == null) return;
+        // Se já estamos dentro de uma transação (ex: chamado do executeStep),
+        // reutilizar a task recebida em vez de recarregar do banco.
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
+            scheduleAlertsInternal(task);
+        } else {
+            transactionTemplate.executeWithoutResult(status -> {
+                Task freshTask = taskRepository.findById(task.getId()).orElse(null);
+                if (freshTask == null || freshTask.getTaskTemplate() == null) return;
+                scheduleAlertsInternal(freshTask);
+            });
+        }
+    }
+
+    private void scheduleAlertsInternal(Task task) {
+        com.xflprflx.neokioski.models.template.TaskTemplate template = task.getTaskTemplate();
+        
+        // Tentar usar os alerts já carregados; se não estiverem inicializados, buscar do repo
+        java.util.Collection<TaskAlert> alerts;
+        try {
+            alerts = template.getAlerts();
+            if (alerts == null) return;
+            alerts.size(); // forçar inicialização se lazy
+        } catch (org.hibernate.LazyInitializationException e) {
             com.xflprflx.neokioski.models.template.TaskTemplate attachedTemplate = 
-                taskTemplateRepository.findByIdWithAlerts(freshTask.getTaskTemplate().getId()).orElse(null);
-                
-            /*
-             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-             */
+                taskTemplateRepository.findByIdWithAlerts(template.getId()).orElse(null);
             if (attachedTemplate == null || attachedTemplate.getAlerts() == null) return;
-            
-            /*
-             * Inicia um laço de repetição (for) para iterar sobre os elementos.
-             */
-            for (TaskAlert alert : attachedTemplate.getAlerts()) {
-                /*
-                 * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                 */
-                if (freshTask.getTriggeredAlertIds().contains(alert.getId())) continue;
+            alerts = attachedTemplate.getAlerts();
+        }
 
-                boolean reachedTarget = freshTask.getTaskEvents().stream()
-                        .anyMatch(e -> e.getTaskStepDefinition() != null && 
-                                       e.getTaskStepDefinition().getId().equals(alert.getTargetStep().getId()));
-                /*
-                 * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                 */
-                if (reachedTarget) continue;
+        for (TaskAlert alert : alerts) {
+            if (task.getTriggeredAlertIds().contains(alert.getId())) continue;
 
-                Instant startTime = null;
-                /*
-                 * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                 */
-                if (alert.getStartStep() != null) {
-                    java.util.Optional<Instant> startEventTime = freshTask.getTaskEvents().stream()
-                            .filter(e -> e.getTaskStepDefinition() != null && 
-                                         e.getTaskStepDefinition().getId().equals(alert.getStartStep().getId()))
-                            .map(com.xflprflx.neokioski.models.TaskEvent::getTimestamp)
-                            .min(java.util.Comparator.naturalOrder());
-                            
-                    /*
-                     * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                     */
-                    if (startEventTime.isPresent()) {
-                         startTime = startEventTime.get();
-                    } else {
-                         // Gatilho condicional de início ainda não alcançado, não agenda alerta agora.
-                         continue;
-                    }
+            boolean reachedTarget = task.getTaskEvents().stream()
+                    .anyMatch(e -> e.getTaskStepDefinition() != null && 
+                                   e.getTaskStepDefinition().getId().equals(alert.getTargetStep().getId()));
+            if (reachedTarget) continue;
+
+            Instant startTime = null;
+            if (alert.getStartStep() != null) {
+                java.util.Optional<Instant> startEventTime = task.getTaskEvents().stream()
+                        .filter(e -> e.getTaskStepDefinition() != null && 
+                                     e.getTaskStepDefinition().getId().equals(alert.getStartStep().getId()))
+                        .map(com.xflprflx.neokioski.models.TaskEvent::getTimestamp)
+                        .min(java.util.Comparator.naturalOrder());
+                        
+                if (startEventTime.isPresent()) {
+                     startTime = startEventTime.get();
                 } else {
-                    startTime = freshTask.getCreatedAt() != null ? freshTask.getCreatedAt() : Instant.now();
+                     // Gatilho condicional de início ainda não alcançado, não agenda alerta agora.
+                     continue;
                 }
+            } else {
+                startTime = task.getCreatedAt() != null ? task.getCreatedAt() : Instant.now();
+            }
 
-                long timeoutMinutes = alert.getTimeoutMinutes();
-                Instant alertTime = startTime.plus(timeoutMinutes, ChronoUnit.MINUTES);
-                
-                String cacheKey = getCacheKey(freshTask, alert);
+            long timeoutMinutes = alert.getTimeoutMinutes();
+            Instant alertTime = startTime.plus(timeoutMinutes, ChronoUnit.MINUTES);
+            
+            String cacheKey = getCacheKey(task, alert);
 
-                /*
-                 * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                 */
-                if (alertTime.isBefore(Instant.now())) {
-                    executeTransactionalTrigger(freshTask.getId(), alert);
+            if (alertTime.isBefore(Instant.now())) {
+                executeTransactionalTrigger(task.getId(), alert);
+                scheduledAlerts.remove(cacheKey);
+            } else {
+                ScheduledFuture<?> future = taskScheduler.schedule(() -> {
+                    executeTransactionalTrigger(task.getId(), alert);
                     scheduledAlerts.remove(cacheKey);
-                } else {
-                    ScheduledFuture<?> future = taskScheduler.schedule(() -> {
-                        executeTransactionalTrigger(freshTask.getId(), alert);
-                        scheduledAlerts.remove(cacheKey);
-                    }, alertTime);
-                    
-                    ScheduledFuture<?> oldFuture = scheduledAlerts.put(cacheKey, future);
-                    /*
-                     * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                     */
-                    if (oldFuture != null && !oldFuture.isDone()) {
-                        oldFuture.cancel(false);
-                    }
+                }, alertTime);
+                
+                ScheduledFuture<?> oldFuture = scheduledAlerts.put(cacheKey, future);
+                if (oldFuture != null && !oldFuture.isDone()) {
+                    oldFuture.cancel(false);
                 }
             }
-        });
+        }
     }
 
     /**
@@ -147,42 +137,43 @@ public class TaskAlertService {
          */
         if (task == null || task.getId() == null || step == null) return;
         
-        transactionTemplate.executeWithoutResult(status -> {
-            Task freshTask = taskRepository.findById(task.getId()).orElse(null);
-            /*
-             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-             */
-            if (freshTask == null || freshTask.getTaskTemplate() == null) return;
-            
-            com.xflprflx.neokioski.models.template.TaskTemplate attachedTemplate = 
-                taskTemplateRepository.findById(freshTask.getTaskTemplate().getId()).orElse(null);
-                
-            /*
-             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-             */
-            if (attachedTemplate == null || attachedTemplate.getAlerts() == null) return;
-            
-            /*
-             * Inicia um laço de repetição (for) para iterar sobre os elementos.
-             */
-            for (TaskAlert alert : attachedTemplate.getAlerts()) {
-                /*
-                 * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                 */
-                if (alert.getTargetStep().getId().equals(step.getId())) {
-                    cancelSingleAlert(freshTask, alert);
-                }
-            }
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
+            cancelAlertByTargetStepInternal(task, step);
+        } else {
+            transactionTemplate.executeWithoutResult(status -> {
+                Task freshTask = taskRepository.findById(task.getId()).orElse(null);
+                if (freshTask == null || freshTask.getTaskTemplate() == null) return;
+                cancelAlertByTargetStepInternal(freshTask, step);
+            });
+        }
+    }
 
-            /*
-             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-             */
-            if (freshTask.isAlerted()) {
-                freshTask.setAlerted(false);
-                Task finalSaved = taskRepository.save(freshTask);
-                taskService.broadcast(finalSaved.getGroup().getId(), finalSaved);
+    private void cancelAlertByTargetStepInternal(Task task, TaskStepDefinition step) {
+        com.xflprflx.neokioski.models.template.TaskTemplate template = task.getTaskTemplate();
+        
+        java.util.Collection<TaskAlert> alerts;
+        try {
+            alerts = template.getAlerts();
+            if (alerts == null) return;
+            alerts.size();
+        } catch (org.hibernate.LazyInitializationException e) {
+            com.xflprflx.neokioski.models.template.TaskTemplate attachedTemplate = 
+                taskTemplateRepository.findById(template.getId()).orElse(null);
+            if (attachedTemplate == null || attachedTemplate.getAlerts() == null) return;
+            alerts = attachedTemplate.getAlerts();
+        }
+
+        for (TaskAlert alert : alerts) {
+            if (alert.getTargetStep().getId().equals(step.getId())) {
+                cancelSingleAlert(task, alert);
             }
-        });
+        }
+
+        if (task.isAlerted()) {
+            task.setAlerted(false);
+            Task finalSaved = taskRepository.save(task);
+            taskService.broadcast(finalSaved.getGroup().getId(), finalSaved);
+        }
     }
 
     /**

@@ -109,6 +109,7 @@ public class TaskService {
         TaskEvent event = new TaskEvent();
         event.setUser(creator);
         event.setTimestamp(Instant.now());
+        event.setTask(task);
         task.getTaskEvents().add(event);
 
         Task saved = taskRepository.save(task);
@@ -127,7 +128,7 @@ public class TaskService {
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public Task executeStep(Long taskId, TaskStepDefinition step, User user, String response) {
-        Task task = taskRepository.findByIdWithCollections(taskId).orElseThrow(() -> new RuntimeException("Task não encontrada: " + taskId));
+        Task task = taskRepository.findByIdForExecution(taskId).orElseThrow(() -> new RuntimeException("Task não encontrada: " + taskId));
 
         /*
          * Avalia uma condição (if) para desvio de fluxo da lógica principal.
@@ -144,6 +145,7 @@ public class TaskService {
             event.setUser(user);
             event.setTimestamp(Instant.now());
             event.setResponse(response);
+            event.setTask(task);
             task.getTaskEvents().add(event);
 
             // Determinar se o step a ser salvo é finalizador *agora*:
@@ -176,26 +178,17 @@ public class TaskService {
 
             Task saved = taskRepository.save(task);
 
-            // Verificar se deve processar menções e disparar sons
-            stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
-                    task.getTaskTemplate().getId(), step.getId()
-            ).ifPresent(relation -> {
-                // Buscar a mensagem original do card da tarefa para dar "Reply"
-                List<ChatMessage> msgs = chatMessageRepository.findByTaskOrderByIdAsc(task);
-                ChatMessage originalMsg = msgs.isEmpty() ? null : msgs.get(0);
+            // Processar menções e disparar sons usando a relation já buscada
+            relationOpt.ifPresent(relation -> {
+                // Buscar a primeira mensagem do card da tarefa para dar "Reply"
+                ChatMessage originalMsg = chatMessageRepository.findFirstByTaskOrderByIdAsc(task).orElse(null);
                 
                 String stepSound = relation.getAlertSound();
 
-                /*
-                 * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                 */
                 if (relation.isSendNotification() && relation.getNotificationMessage() != null && !relation.getNotificationMessage().isEmpty()) {
                     String message = relation.getNotificationMessage();
 
                     // 1. Processar @criador
-                    /*
-                     * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                     */
                     if (task.getCreator() != null) {
                         String creatorMention = "@" + task.getCreator().getUsername();
                         message = message.replace("@criador", creatorMention);
@@ -203,9 +196,6 @@ public class TaskService {
 
                     // 2. Processar @autorizadores
                     java.util.Collection<User> authorizers = task.getTaskTemplate().getAuthorizingUsers();
-                    /*
-                     * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                     */
                     if (authorizers != null && !authorizers.isEmpty()) {
                         String authorizersMention = authorizers.stream()
                             .map(u -> "@" + u.getUsername())
@@ -214,9 +204,6 @@ public class TaskService {
                     }
 
                     // 3. Processar @usuario (quem está executando a ação agora)
-                    /*
-                     * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                     */
                     if (user != null) {
                         message = message.replace("@usuario", "@" + user.getUsername());
                     }
@@ -229,14 +216,8 @@ public class TaskService {
                             .sorted(java.util.Comparator.comparing(TaskEvent::getTimestamp))
                             .toList();
                             
-                    /*
-                     * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                     */
                     if (events.size() >= 2) {
                         User previousAuthor = events.get(events.size() - 2).getUser();
-                        /*
-                         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                         */
                         if (previousAuthor != null) {
                             message = message.replace("@autor_anterior", "@" + previousAuthor.getUsername());
                         }
@@ -249,17 +230,15 @@ public class TaskService {
                     chatService.sendVolatileMessage(message, user, task.getGroup(), originalMsg, stepSound, rolesStr);
                 }
             });
+        // Inicializar dados da task ANTES dos serviços de alerta (para que usem dados em memória)
+        initializeTaskData(saved);
 
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
         if (isTaskFinalized(saved)) {
             taskAlertService.cancelAllAlertsForTask(saved);
         } else {
             taskAlertService.cancelAlertByTargetStep(saved, step);
             taskAlertService.scheduleAlertsForTask(saved);
         }
-        initializeTaskData(saved);
         broadcast(task.getGroup().getId(), saved);
         /*
          * Retorna o resultado final processado pelo métodx.
@@ -1118,29 +1097,5 @@ public class TaskService {
         }
         
         // Inicializar o Template e todas as suas regras de transição (crucial para UI de botões)
-        if (task.getTaskTemplate() != null) {
-            task.getTaskTemplate().getTemplateStepRelation().forEach(rel -> {
-                // Tocar no passo e suas propriedades básicas
-                if (rel.getTaskStepDefinition() != null) {
-                    rel.getTaskStepDefinition().getLabel();
-                    rel.getTaskStepDefinition().getColorTheme();
-                }
-                
-                // Tocar nos passos permitidos seguintes
-                rel.getAllowedNextSteps().forEach(ans -> {
-                    if (ans != null) ans.getLabel();
-                });
-
-                // Tocar nas opções de resposta (se houver campo de input)
-                rel.getResponseOptions().forEach(opt -> {
-                    if (opt != null) opt.getOptionLabel();
-                });
-                
-                // Tocar nos papéis de alerta do passo
-                rel.getAlertRoles().size();
-            });
-            task.getTaskTemplate().getAuthorizingUsers().size();
-            task.getTaskTemplate().getAlertRoles().size();
-        }
     }
 }

@@ -20,6 +20,8 @@ public interface TaskTemplateRepository extends JpaRepository<TaskTemplate, Long
            "LEFT JOIN FETCH t.alerts " +
            "LEFT JOIN FETCH t.templateStepRelation r " +
            "LEFT JOIN FETCH r.taskStepDefinition " +
+           "LEFT JOIN FETCH t.alertRoles " +
+           "LEFT JOIN FETCH t.authorizingUsers " +
            "WHERE t.id = :id")
     Optional<TaskTemplate> findByIdWithMetadata(@Param("id") Long id);
 

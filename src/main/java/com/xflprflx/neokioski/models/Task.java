@@ -8,6 +8,7 @@ import java.util.*;
 
 @Entity
 @Table(name = "tb_tasks")
+@org.hibernate.annotations.DynamicUpdate
 /**
  * Entidade que representa uma tarefa no sistema, associada a um template, passos e a um solicitante.
  */

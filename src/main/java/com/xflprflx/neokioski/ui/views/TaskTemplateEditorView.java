@@ -46,12 +46,7 @@ import com.xflprflx.neokioski.models.enums.Role;
 import com.xflprflx.neokioski.ui.utils.TaskUIUtils;
 import jakarta.annotation.security.RolesAllowed;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RolesAllowed("ADMIN")
@@ -2383,23 +2378,18 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 groupComboBox.setValue(t.getGroups());
 
                 fields.clear();
-                /*
-                 * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
-                 */
-                for (TemplateFieldRelation fr : templateService.getFieldRelationsByTemplateId(parameter)) {
+                // Usar as relações já carregadas no objeto t para evitar LazyInitializationException
+                List<TemplateFieldRelation> sortedFieldRels = t.getTemplateFieldRelation().stream()
+                        .sorted(Comparator.comparingInt(TemplateFieldRelation::getOrder))
+                        .collect(Collectors.toList());
+                for (TemplateFieldRelation fr : sortedFieldRels) {
                     FieldDTO dto = new FieldDTO();
                     dto.id = fr.getTaskFieldDefinition().getId();
                     dto.label = fr.getTaskFieldDefinition().getLabel();
                     dto.inputType = fr.getTaskFieldDefinition().getInputType();
                     dto.description = fr.getTaskFieldDefinition().getDescription();
                     dto.isRequired = fr.isRequired();
-                    /*
-                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                     */
                     if (fr.getTaskFieldDefinition().getTaskFieldOptions() != null) {
-                        /*
-                         * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
-                         */
                         for (TaskFieldOption opt : fr.getTaskFieldDefinition().getTaskFieldOptions()) {
                             dto.options.add(opt.getOptionLabel());
                         }
@@ -2409,10 +2399,11 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 fieldsGrid.getDataProvider().refreshAll();
 
                 steps.clear();
-                /*
-                 * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
-                 */
-                for (TemplateStepRelation sr : templateService.getStepRelationsByTemplateId(parameter)) {
+                // Usar as relações já carregadas no objeto t para evitar LazyInitializationException
+                List<TemplateStepRelation> sortedStepRels = t.getTemplateStepRelation().stream()
+                        .sorted(Comparator.comparingInt(TemplateStepRelation::getOrder))
+                        .collect(Collectors.toList());
+                for (TemplateStepRelation sr : sortedStepRels) {
                     StepDTO dto = new StepDTO();
                     dto.id = sr.getTaskStepDefinition().getId();
                     dto.label = sr.getTaskStepDefinition().getLabel();
@@ -2430,9 +2421,6 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     dto.alertSound = sr.getAlertSound();
                     dto.alertRoles = new HashSet<>(sr.getAlertRoles());
                     dto.responsibleRole = sr.getResponsibleRole();
-                    /*
-                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                     */
                     if (sr.getResponseOptions() != null) {
                         dto.responseOptions = sr.getResponseOptions().stream()
                                 .map(TaskFieldOption::getOptionLabel)

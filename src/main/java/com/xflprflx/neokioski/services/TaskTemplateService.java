@@ -73,46 +73,34 @@ public class TaskTemplateService {
 
         TaskTemplate savedTemplate = taskTemplateRepository.save(template);
 
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
-        if (savedTemplate.getId() != null) {
-            templateFieldRelationRepository.deleteByTaskTemplateId(savedTemplate.getId());
-            templateStepRelationRepository.deleteByTaskTemplateId(savedTemplate.getId());
-        }
+        // #improve_n+1 - Sincronização de cache e banco via orphanRemoval.
+        // Em vez de deletar manualmente via repositório (que ignora o L2 Cache), 
+        // limpamos a coleção do objeto gerenciado e adicionamos os novos itens.
+        savedTemplate.getTemplateFieldRelation().clear();
+        savedTemplate.getTemplateStepRelation().clear();
 
-        /*
-         * Inicia um laço de repetição (for) para iterar sobre os elementos.
-         */
         for (TemplateFieldRelation fr : fieldRelations) {
             TaskFieldDefinition fieldDef = fr.getTaskFieldDefinition();
-            /*
-             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-             */
             if (fieldDef.getTaskFieldOptions() != null) {
                 taskFieldOptionRepository.saveAll(fieldDef.getTaskFieldOptions());
             }
             taskFieldDefinitionRepository.save(fieldDef);
             fr.setTaskTemplate(savedTemplate);
-            templateFieldRelationRepository.save(fr);
+            savedTemplate.getTemplateFieldRelation().add(fr);
         }
 
         // Os definitions precisam ser salvos antes de vincularmos aos alertas 
         // para evitar o erro de 'TransientPropertyValueException'
-        /*
-         * Inicia um laço de repetição (for) para iterar sobre os elementos.
-         */
         for (TemplateStepRelation sr : stepRelations) {
             taskStepDefinitionRepository.save(sr.getTaskStepDefinition());
         }
 
-        /*
-         * Inicia um laço de repetição (for) para iterar sobre os elementos.
-         */
         for (TemplateStepRelation sr : stepRelations) {
             sr.setTaskTemplate(savedTemplate);
-            templateStepRelationRepository.save(sr);
+            savedTemplate.getTemplateStepRelation().add(sr);
         }
+        
+        // O Hibernate salvará automaticamente as relações ao comitar a transação devido ao CascadeType.ALL
 
         // Agora que os passos (targetStep) já estão com IDs, podemos persistir os alertas novos.
         /*
@@ -210,9 +198,9 @@ public class TaskTemplateService {
      */
     public TaskTemplate getTemplateById(Long id) {
         /*
-         * Retorna o resultado final processado pelo métodx.
+         * Retorna o resultado final processado pelo métodx com metadados completos para o editor.
          */
-        return taskTemplateRepository.findByIdWithAlerts(id).orElse(null);
+        return taskTemplateRepository.findByIdWithMetadata(id).orElse(null);
     }
 
 
@@ -262,11 +250,7 @@ public class TaskTemplateService {
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<TaskSlaConfig> getSlaConfigsByTemplateId(Long templateId) {
-        TaskTemplate template = taskTemplateRepository.findById(templateId).orElse(null);
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
-        if (template == null) return new java.util.ArrayList<>();
+        TaskTemplate template = taskTemplateRepository.getReferenceById(templateId);
         /*
          * Retorna o resultado final processado pelo métodx.
          */

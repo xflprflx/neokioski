@@ -16,13 +16,14 @@ import java.util.List;
 public interface TaskTemplateRepository extends JpaRepository<TaskTemplate, Long> {
     
     // #improve_n+1 - Múltiplos FETCH para Lists geram MultipleBagFetchException. Mas para Sets e To-Ones é seguro.
-    @Query("SELECT t FROM TaskTemplate t " +
-           "LEFT JOIN FETCH t.alerts " +
-           "LEFT JOIN FETCH t.templateStepRelation r " +
-           "LEFT JOIN FETCH r.taskStepDefinition " +
-           "LEFT JOIN FETCH t.alertRoles " +
-           "LEFT JOIN FETCH t.authorizingUsers " +
-           "WHERE t.id = :id")
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {
+        "alerts", "alerts.alertRoles", "alerts.startStep", "alerts.targetStep",
+        "templateStepRelation", "templateStepRelation.taskStepDefinition", 
+        "templateStepRelation.responseOptions", "templateStepRelation.allowedNextSteps", "templateStepRelation.alertRoles",
+        "templateFieldRelation", "templateFieldRelation.taskFieldDefinition", "templateFieldRelation.taskFieldDefinition.taskFieldOptions",
+        "alertRoles", "authorizingUsers", "groups"
+    }, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
+    @Query("SELECT t FROM TaskTemplate t WHERE t.id = :id")
     Optional<TaskTemplate> findByIdWithMetadata(@Param("id") Long id);
 
     @Query("SELECT t FROM TaskTemplate t LEFT JOIN FETCH t.alerts WHERE t.id = :id")

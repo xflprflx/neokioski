@@ -61,22 +61,22 @@ public class TaskTemplate {
             inverseJoinColumns = @JoinColumn(name = "group_id")
     )
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
-    private List<Group> groups = new ArrayList<>();
+    private Set<Group> groups = new LinkedHashSet<>();
 
-    @OneToMany(mappedBy = "taskTemplate")
+    @OneToMany(mappedBy = "taskTemplate", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("order ASC")
     @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
     @org.hibernate.annotations.BatchSize(size = 50)
     private Set<TemplateStepRelation> templateStepRelation = new LinkedHashSet<>();
 
-    @OneToMany(mappedBy = "taskTemplate")
+    @OneToMany(mappedBy = "taskTemplate", cascade = CascadeType.ALL, orphanRemoval = true)
     @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
     @org.hibernate.annotations.BatchSize(size = 50)
     private Set<TemplateFieldRelation> templateFieldRelation = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "taskTemplate", cascade = CascadeType.ALL, orphanRemoval = true)
     @org.hibernate.annotations.BatchSize(size = 50)
-    private List<TaskAlert> alerts = new ArrayList<>();
+    private Set<TaskAlert> alerts = new LinkedHashSet<>();
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -164,8 +164,12 @@ public class TaskTemplate {
         this.alertRoles = alertRoles;
     }
 
-    public List<Group> getGroups() {
+    public Set<Group> getGroups() {
         return groups;
+    }
+
+    public void setGroups(Set<Group> groups) {
+        this.groups = groups;
     }
 
     /**
@@ -196,7 +200,7 @@ public class TaskTemplate {
         this.authorizingUsers = authorizingUsers;
     }
 
-    public List<TaskAlert> getAlerts() {
+    public Set<TaskAlert> getAlerts() {
         return alerts;
     }
 
@@ -208,7 +212,7 @@ public class TaskTemplate {
         this.sortOrder = sortOrder;
     }
 
-    public void setAlerts(List<TaskAlert> alerts) {
+    public void setAlerts(Set<TaskAlert> alerts) {
         this.alerts = alerts;
     }
 

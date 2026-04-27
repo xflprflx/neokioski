@@ -16,5 +16,6 @@ public interface TaskSlaConfigRepository extends JpaRepository<TaskSlaConfig, Lo
            "AND c.validFrom <= :date AND (c.validTo IS NULL OR c.validTo > :date)")
     List<TaskSlaConfig> findValidConfigs(TaskTemplate template, Instant date);
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"sourceStep", "targetStep"})
     List<TaskSlaConfig> findByTaskTemplateAndValidToIsNull(TaskTemplate taskTemplate);
 }

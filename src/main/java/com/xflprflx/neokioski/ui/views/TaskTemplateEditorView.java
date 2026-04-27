@@ -100,6 +100,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     // DTOs para Grid dinâmico antes de Salvar no BD
     public static class FieldDTO {
         public Long id;
+        public Long relationId;
         public String label;
         public InputType inputType;
         public boolean isRequired;
@@ -109,6 +110,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
 
     public static class StepDTO {
         public Long id;
+        public Long relationId;
         public String label;
         public String colorTheme;
         public boolean isFinalizer;
@@ -2197,6 +2199,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             }
 
             TemplateFieldRelation rel = new TemplateFieldRelation();
+            rel.setId(dto.relationId); // <--- PRESERVA O ID DA RELAÇÃO
             rel.setTaskFieldDefinition(def);
             rel.setRequired(dto.isRequired);
             rel.setOrder(fOrder++);
@@ -2231,6 +2234,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         for (StepDTO dto : steps) {
             TaskStepDefinition def = defMap.get(dto.label);
             TemplateStepRelation rel = new TemplateStepRelation();
+            rel.setId(dto.relationId); // <--- PRESERVA O ID DA RELAÇÃO
             rel.setTaskStepDefinition(def);
             rel.setOrder(sOrder++);
             rel.setFinalizer(dto.isFinalizer);
@@ -2385,6 +2389,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 for (TemplateFieldRelation fr : sortedFieldRels) {
                     FieldDTO dto = new FieldDTO();
                     dto.id = fr.getTaskFieldDefinition().getId();
+                    dto.relationId = fr.getId(); // <--- IMPORTANTE
                     dto.label = fr.getTaskFieldDefinition().getLabel();
                     dto.inputType = fr.getTaskFieldDefinition().getInputType();
                     dto.description = fr.getTaskFieldDefinition().getDescription();
@@ -2406,6 +2411,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 for (TemplateStepRelation sr : sortedStepRels) {
                     StepDTO dto = new StepDTO();
                     dto.id = sr.getTaskStepDefinition().getId();
+                    dto.relationId = sr.getId(); // <--- IMPORTANTE
                     dto.label = sr.getTaskStepDefinition().getLabel();
                     dto.colorTheme = sr.getTaskStepDefinition().getColorTheme();
                     dto.isFinalizer = sr.isFinalizer();

@@ -1015,7 +1015,9 @@ public class TaskService {
         /*
          * Retorna o resultado final processado pelo métodx.
          */
-        return taskRepository.findAll(spec, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
+        List<Task> tasks = taskRepository.findAll(spec, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
+        tasks.forEach(this::initializeTaskData);
+        return tasks;
     }
 
     /**

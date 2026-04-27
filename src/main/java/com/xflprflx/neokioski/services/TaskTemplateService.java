@@ -6,7 +6,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 /**
@@ -58,129 +59,156 @@ public class TaskTemplateService {
                                      List<TaskAlert> alerts,
                                      List<TaskSlaConfig> slas) {
         
-        // Limpa apenas os alertas antigos da coleção que foram excluídos na interface (para orphanRemoval funcionar adequadamente),
-        // preservando os que ficaram para não quebrar a identidade e trocar de ID
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
-        if (template.getAlerts() != null && alerts != null) {
-            java.util.Set<Long> incomingIds = alerts.stream()
-                .map(TaskAlert::getId)
-                .filter(java.util.Objects::nonNull)
-                .collect(java.util.stream.Collectors.toSet());
-            template.getAlerts().removeIf(a -> a.getId() != null && !incomingIds.contains(a.getId()));
-        }
-
         TaskTemplate savedTemplate = taskTemplateRepository.save(template);
 
-        // #improve_n+1 - Sincronização de cache e banco via orphanRemoval.
-        // Em vez de deletar manualmente via repositório (que ignora o L2 Cache), 
-        // limpamos a coleção do objeto gerenciado e adicionamos os novos itens.
-        savedTemplate.getTemplateFieldRelation().clear();
-        savedTemplate.getTemplateStepRelation().clear();
+        // Reconciliação de coleções para evitar o "delete-all-and-reinsert"
+        reconcileFields(savedTemplate, fieldRelations);
+        reconcileSteps(savedTemplate, stepRelations);
+        reconcileAlerts(savedTemplate, alerts);
+        manageSlas(savedTemplate, slas);
 
-        for (TemplateFieldRelation fr : fieldRelations) {
-            TaskFieldDefinition fieldDef = fr.getTaskFieldDefinition();
-            if (fieldDef.getTaskFieldOptions() != null) {
-                taskFieldOptionRepository.saveAll(fieldDef.getTaskFieldOptions());
-            }
-            taskFieldDefinitionRepository.save(fieldDef);
-            fr.setTaskTemplate(savedTemplate);
-            savedTemplate.getTemplateFieldRelation().add(fr);
-        }
-
-        // Os definitions precisam ser salvos antes de vincularmos aos alertas 
-        // para evitar o erro de 'TransientPropertyValueException'
-        for (TemplateStepRelation sr : stepRelations) {
-            taskStepDefinitionRepository.save(sr.getTaskStepDefinition());
-        }
-
-        for (TemplateStepRelation sr : stepRelations) {
-            sr.setTaskTemplate(savedTemplate);
-            savedTemplate.getTemplateStepRelation().add(sr);
-        }
-        
-        // O Hibernate salvará automaticamente as relações ao comitar a transação devido ao CascadeType.ALL
-
-        // Agora que os passos (targetStep) já estão com IDs, podemos persistir os alertas novos.
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
-        if (alerts != null) {
-            /*
-             * Inicia um laço de repetição (for) para iterar sobre os elementos.
-             */
-            for (TaskAlert alert : alerts) {
-                alert.setTaskTemplate(savedTemplate);
-                taskAlertRepository.save(alert);
-            }
-        }
-
-        // Persistir SLAs através de Vigência (Imutabilidade para hitórico)
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
-        if (savedTemplate.getId() != null) {
-            // Buscamos as configurações que estão ATIVAS atualmente
-            List<TaskSlaConfig> activeSlas = taskSlaConfigRepository.findByTaskTemplateAndValidToIsNull(savedTemplate);
-            
-            // "Encerramos" a vigência das configurações atuais.
-            // Quando novas configurações forem salvas abaixo, elas serão as novas versões vigentes.
-            /*
-             * Inicia um laço de repetição (for) para iterar sobre os elementos.
-             */
-            for (TaskSlaConfig activeSla : activeSlas) {
-                activeSla.setValidTo(java.time.Instant.now());
-                taskSlaConfigRepository.save(activeSla);
-            }
-        }
-
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
-        if (slas != null) {
-            /*
-             * Inicia um laço de repetição (for) para iterar sobre os elementos.
-             */
-            for (TaskSlaConfig sla : slas) {
-                // Garantimos que cada entrada seja salva como um NOVO registro histórico
-                sla.setId(null); 
-                sla.setTaskTemplate(savedTemplate);
-                // validFrom já vem preenchido como now() do DTO, mas garantimos aqui se necessário
-                /*
-                 * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                 */
-                if (sla.getValidFrom() == null) sla.setValidFrom(java.time.Instant.now());
-                sla.setValidTo(null);
-                taskSlaConfigRepository.save(sla);
-            }
-        }
-
-        // Tentar reajustar cronômetros das tarefas pendentes em memória (via Dynamic Scheduling)
-        /*
-         * Inicia um bloco try-catch para tratar possíveis exceções.
-         */
+        // Reagendar alertas das tarefas ativas após a alteração das regras do template
         try {
             java.util.List<com.xflprflx.neokioski.models.Task> pendings = taskRepository.findAllPending();
-            /*
-             * Inicia um laço de repetição (for) para iterar sobre os elementos.
-             */
             for (com.xflprflx.neokioski.models.Task pt : pendings) {
-                /*
-                 * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                 */
                 if (pt.getTaskTemplate() != null && pt.getTaskTemplate().getId().equals(savedTemplate.getId())) {
                     taskAlertService.scheduleAlertsForTask(pt);
                 }
             }
         } catch (Exception e) {
-            System.err.println("Aviso: Falha ao tentar reagendar alertas das tarefas ativas após edição do template: " + e.getMessage());
+            System.err.println("Aviso: Falha ao tentar reagendar alertas das tarefas ativas: " + e.getMessage());
         }
 
-        /*
-         * Retorna o resultado final processado pelo métodx.
-         */
         return savedTemplate;
+    }
+
+    private void reconcileFields(TaskTemplate template, List<TemplateFieldRelation> incoming) {
+        Map<Long, TemplateFieldRelation> existingMap = template.getTemplateFieldRelation().stream()
+                .filter(r -> r.getId() != null)
+                .collect(Collectors.toMap(TemplateFieldRelation::getId, r -> r));
+
+        Set<Long> incomingIds = incoming.stream()
+                .map(TemplateFieldRelation::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        // 1. Remover quem sumiu (Orphan Removal)
+        template.getTemplateFieldRelation().removeIf(r -> r.getId() != null && !incomingIds.contains(r.getId()));
+
+        // 2. Atualizar ou Adicionar
+        for (TemplateFieldRelation fr : incoming) {
+            TaskFieldDefinition fieldDef = fr.getTaskFieldDefinition();
+            if (fieldDef.getTaskFieldOptions() != null) {
+                taskFieldOptionRepository.saveAll(fieldDef.getTaskFieldOptions());
+            }
+            taskFieldDefinitionRepository.save(fieldDef);
+
+            if (fr.getId() != null && existingMap.containsKey(fr.getId())) {
+                TemplateFieldRelation existing = existingMap.get(fr.getId());
+                existing.setOrder(fr.getOrder());
+                existing.setRequired(fr.isRequired());
+                existing.setTaskFieldDefinition(fieldDef);
+            } else {
+                fr.setTaskTemplate(template);
+                template.getTemplateFieldRelation().add(fr);
+            }
+        }
+    }
+
+    private void reconcileSteps(TaskTemplate template, List<TemplateStepRelation> incoming) {
+        Map<Long, TemplateStepRelation> existingMap = template.getTemplateStepRelation().stream()
+                .filter(r -> r.getId() != null)
+                .collect(Collectors.toMap(TemplateStepRelation::getId, r -> r));
+
+        Set<Long> incomingIds = incoming.stream()
+                .map(TemplateStepRelation::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        // 1. Remover quem sumiu (Orphan Removal)
+        template.getTemplateStepRelation().removeIf(r -> r.getId() != null && !incomingIds.contains(r.getId()));
+
+        for (TemplateStepRelation sr : incoming) {
+            taskStepDefinitionRepository.save(sr.getTaskStepDefinition());
+
+            if (sr.getId() != null && existingMap.containsKey(sr.getId())) {
+                TemplateStepRelation existing = existingMap.get(sr.getId());
+                // Atualizar propriedades simples
+                existing.setOrder(sr.getOrder());
+                existing.setFinalizer(sr.isFinalizer());
+                existing.setSendNotification(sr.isSendNotification());
+                existing.setNotificationMessage(sr.getNotificationMessage());
+                existing.setShouldPulse(sr.isShouldPulse());
+                existing.setGlobal(sr.isGlobal());
+                existing.setHasResponseField(sr.isHasResponseField());
+                existing.setResponseRequired(sr.isResponseRequired());
+                existing.setResponseFieldLabel(sr.getResponseFieldLabel());
+                existing.setResponseIsCompact(sr.isResponseIsCompact());
+                existing.setResponseInputType(sr.getResponseInputType());
+                existing.setAlertSound(sr.getAlertSound());
+                existing.setResponsibleRole(sr.getResponsibleRole());
+
+                // Reconciliar sub-coleções (Set<Role>, Set<TaskStepDefinition>, Set<TaskFieldOption>)
+                existing.getAlertRoles().clear();
+                existing.getAlertRoles().addAll(sr.getAlertRoles());
+
+                existing.getAllowedNextSteps().clear();
+                existing.getAllowedNextSteps().addAll(sr.getAllowedNextSteps());
+
+                existing.getResponseOptions().clear();
+                existing.getResponseOptions().addAll(sr.getResponseOptions());
+            } else {
+                sr.setTaskTemplate(template);
+                template.getTemplateStepRelation().add(sr);
+            }
+        }
+    }
+
+    private void reconcileAlerts(TaskTemplate template, List<TaskAlert> incoming) {
+        Map<Long, TaskAlert> existingMap = template.getAlerts().stream()
+                .filter(a -> a.getId() != null)
+                .collect(Collectors.toMap(TaskAlert::getId, a -> a));
+
+        Set<Long> incomingIds = incoming.stream()
+                .map(TaskAlert::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        // 1. Remover quem sumiu (Orphan Removal)
+        template.getAlerts().removeIf(a -> a.getId() != null && !incomingIds.contains(a.getId()));
+
+        for (TaskAlert alert : incoming) {
+            if (alert.getId() != null && existingMap.containsKey(alert.getId())) {
+                TaskAlert existing = existingMap.get(alert.getId());
+                existing.setAlertMessage(alert.getAlertMessage());
+                existing.setAlertSound(alert.getAlertSound());
+                existing.setTimeoutMinutes(alert.getTimeoutMinutes());
+                existing.setStartStep(alert.getStartStep());
+                existing.setTargetStep(alert.getTargetStep());
+                existing.getAlertRoles().clear();
+                existing.getAlertRoles().addAll(alert.getAlertRoles());
+            } else {
+                alert.setTaskTemplate(template);
+                template.getAlerts().add(alert);
+            }
+        }
+    }
+
+    private void manageSlas(TaskTemplate template, List<TaskSlaConfig> incoming) {
+        java.time.Instant now = java.time.Instant.now();
+        List<TaskSlaConfig> activeSlas = taskSlaConfigRepository.findByTaskTemplateAndValidToIsNull(template);
+        for (TaskSlaConfig activeSla : activeSlas) {
+            activeSla.setValidTo(now);
+        }
+        if (incoming != null) {
+            for (TaskSlaConfig sla : incoming) {
+                sla.setId(null);
+                sla.setTaskTemplate(template);
+                if (sla.getValidFrom() == null) sla.setValidFrom(now);
+                sla.setValidTo(null);
+                taskSlaConfigRepository.save(sla);
+            }
+        }
     }
 
     /**

@@ -125,7 +125,7 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
     List<Task> findAllByCreatedAtBetween(java.time.Instant start, java.time.Instant end);
 
     // #improve_n+1 - EntityGraph focado em ManyToOne e coleções via SUBSELECT + @Transactional.
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep", "taskFieldValues", "slaResults"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskTemplate", "creator", "group", "currentStep", "taskFieldValues", "taskFieldValues.taskFieldDefinition", "slaResults", "slaResults.slaConfig", "taskEvents", "taskEvents.user", "taskEvents.taskStepDefinition"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     List<Task> findAll(org.springframework.data.jpa.domain.Specification<Task> spec, org.springframework.data.domain.Sort sort);
 
     @Query("SELECT t.group.name, COUNT(t) FROM Task t GROUP BY t.group.name")

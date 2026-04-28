@@ -246,11 +246,15 @@ public class TaskTemplateService {
     /**
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
+    public List<TaskTemplate> findAll(boolean includeDeleted) {
+        if (includeDeleted) {
+            return taskTemplateRepository.findAll();
+        }
+        return taskTemplateRepository.findAllByDeletedFalse(Sort.by(Sort.Direction.ASC, "sortOrder", "name"));
+    }
+
     public List<TaskTemplate> findAll() {
-        /*
-         * Retorna o resultado final processado pelo métodx.
-         */
-        return taskTemplateRepository.findAll(Sort.by(Sort.Direction.ASC, "sortOrder", "name"));
+        return findAll(false);
     }
 
     /**
@@ -268,10 +272,7 @@ public class TaskTemplateService {
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<TaskTemplate> getTemplatesByGroupId(Long groupId) {
-        /*
-         * Retorna o resultado final processado pelo métodx.
-         */
-        return taskTemplateRepository.findByGroupId(groupId);
+        return taskTemplateRepository.findByGroupIdAndDeletedFalse(groupId);
     }
 
     /**
@@ -299,11 +300,44 @@ public class TaskTemplateService {
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void deleteTemplate(Long id) {
-        templateFieldRelationRepository.deleteByTaskTemplateId(id);
-        templateStepRelationRepository.deleteByTaskTemplateId(id);
-        List<TaskAlert> alerts = taskAlertRepository.findByTaskTemplateId(id);
-        taskAlertRepository.deleteAll(alerts);
-        taskTemplateRepository.deleteById(id);
+        TaskTemplate template = taskTemplateRepository.findById(id).orElse(null);
+        if (template != null) {
+            template.setDeleted(true);
+            // Renomear para liberar o nome original caso queiram criar um novo com mesmo nome
+            template.setName("[EXCLUÍDO] " + template.getName() + " (" + template.getId() + ")");
+            taskTemplateRepository.save(template);
+        }
+    }
+
+    @Transactional
+    public void restoreTemplate(Long id) {
+        TaskTemplate template = taskTemplateRepository.findById(id).orElse(null);
+        if (template != null && template.isDeleted()) {
+            template.setDeleted(false);
+            
+            // Tentar restaurar o nome original removendo o prefixo e o sufixo (ID)
+            String name = template.getName();
+            if (name.startsWith("[EXCLUÍDO] ")) {
+                name = name.substring(11);
+                int lastParen = name.lastIndexOf(" (");
+                if (lastParen != -1) {
+                    name = name.substring(0, lastParen);
+                }
+            }
+            
+            // Se o nome original já estiver em uso, mantém o nome com [RESTAURADO] para evitar erro de unique constraint
+            final String targetName = name;
+            boolean nameExists = taskTemplateRepository.findAll().stream()
+                    .anyMatch(t -> !t.getId().equals(id) && t.getName().equalsIgnoreCase(targetName));
+            
+            if (nameExists) {
+                template.setName("[RESTAURADO] " + targetName);
+            } else {
+                template.setName(targetName);
+            }
+            
+            taskTemplateRepository.save(template);
+        }
     }
 
     /**

@@ -736,7 +736,7 @@ public class TaskService {
         attributes.add("COLLECTOR");
 
         // Buscar templates que registram no relatório para sugerir seus campos e passos
-        List<TaskTemplate> templates = taskTemplateRepository.findAll().stream()
+        List<TaskTemplate> templates = taskTemplateRepository.findAllByDeletedFalse().stream()
                 .filter(TaskTemplate::isRegistraNoRelatorioLoja)
                 .collect(Collectors.toList());
 

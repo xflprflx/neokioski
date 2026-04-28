@@ -31,8 +31,14 @@ public interface TaskTemplateRepository extends JpaRepository<TaskTemplate, Long
 
     // #improve_n+1 - Evitar que a lista geral carregue sub-colecoes lazy e cause queries secundárias
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"alertRoles", "authorizingUsers", "templateStepRelation", "templateStepRelation.taskStepDefinition", "templateFieldRelation", "templateFieldRelation.taskFieldDefinition", "templateFieldRelation.taskFieldDefinition.taskFieldOptions"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
-    @Query("SELECT t FROM TaskTemplate t JOIN t.groups g WHERE g.id = :groupId ORDER BY t.sortOrder ASC, t.name ASC")
-    List<TaskTemplate> findByGroupId(@Param("groupId") Long groupId);
+    @Query("SELECT t FROM TaskTemplate t JOIN t.groups g WHERE g.id = :groupId AND t.deleted = false ORDER BY t.sortOrder ASC, t.name ASC")
+    List<TaskTemplate> findByGroupIdAndDeletedFalse(@Param("groupId") Long groupId);
+
+    @Query("SELECT t FROM TaskTemplate t WHERE t.deleted = false ORDER BY t.sortOrder ASC, t.name ASC")
+    List<TaskTemplate> findAllByDeletedFalse();
+
+    @Query("SELECT t FROM TaskTemplate t WHERE t.deleted = false")
+    List<TaskTemplate> findAllByDeletedFalse(org.springframework.data.domain.Sort sort);
 
     // #improve_n+1 - Como as dependências viraram Lazy, a listagem geral só puxa o Template em si
     @Override

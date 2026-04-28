@@ -43,6 +43,9 @@ public class TaskTemplate {
     private Role defaultResponsibleRole;
 
     @Column(nullable = false)
+    private boolean deleted = false;
+
+    @Column(nullable = false)
     private Integer sortOrder = 0;
 
     // #improve_n+1 - Remoção do EAGER forçado nas coleções administrativas que causavam queries em massa quando uma Task era listada
@@ -215,6 +218,14 @@ public class TaskTemplate {
 
     public void setSortOrder(Integer sortOrder) {
         this.sortOrder = sortOrder;
+    }
+
+    public boolean isDeleted() {
+        return deleted;
+    }
+
+    public void setDeleted(boolean deleted) {
+        this.deleted = deleted;
     }
 
     public void setAlerts(Set<TaskAlert> alerts) {

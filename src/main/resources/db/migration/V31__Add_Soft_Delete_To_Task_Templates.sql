@@ -1,0 +1,1 @@
+ALTER TABLE tb_task_templates ADD COLUMN deleted BOOLEAN DEFAULT FALSE;

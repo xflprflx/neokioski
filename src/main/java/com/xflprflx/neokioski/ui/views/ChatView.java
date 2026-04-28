@@ -50,6 +50,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private final TaskTemplateService taskTemplateService;
     private final TaskService taskService;
     private final PresenceService presenceService;
+    private final TaskSlaService taskSlaService;
 
     private Group group;
     private User currentUser;
@@ -115,7 +116,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
     private final Map<Long, HorizontalLayout> taskCardWrappersInSideList = new HashMap<>();
 
-    public ChatView(ChatService chatService, GroupService groupService, SecurityService securityService, UserService userService, TaskTemplateService taskTemplateService, TaskService taskService, PresenceService presenceService) {
+    public ChatView(ChatService chatService, GroupService groupService, SecurityService securityService, UserService userService, TaskTemplateService taskTemplateService, TaskService taskService, PresenceService presenceService, TaskSlaService taskSlaService) {
         this.chatService = chatService;
         this.groupService = groupService;
         this.securityService = securityService;
@@ -123,6 +124,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         this.taskTemplateService = taskTemplateService;
         this.taskService = taskService;
         this.presenceService = presenceService;
+        this.taskSlaService = taskSlaService;
 
         setSizeFull();
         setPadding(false);
@@ -2039,7 +2041,16 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     copyToClipboard(responseForClipboard);
                 }
 
-                taskService.executeStep(task.getId(), step, currentUser, response);
+                Task updatedTask = taskService.executeStep(task.getId(), step, currentUser, response);
+
+                // Verificar SLAs atrasados pendentes de justificativa
+                java.util.List<com.xflprflx.neokioski.models.TaskSlaResult> pendingJustifications = 
+                        taskSlaService.getPendingJustifications(updatedTask);
+                if (!pendingJustifications.isEmpty()) {
+                    new com.xflprflx.neokioski.ui.components.SlaJustificationDialog(
+                            taskSlaService, pendingJustifications, null
+                    ).open();
+                }
             });
             stepBtn.setEnabled(!taskService.isTaskFinalized(task));
             stepBtn.addThemeVariants(ButtonVariant.LUMO_SMALL);

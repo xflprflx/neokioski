@@ -149,6 +149,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         public int targetValue;
         public TaskSlaUnit unit = TaskSlaUnit.MINUTES;
         public java.time.Instant validFrom = java.time.Instant.now();
+        public String justificationOptions;
     }
     private List<FieldDTO> fields = new ArrayList<>();
     private List<StepDTO> steps = new ArrayList<>();
@@ -617,6 +618,11 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         HorizontalLayout timeLayout = new HorizontalLayout(timeoutField, unitCombo);
         timeLayout.setWidthFull();
 
+        com.vaadin.flow.component.textfield.TextArea justificationOptionsField = new com.vaadin.flow.component.textfield.TextArea("Opções de Justificativa (separadas por vírgula)");
+        justificationOptionsField.setWidthFull();
+        justificationOptionsField.setHelperText("Ex: Falta de Pessoal, Problema Técnico, Alta Demanda. Se preenchido, o sistema exigirá justificativa quando este SLA for descumprido.");
+        justificationOptionsField.setPlaceholder("Deixe vazio para não exigir justificativa");
+
         /*
          * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
          */
@@ -626,9 +632,12 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             targetStepCombo.setValue(existingDto.targetStepLabel);
             timeoutField.setValue(String.valueOf(existingDto.targetValue));
             unitCombo.setValue(existingDto.unit);
+            if (existingDto.justificationOptions != null) {
+                justificationOptionsField.setValue(existingDto.justificationOptions);
+            }
         }
 
-        VerticalLayout layout = new VerticalLayout(nameField, startStepCombo, targetStepCombo, timeLayout);
+        VerticalLayout layout = new VerticalLayout(nameField, startStepCombo, targetStepCombo, timeLayout, justificationOptionsField);
         dialog.add(layout);
 
         Button saveBtn = new Button("Salvar", e -> {
@@ -650,6 +659,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 dto.targetStepLabel = targetStepCombo.getValue();
                 dto.targetValue = timeout;
                 dto.unit = unitCombo.getValue();
+                dto.justificationOptions = justificationOptionsField.getValue();
                 
                 /*
                  * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
@@ -2347,6 +2357,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             config.setTargetValue(dto.targetValue);
             config.setUnit(dto.unit);
             config.setValidFrom(dto.validFrom);
+            config.setJustificationOptions(dto.justificationOptions);
             taskSlas.add(config);
         }
 
@@ -2510,6 +2521,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     dto.targetValue = sla.getTargetValue();
                     dto.unit = sla.getUnit();
                     dto.validFrom = sla.getValidFrom();
+                    dto.justificationOptions = sla.getJustificationOptions();
                     slas.add(dto);
                 }
                 slasGrid.getDataProvider().refreshAll();

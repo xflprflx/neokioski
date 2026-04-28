@@ -45,6 +45,12 @@ public class TaskSlaResult {
     @Column(nullable = false)
     private Instant completedAt;
 
+    @Column(length = 500)
+    private String justification;
+
+    @Column(columnDefinition = "TEXT")
+    private String justificationComments;
+
     public TaskSlaResult() {
     }
 
@@ -110,6 +116,22 @@ public class TaskSlaResult {
 
     public void setCompletedAt(Instant completedAt) {
         this.completedAt = completedAt;
+    }
+
+    public String getJustification() {
+        return justification;
+    }
+
+    public void setJustification(String justification) {
+        this.justification = justification;
+    }
+
+    public String getJustificationComments() {
+        return justificationComments;
+    }
+
+    public void setJustificationComments(String justificationComments) {
+        this.justificationComments = justificationComments;
     }
 
     @Override

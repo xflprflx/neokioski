@@ -44,6 +44,9 @@ public class TaskSlaConfig {
 
     private Instant validTo;
 
+    @Column(columnDefinition = "TEXT")
+    private String justificationOptions;
+
     public TaskSlaConfig() {
     }
 
@@ -117,6 +120,26 @@ public class TaskSlaConfig {
 
     public void setValidTo(Instant validTo) {
         this.validTo = validTo;
+    }
+
+    public String getJustificationOptions() {
+        return justificationOptions;
+    }
+
+    public void setJustificationOptions(String justificationOptions) {
+        this.justificationOptions = justificationOptions;
+    }
+
+    /**
+     * Retorna as opções de justificativa como uma lista, separadas por vírgula.
+     */
+    public java.util.List<String> getJustificationOptionsList() {
+        if (justificationOptions == null || justificationOptions.isBlank()) {
+            return java.util.Collections.emptyList();
+        }
+        return java.util.Arrays.stream(justificationOptions.split("\\s*,\\s*"))
+                .filter(s -> !s.isBlank())
+                .toList();
     }
 
     @Override

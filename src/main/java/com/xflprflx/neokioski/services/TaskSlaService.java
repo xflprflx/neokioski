@@ -158,4 +158,31 @@ public class TaskSlaService {
                 .map(TaskEvent::getTimestamp)
                 .orElse(null);
     }
+
+    /**
+     * Atualiza a justificativa e comentários de um resultado de SLA atrasado.
+     */
+    @Transactional
+    public void updateJustification(Long resultId, String justification, String comments) {
+        TaskSlaResult result = resultRepository.findById(resultId)
+                .orElseThrow(() -> new RuntimeException("Resultado de SLA não encontrado: " + resultId));
+        result.setJustification(justification);
+        result.setJustificationComments(comments);
+        resultRepository.save(result);
+    }
+
+    /**
+     * Retorna os resultados de SLA atrasados e pendentes de justificativa para uma task.
+     */
+    public List<TaskSlaResult> getPendingJustifications(Task task) {
+        if (task.getSlaResults() == null) return List.of();
+        return task.getSlaResults().stream()
+                .filter(r -> r.getStatus() == SlaStatus.DELAYED)
+                .filter(r -> r.getJustification() == null || r.getJustification().isBlank())
+                .filter(r -> r.getSlaConfig() != null
+                        && r.getSlaConfig().getJustificationOptions() != null
+                        && !r.getSlaConfig().getJustificationOptions().isBlank())
+                .toList();
+    }
 }
+

@@ -1704,8 +1704,17 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             card.getStyle().set("--lumo-contrast-10pct", "rgba(255, 255, 255, 0.2)");
             card.getStyle().set("--lumo-contrast-20pct", "rgba(255, 255, 255, 0.3)");
         } else {
-            // Para cards claros, garantir que o texto secundário tenha contraste suficiente
+            // Cards com fundo pastel claro precisam forçar texto escuro,
+            // pois no dark mode do Vaadin o texto global é claro e fica ilegível.
+            card.getStyle().set("color", "#1e293b");
+            card.getStyle().set("--lumo-body-text-color", "#1e293b");
             card.getStyle().set("--lumo-secondary-text-color", "rgba(0, 0, 0, 0.65)");
+            card.getStyle().set("--lumo-contrast-5pct", "rgba(0, 0, 0, 0.05)");
+            card.getStyle().set("--lumo-contrast-10pct", "rgba(0, 0, 0, 0.1)");
+            card.getStyle().set("--lumo-contrast-20pct", "rgba(0, 0, 0, 0.2)");
+            card.getStyle().set("--lumo-primary-text-color", "#1565c0");
+            card.getStyle().set("--lumo-error-text-color", "#c62828");
+            card.getStyle().set("--lumo-success-text-color", "#2e7d32");
         }
 
         /*

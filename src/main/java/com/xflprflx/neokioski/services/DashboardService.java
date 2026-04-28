@@ -70,7 +70,7 @@ public class DashboardService {
             }
         } else {
             // Se não há tasks, podemos pular o processamento pesado
-            return new DashboardData(new DashboardStats(0, 0, 0, 0, 0, 0), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
+            return new DashboardData(new DashboardStats(0, 0, 0, 0, 0, 0), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
         }
 
         // 2. Ranking Base (Menu de Criadores) -> Afetado por Tipo, Concluidor e Data Clique. Ignora clique em Criador.
@@ -257,10 +257,68 @@ public class DashboardService {
             tmaPerStep.add(new StackedBarData(templateName, trueTemplateAvg, seriesValues));
         }
 
-        /*
-         * Retorna o resultado final processado pelo métodx.
-         */
-        return new DashboardData(stats, userRanking, finalizerRanking, history, tmaPerStep);
+        // === INSIGHTS DE SLA ===
+        // Performance por nome de SLA
+        List<TaskSlaResult> allSlaResults = strictFilteredTasks.stream()
+                .filter(t -> t.getSlaResults() != null)
+                .flatMap(t -> t.getSlaResults().stream())
+                .toList();
+
+        Map<String, List<TaskSlaResult>> resultsBySlaName = allSlaResults.stream()
+                .filter(r -> r.getSlaConfig() != null && r.getSlaConfig().getName() != null)
+                .collect(Collectors.groupingBy(r -> r.getSlaConfig().getName()));
+
+        List<SlaInsightData> slaInsights = resultsBySlaName.entrySet().stream()
+                .map(entry -> {
+                    String slaName = entry.getKey();
+                    List<TaskSlaResult> results = entry.getValue();
+                    long total = results.size();
+                    long slaOnTime = results.stream().filter(r -> r.getStatus() == SlaStatus.ON_TIME).count();
+                    long slaDelayed = total - slaOnTime;
+                    double pct = total == 0 ? 0 : (double) slaOnTime / total * 100;
+                    return new SlaInsightData(slaName, total, slaOnTime, slaDelayed, pct);
+                })
+                .sorted(Comparator.comparing(SlaInsightData::total).reversed())
+                .toList();
+
+        // Ranking de justificativas mais frequentes
+        List<JustificationRankData> justificationRanking = allSlaResults.stream()
+                .filter(r -> r.getStatus() == SlaStatus.DELAYED)
+                .filter(r -> r.getJustification() != null && !r.getJustification().isBlank())
+                .collect(Collectors.groupingBy(TaskSlaResult::getJustification, Collectors.counting()))
+                .entrySet().stream()
+                .map(e -> new JustificationRankData(e.getKey(), e.getValue()))
+                .sorted(Comparator.comparing(JustificationRankData::count).reversed())
+                .limit(10)
+                .toList();
+
+        // Coleta de comentários opcionais e nuvem de palavras
+        List<String> recentComments = allSlaResults.stream()
+                .filter(r -> r.getStatus() == SlaStatus.DELAYED)
+                .filter(r -> r.getJustificationComments() != null && !r.getJustificationComments().isBlank())
+                .map(TaskSlaResult::getJustificationComments)
+                .sorted(Comparator.reverseOrder())
+                .limit(20)
+                .toList();
+
+        // Gerar nuvem de palavras simplificada
+        Map<String, Long> wordFreq = allSlaResults.stream()
+                .filter(r -> r.getStatus() == SlaStatus.DELAYED)
+                .filter(r -> r.getJustificationComments() != null && !r.getJustificationComments().isBlank())
+                .flatMap(r -> Arrays.stream(r.getJustificationComments().toLowerCase()
+                        .replaceAll("[^a-zA-Záéíóúàèìòùâêîôûãõç\\s]", "")
+                        .split("\\s+")))
+                .filter(w -> w.length() > 3)
+                .filter(w -> !Arrays.asList("para", "com", "que", "uma", "este", "esta", "pela", "pelo", "pelas", "pelos").contains(w))
+                .collect(Collectors.groupingBy(w -> w, Collectors.counting()));
+
+        List<JustificationRankData> wordCloud = wordFreq.entrySet().stream()
+                .map(e -> new JustificationRankData(e.getKey(), e.getValue()))
+                .sorted(Comparator.comparing(JustificationRankData::count).reversed())
+                .limit(30)
+                .toList();
+
+        return new DashboardData(stats, userRanking, finalizerRanking, history, tmaPerStep, slaInsights, justificationRanking, recentComments, wordCloud);
     }
 
     /**
@@ -390,11 +448,34 @@ public class DashboardService {
     /**
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
+    public record SlaInsightData(
+        String slaName,
+        long total,
+        long onTime,
+        long delayed,
+        double onTimePct
+    ) {}
+
+    /**
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
+    public record JustificationRankData(
+        String justification,
+        long count
+    ) {}
+
+    /**
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
     public record DashboardData(
         DashboardStats stats,
         List<ChartDataPoint> userRanking,
         List<ChartDataPoint> finalizerRanking,
         List<MixedChartPoint> history,
-        List<StackedBarData> tmaPerStep
+        List<StackedBarData> tmaPerStep,
+        List<SlaInsightData> slaInsights,
+        List<JustificationRankData> justificationRanking,
+        List<String> recentComments,
+        List<JustificationRankData> wordCloud
     ) {}
 }

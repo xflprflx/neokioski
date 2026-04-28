@@ -73,6 +73,10 @@ public class HomeView extends Div {
     private Div finalizerRankingChartDiv;
     private Div tmaStackedChartDiv;
     private Div mixedChartDiv;
+    private Div slaPerformanceChartDiv;
+    private Div justificationDonutChartDiv;
+    private Div wordCloudDiv;
+    private Div recentCommentsDiv;
     
     private DashboardService.DashboardData lastDashboardData;
 
@@ -389,6 +393,7 @@ public class HomeView extends Div {
                 .set("animation-delay", "0.6s")
                 .set("flex", "1 1 100%")
                 .set("background", "var(--dash-card-bg, #ffffff)")
+                .set("color", "#1e293b")
                 .set("border-radius", "16px")
                 .set("padding", "24px")
                 .set("box-shadow", "0 4px 6px -1px rgba(0,0,0,0.1)")
@@ -408,6 +413,61 @@ public class HomeView extends Div {
          * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
          */
         add(bottomChartContainer);
+
+        // ====== SEÇÃO DE INSIGHTS DE SLA ======
+        Div slaInsightsContainer = new Div();
+        slaInsightsContainer.addClassNames("charts-container", "animate-in");
+        slaInsightsContainer.getStyle()
+                .set("display", "flex")
+                .set("gap", "24px")
+                .set("margin-top", "24px")
+                .set("width", "100%")
+                .set("flex-wrap", "wrap");
+
+        // Gráfico de Performance SLA por Nome (barras agrupadas)
+        Div slaPerformanceCol = createChartCard("40%");
+        slaPerformanceChartDiv = new Div();
+        slaPerformanceChartDiv.setId("sla-performance-chart");
+        slaPerformanceChartDiv.getStyle().set("flex-grow", "1");
+        slaPerformanceCol.add(createChartHeader("Performance por SLA"), slaPerformanceChartDiv);
+
+        // Gráfico de Justificativas (donut)
+        Div justificationCol = createChartCard("25%");
+        justificationDonutChartDiv = new Div();
+        justificationDonutChartDiv.setId("justification-donut-chart");
+        justificationDonutChartDiv.getStyle().set("flex-grow", "1");
+        justificationCol.add(createChartHeader("Justificativas de Atraso"), justificationDonutChartDiv);
+
+        // Análise Textual (Nuvem e Comentários)
+        Div textualInsightCol = createChartCard("30%");
+        textualInsightCol.getStyle().set("overflow", "hidden");
+        
+        wordCloudDiv = new Div();
+        wordCloudDiv.setId("word-cloud-container");
+        wordCloudDiv.getStyle()
+                .set("flex", "1")
+                .set("margin-top", "20px")
+                .set("display", "flex")
+                .set("flex-wrap", "wrap")
+                .set("align-content", "start")
+                .set("justify-content", "center")
+                .set("gap", "8px")
+                .set("overflow-y", "auto");
+        
+        recentCommentsDiv = new Div();
+        recentCommentsDiv.setId("recent-comments-container");
+        recentCommentsDiv.getStyle()
+                .set("flex", "1")
+                .set("margin-top", "10px")
+                .set("font-size", "12px")
+                .set("overflow-y", "auto")
+                .set("border-top", "1px solid #e2e8f0")
+                .set("padding-top", "10px");
+
+        textualInsightCol.add(createChartHeader("Análise de Texto"), wordCloudDiv, recentCommentsDiv);
+
+        slaInsightsContainer.add(slaPerformanceCol, justificationCol, textualInsightCol);
+        add(slaInsightsContainer);
     }
 
     /**
@@ -419,6 +479,7 @@ public class HomeView extends Div {
         col.getStyle()
                 .set("flex", "1 1 " + flexBasis)
                 .set("background", "var(--dash-card-bg, #ffffff)")
+                .set("color", "#1e293b")
                 .set("border-radius", "16px")
                 .set("padding", "24px")
                 .set("box-shadow", "0 4px 6px -1px rgba(0,0,0,0.1)")
@@ -439,7 +500,11 @@ public class HomeView extends Div {
         Div header = new Div();
         header.addClassName("chart-title");
         header.setText(title);
-        header.getStyle().set("margin-bottom", "-20px").set("z-index", "10").set("position", "relative");
+        header.getStyle()
+                .set("margin-bottom", "-20px")
+                .set("z-index", "10")
+                .set("position", "relative")
+                .set("color", "#1e293b");
         /*
          * Retorna o componente renderizado ou o valor da operação atual.
          */
@@ -578,8 +643,10 @@ public class HomeView extends Div {
             valueSpan.getStyle().set("color", "#ffffff");
             iconWrapper.getStyle().set("color", "#ffffff");
         } else {
+            // Forçar texto escuro — no dark mode do Vaadin, --dash-text é branco
+            // mas o fundo do card é pastel claro, tornando o texto ilegível.
             labelSpan.getStyle().set("color", "rgba(0, 0, 0, 0.6)");
-            valueSpan.getStyle().set("color", "var(--dash-text)");
+            valueSpan.getStyle().set("color", "#1e293b");
             iconWrapper.getStyle().set("color", borderColor);
         }
 
@@ -645,17 +712,16 @@ public class HomeView extends Div {
                             return;
                         }
                         
-                        const isDark = () => document.documentElement.getAttribute('theme') === 'dark';
-                        const getThemeColor = () => isDark() ? '#f8fafc' : '#1e293b';
-                        const getChartTheme = () => isDark() ? 'dark' : 'light';
+                        const isDark = () => (document.documentElement.getAttribute('theme') || '').includes('dark');
+                        const tc = '#1e293b';
 
                         const commonOptions = {
                             chart: {
                                 fontFamily: 'Inter, sans-serif',
                                 toolbar: { show: false },
-                                background: 'transparent'
-                            },
-                            theme: { mode: getChartTheme() }
+                                background: 'transparent',
+                                foreColor: tc
+                            }
                         };
 
                         const sparkOptions = {
@@ -670,7 +736,6 @@ public class HomeView extends Div {
                         const delayedData = %s;
                         const pctData = %s;
                         
-                        const theme = getChartTheme();
                         
                         const renderSpark = (id, data, color) => {
                             const el = document.querySelector("#" + id);
@@ -679,7 +744,7 @@ public class HomeView extends Div {
                              */
                             if (el) {
                                 el.innerHTML = "";
-                                new ApexCharts(el, { ...sparkOptions, series: [{ data }], colors: [color], theme: { mode: theme } }).render();
+                                new ApexCharts(el, { ...sparkOptions, series: [{ data }], colors: [color] }).render();
                             }
                         };
 
@@ -729,11 +794,10 @@ public class HomeView extends Div {
                             },
                             plotOptions: { bar: { horizontal: true, borderRadius: 6, barHeight: '50%%', distributed: true } },
                             colors: ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#6366f1', '#14b8a6', '#f43f5e', '#ec4899', '#84cc16'],
-                            xaxis: { categories: %s, labels: { style: { colors: getThemeColor() } } },
-                            yaxis: { labels: { style: { colors: getThemeColor() } } },
+                            xaxis: { categories: %s },
+                            yaxis: { },
                             legend: { show: false },
-                            dataLabels: { enabled: true },
-                            theme: { mode: theme }
+                            dataLabels: { enabled: true }
                         };
 
                         const finalizerRankingOptions = {
@@ -775,11 +839,10 @@ public class HomeView extends Div {
                             },
                             plotOptions: { bar: { horizontal: true, borderRadius: 6, barHeight: '50%%', distributed: true } },
                             colors: ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#6366f1', '#14b8a6', '#f43f5e', '#ec4899', '#84cc16'],
-                            xaxis: { categories: %s, labels: { style: { colors: getThemeColor() } } },
-                            yaxis: { labels: { style: { colors: getThemeColor() } } },
+                            xaxis: { categories: %s },
+                            yaxis: { },
                             legend: { show: false },
-                            dataLabels: { enabled: true },
-                            theme: { mode: theme }
+                            dataLabels: { enabled: true }
                         };
 
                         const detailedTma = %s;
@@ -822,10 +885,9 @@ public class HomeView extends Div {
                                 },
                                 plotOptions: { bar: { horizontal: false, borderRadius: 4, columnWidth: '40%%' } },
                                 colors: ['#3b82f6'],
-                                xaxis: { categories: %s, labels: { style: { colors: getThemeColor() } } },
+                                xaxis: { categories: %s },
                                 yaxis: { 
                                     labels: { 
-                                        style: { colors: getThemeColor() },
                                         formatter: function(val) {
                                             const h = Math.floor(val / 3600);
                                             const m = Math.floor((val %% 3600) / 60);
@@ -865,10 +927,9 @@ public class HomeView extends Div {
                                              */
                                             return s + "s";
                                         };
-                                        const isD = isDark();
-                                        const bgColor = isD ? '#1e293b' : '#ffffff';
-                                        const textColor = isD ? '#f8fafc' : '#1e293b';
-                                        const borderColor = isD ? '#334155' : '#e2e8f0';
+                                        const bgColor = '#ffffff';
+                                        const textColor = '#1e293b';
+                                        const borderColor = '#e2e8f0';
                                         let tHTML = '<div style="padding: 12px; background: ' + bgColor + '; color: ' + textColor + '; min-width: 220px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-radius: 6px; border: 1px solid ' + borderColor + ';">';
                                         tHTML += '<div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid ' + borderColor + '; padding-bottom: 6px;">' + category + '</div>';
                                         tHTML += '<div style="margin-bottom: 10px; font-weight: 600; color: #3b82f6;">Tempo Total: ' + formatTime(totalVal) + '</div>';
@@ -900,9 +961,8 @@ public class HomeView extends Div {
                                      * Retorna o componente renderizado ou o valor da operação atual.
                                      */
                                     return h > 0 ? h + "h " + m + "m" : m + "m";
-                                }, style: { colors: [isDark() ? '#fff' : '#000'] } },
-                                legend: { show: false },
-                                theme: { mode: theme }
+                                }, style: { colors: [tc] } },
+                                legend: { show: false }
                         };
 
                         const mixedChartOptions = {
@@ -916,14 +976,14 @@ public class HomeView extends Div {
                                 stroke: { width: [0, 0, 4], curve: 'smooth' },
                                 plotOptions: { bar: { columnWidth: '50%%', borderRadius: 4 } },
                                 colors: ['#3b82f6', '#10b981', '#f59e0b'],
-                                xaxis: { categories: %s, labels: { style: { colors: getThemeColor() } } },
+                                xaxis: { categories: %s },
                                 yaxis: [
-                                    { seriesName: 'Total de Tarefas', labels: { style: { colors: getThemeColor() } } },
+                                    { seriesName: 'Total de Tarefas', labels: { formatter: (v) => Math.floor(v) } },
                                     { seriesName: 'Total de Tarefas', show: false },
-                                    { opposite: true, seriesName: '%% No Prazo', labels: { style: { colors: getThemeColor() }, formatter: (v) => v.toFixed(1) + '%%' }, min: 0, max: 100 }
+                                    { opposite: true, seriesName: '%% No Prazo', labels: { formatter: (v) => v.toFixed(1) + '%%' }, min: 0, max: 100 }
                                 ],
-                                dataLabels: { enabled: true, enabledOnSeries: [2], formatter: (v) => v.toFixed(1) + "%%", style: { colors: [getThemeColor()] }, background: { enabled: true, foreColor: isDark() ? '#000' : '#fff' } },
-                                legend: { position: 'bottom', labels: { colors: getThemeColor() } }
+                                dataLabels: { enabled: true, enabledOnSeries: [2], formatter: (v) => v.toFixed(1) + "%%", style: { colors: [tc] }, background: { enabled: true, foreColor: '#fff' } },
+                                legend: { position: 'bottom' }
                         };
 
                         // Renderização
@@ -958,7 +1018,195 @@ public class HomeView extends Div {
                 })();
                 """, mixedTotal, mixedOnTime, mixedDelayed, mixedPct, rankingSeries, rankingLabels, finalizerSeries, finalizerLabels, detailedTmaJson, stackedSeriesJson, stackedCategoriesJson, mixedTotal, mixedOnTime, mixedPct, mixedLabels);
 
+            // ====== SLA INSIGHTS CHARTS ======
+            // Performance por SLA (barras agrupadas)
+            List<String> slaNames = data.slaInsights().stream().map(d -> d.slaName()).toList();
+            List<Long> slaOnTimeData = data.slaInsights().stream().map(d -> d.onTime()).toList();
+            List<Long> slaDelayedData = data.slaInsights().stream().map(d -> d.delayed()).toList();
+            
+            String slaNamesJson = objectMapper.writeValueAsString(slaNames);
+            String slaOnTimeJson = objectMapper.writeValueAsString(slaOnTimeData);
+            String slaDelayedJson = objectMapper.writeValueAsString(slaDelayedData);
+
+            // Justificativas (donut)
+            List<String> justLabels = data.justificationRanking().stream().map(d -> d.justification()).toList();
+            List<Long> justValues = data.justificationRanking().stream().map(d -> d.count()).toList();
+            
+            String justLabelsJson = objectMapper.writeValueAsString(justLabels);
+            String justValuesJson = objectMapper.writeValueAsString(justValues);
+
+            String slaJs = String.format("""
+                (function() {
+                    const tryRender = () => {
+                        if (typeof ApexCharts === 'undefined') {
+                            setTimeout(tryRender, 100);
+                            return;
+                        }
+                        
+                        const isDark = () => (document.documentElement.getAttribute('theme') || '').includes('dark');
+                        const tc = '#1e293b';
+
+                        // Performance por SLA
+                        const slaPerformanceEl = document.querySelector("#sla-performance-chart");
+                        if (slaPerformanceEl) {
+                            slaPerformanceEl.innerHTML = "";
+                            const slaNames = %s;
+                            const slaOnTime = %s;
+                            const slaDelayed = %s;
+                            
+                            if (slaNames.length > 0) {
+                                new ApexCharts(slaPerformanceEl, {
+                                    chart: {
+                                        type: 'bar',
+                                        height: '100%%',
+                                        stacked: true,
+                                        toolbar: { show: false },
+                                        background: 'transparent',
+                                        fontFamily: 'Inter, sans-serif',
+                                        foreColor: tc
+                                    },
+                                    series: [
+                                        { name: 'No Prazo', data: slaOnTime },
+                                        { name: 'Atrasado', data: slaDelayed }
+                                    ],
+                                    colors: ['#10b981', '#ef4444'],
+                                    plotOptions: {
+                                        bar: { horizontal: false, borderRadius: 4, columnWidth: '50%%' }
+                                    },
+                                    xaxis: {
+                                        categories: slaNames,
+                                        labels: { trim: true, maxHeight: 80 }
+                                    },
+                                    yaxis: {
+                                    },
+                                    legend: {
+                                        position: 'top'
+                                    },
+                                    dataLabels: { 
+                                        enabled: true,
+                                        formatter: function(val, opts) {
+                                            const total = slaOnTime[opts.dataPointIndex] + slaDelayed[opts.dataPointIndex];
+                                            const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                                            return val + ' (' + pct + '%%)';
+                                        }
+                                    },
+                                    tooltip: {
+                                        y: {
+                                            formatter: function(val, opts) {
+                                                const total = slaOnTime[opts.dataPointIndex] + slaDelayed[opts.dataPointIndex];
+                                                const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                                                return val + ' (' + pct + '%%)';
+                                            }
+                                        }
+                                    }
+                                }).render();
+                            } else {
+                                slaPerformanceEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%%;color:var(--lumo-secondary-text-color);font-size:14px;">Nenhum dado de SLA disponível</div>';
+                            }
+                        }
+
+                        // Donut de Justificativas
+                        const justDonutEl = document.querySelector("#justification-donut-chart");
+                        if (justDonutEl) {
+                            justDonutEl.innerHTML = "";
+                            const justLabels = %s;
+                            const justValues = %s;
+                            
+                            if (justLabels.length > 0) {
+                                new ApexCharts(justDonutEl, {
+                                    chart: {
+                                        type: 'donut',
+                                        height: '100%%',
+                                        toolbar: { show: false },
+                                        background: 'transparent',
+                                        fontFamily: 'Inter, sans-serif',
+                                        foreColor: tc
+                                    },
+                                    series: justValues,
+                                    labels: justLabels,
+                                    colors: ['#ef4444', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#6366f1', '#84cc16', '#f43f5e', '#0ea5e9'],
+                                    plotOptions: {
+                                        pie: {
+                                            donut: {
+                                                size: '55%%',
+                                                labels: {
+                                                    show: true,
+                                                    total: {
+                                                        show: true,
+                                                        label: 'Total',
+                                                        color: tc
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    },
+                                    legend: {
+                                        position: 'bottom'
+                                    },
+                                    dataLabels: {
+                                        enabled: true,
+                                        formatter: function(val, opts) {
+                                            const raw = opts.w.globals.series[opts.seriesIndex];
+                                            return raw + ' (' + val.toFixed(1) + '%%)';
+                                        }
+                                    }
+                                }).render();
+                            } else {
+                                justDonutEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%%;color:var(--lumo-secondary-text-color);font-size:14px;">Nenhuma justificativa registrada</div>';
+                            }
+                        }
+
+                        // Nuvem de Palavras
+                        const wordCloudEl = document.querySelector("#word-cloud-container");
+                        if (wordCloudEl) {
+                            wordCloudEl.innerHTML = "";
+                            const words = %s; // [{justification: '...', count: 12}]
+                            if (words.length > 0) {
+                                const maxCount = Math.max(...words.map(w => w.count));
+                                words.forEach(w => {
+                                    const span = document.createElement('span');
+                                    span.innerText = w.justification;
+                                    const size = 12 + (w.count / maxCount) * 14;
+                                    const opacity = 0.6 + (w.count / maxCount) * 0.4;
+                                    span.style.fontSize = size + 'px';
+                                    span.style.opacity = opacity;
+                                    span.style.color = '#3b82f6';
+                                    span.style.fontWeight = w.count > maxCount * 0.5 ? 'bold' : 'normal';
+                                    span.style.padding = '2px 4px';
+                                    wordCloudEl.appendChild(span);
+                                });
+                            } else {
+                                wordCloudEl.innerHTML = '<div style="color:var(--lumo-secondary-text-color);font-size:12px;">Sem dados</div>';
+                            }
+                        }
+
+                        // Comentários Recentes
+                        const commentsEl = document.querySelector("#recent-comments-container");
+                        if (commentsEl) {
+                            commentsEl.innerHTML = "";
+                            const comments = %s;
+                            if (comments.length > 0) {
+                                comments.forEach(c => {
+                                    const div = document.createElement('div');
+                                    div.style.marginBottom = '6px';
+                                    div.style.paddingLeft = '8px';
+                                    div.style.borderLeft = '2px solid #3b82f6';
+                                    div.style.fontStyle = 'italic';
+                                    div.innerText = c;
+                                    commentsEl.appendChild(div);
+                                });
+                            } else {
+                                commentsEl.innerHTML = '<div style="color:var(--lumo-secondary-text-color);font-size:12px;">Nenhum comentário textual</div>';
+                            }
+                        }
+                    };
+                    tryRender();
+                    window.addEventListener('theme-changed', tryRender);
+                })();
+                """, slaNamesJson, slaOnTimeJson, slaDelayedJson, justLabelsJson, justValuesJson, objectMapper.writeValueAsString(data.wordCloud()), objectMapper.writeValueAsString(data.recentComments()));
+
             UI.getCurrent().getPage().executeJs(js);
+            UI.getCurrent().getPage().executeJs(slaJs);
         } catch (JsonProcessingException e) {
             e.printStackTrace();
         }

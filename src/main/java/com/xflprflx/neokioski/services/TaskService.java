@@ -701,17 +701,19 @@ public class TaskService {
         }
     }
 
+    @Transactional(readOnly = true)
     /**
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<StoreReportEntry> getStoreReportData(Instant start, Instant end) {
         List<Task> tasks = taskRepository.findAllByCreatedAtBetween(start, end);
+        tasks.forEach(this::initializeTaskData);
 
         /*
          * Retorna o resultado final processado pelo métodx.
          */
         return tasks.stream()
-                .filter(t -> t.getTaskTemplate().isRegistraNoRelatorioLoja())
+                .filter(t -> t.getTaskTemplate() != null && t.getTaskTemplate().isRegistraNoRelatorioLoja())
                 .filter(this::isTaskFinalized)
                 .filter(t -> t.getCurrentStep() != null && t.getCurrentStep().getLabel().equalsIgnoreCase("COLETADO"))
                 .map(this::mapToStoreReportEntry)
@@ -896,9 +898,11 @@ public class TaskService {
                 }
 
                 // Tentar encontrar a "DELIVERY" nas respostas dos passos
-                Optional<TemplateStepRelation> rel = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
-                        task.getTaskTemplate().getId(), event.getTaskStepDefinition().getId()
-                );
+                // Otimização N+1: Usar a coleção do template que já foi inicializada em lote
+                Optional<TemplateStepRelation> rel = task.getTaskTemplate().getTemplateStepRelation().stream()
+                        .filter(r -> r.getTaskStepDefinition() != null && 
+                                     r.getTaskStepDefinition().getId().equals(event.getTaskStepDefinition().getId()))
+                        .findFirst();
 
                 /*
                  * Avalia uma condição (if) para desvio de fluxo da lógica principal.

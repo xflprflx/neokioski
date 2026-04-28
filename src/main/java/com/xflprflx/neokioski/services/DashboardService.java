@@ -46,7 +46,7 @@ public class DashboardService {
     /**
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
-    public DashboardData getDashboardData(Instant start, Instant end, Group group, TaskTemplate type, String creatorNameFilter, String finalizerNameFilter, String dateFilterStr) {
+    public DashboardData getDashboardData(Instant start, Instant end, Group group, TaskTemplate type, String creatorNameFilter, String finalizerNameFilter, String dateFilterStr, String slaNameFilter, String justificationFilter) {
         // Buscar todas as tasks no período base de dados limitados pelas DatePickers
         List<Task> tasks = taskRepository.findAllByCreatedAtBetween(start, end);
 
@@ -126,6 +126,8 @@ public class DashboardService {
                 .filter(t -> creatorNameFilter == null || (t.getCreator() != null && t.getCreator().getName().equals(creatorNameFilter)))
                 .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t, relCache), finalizerNameFilter))
                 .filter(t -> dateFilterStr == null || formatDate(t.getCreatedAt()).equals(dateFilterStr))
+                .filter(t -> slaNameFilter == null || t.getSlaResults().stream().anyMatch(r -> r.getSlaConfig() != null && Objects.equals(r.getSlaConfig().getName(), slaNameFilter)))
+                .filter(t -> justificationFilter == null || t.getSlaResults().stream().anyMatch(r -> Objects.equals(r.getJustification(), justificationFilter)))
                 .collect(Collectors.toList());
 
         // KPI Calculations (Restritos ao extremo)

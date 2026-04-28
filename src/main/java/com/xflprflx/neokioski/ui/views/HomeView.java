@@ -17,6 +17,7 @@ import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.xflprflx.neokioski.models.Group;
@@ -40,6 +41,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Route(value = "", layout = MainLayout.class)
 @PageTitle("Início | NeoKioski")
@@ -65,6 +67,8 @@ public class HomeView extends Div {
     private ComboBox<TaskTemplate> templateFilter;
     private ComboBox<User> creatorFilter;
     private ComboBox<User> finalizerFilter;
+    private ComboBox<String> slaFilter;
+    private ComboBox<String> justificationFilter;
 
     private Div kpiGrid;
     private Div rankingHeaderDiv;
@@ -185,6 +189,30 @@ public class HomeView extends Div {
             }
         }).addEventData("event.detail.category");
 
+        getElement().addEventListener("sla-clicked", e -> {
+            try {
+                var categoryNode = e.getEventData().get("event.detail.category");
+                if (categoryNode != null && !categoryNode.isNull()) {
+                    String clickedSla = categoryNode.isString() ? categoryNode.stringValue() : categoryNode.toString().replace("\"", "");
+                    if (clickedSla != null) {
+                        slaFilter.setValue(clickedSla);
+                    }
+                }
+            } catch (Exception ex) { ex.printStackTrace(); }
+        }).addEventData("event.detail.category");
+
+        getElement().addEventListener("justification-clicked", e -> {
+            try {
+                var categoryNode = e.getEventData().get("event.detail.category");
+                if (categoryNode != null && !categoryNode.isNull()) {
+                    String clickedJust = categoryNode.isString() ? categoryNode.stringValue() : categoryNode.toString().replace("\"", "");
+                    if (clickedJust != null) {
+                        justificationFilter.setValue(clickedJust);
+                    }
+                }
+            } catch (Exception ex) { ex.printStackTrace(); }
+        }).addEventData("event.detail.category");
+
         updateDashboard();
     }
 
@@ -299,7 +327,17 @@ public class HomeView extends Div {
         finalizerFilter.setClearButtonVisible(true);
         finalizerFilter.addValueChangeListener(e -> updateDashboard());
 
-        filters.add(startDatePicker, endDatePicker, groupFilter, templateFilter, creatorFilter, finalizerFilter);
+        slaFilter = new ComboBox<>("Filtro SLA");
+        slaFilter.setPlaceholder("Todos os SLAs");
+        slaFilter.setClearButtonVisible(true);
+        slaFilter.addValueChangeListener(e -> updateDashboard());
+
+        justificationFilter = new ComboBox<>("Justificativa");
+        justificationFilter.setPlaceholder("Todas");
+        justificationFilter.setClearButtonVisible(true);
+        justificationFilter.addValueChangeListener(e -> updateDashboard());
+
+        filters.add(startDatePicker, endDatePicker, groupFilter, templateFilter, creatorFilter, finalizerFilter, slaFilter, justificationFilter);
         /*
          * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
          */
@@ -331,111 +369,115 @@ public class HomeView extends Div {
      * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void createChartsSection() {
-        Div chartsContainer = new Div();
-        chartsContainer.addClassNames("charts-container", "animate-in");
-        chartsContainer.getStyle()
+        // --- LINHA 2: Evolução Diária ---
+        Div evolutionRow = new Div();
+        evolutionRow.addClassNames("charts-container", "animate-in");
+        evolutionRow.getStyle().set("margin-top", "24px").set("width", "100%");
+
+        Div mixedCol = createChartCard("100%");
+        mixedCol.getStyle().set("height", "350px");
+        mixedChartDiv = new Div();
+        mixedChartDiv.setId("mixed-history-chart");
+        mixedChartDiv.getStyle().set("flex-grow", "1");
+        mixedCol.add(createChartHeader("Evolução Diária - Tarefas e SLA"), mixedChartDiv);
+        evolutionRow.add(mixedCol);
+        add(evolutionRow);
+
+        // --- LINHA 3: TMA Médio Total por Tipo ---
+        Div tmaRow = new Div();
+        tmaRow.addClassNames("charts-container", "animate-in");
+        tmaRow.getStyle().set("margin-top", "24px").set("width", "100%");
+
+        Div tmaCol = createChartCard("100%");
+        tmaStackedChartDiv = new Div();
+        tmaStackedChartDiv.setId("tma-stacked-chart");
+        tmaStackedChartDiv.getStyle().set("flex-grow", "1");
+        tmaCol.add(createChartHeader("TMA Médio Total por Tipo"), tmaStackedChartDiv);
+        tmaRow.add(tmaCol);
+        add(tmaRow);
+
+        // --- LINHA 4: Rankings (Criador e Concluidor) ---
+        Div rankingRow = new Div();
+        rankingRow.addClassNames("charts-container", "animate-in");
+        rankingRow.getStyle()
                 .set("display", "flex")
                 .set("gap", "24px")
-                .set("margin-top", "32px")
+                .set("margin-top", "24px")
                 .set("width", "100%")
-                .set("flex-wrap", "wrap"); 
+                .set("flex-wrap", "nowrap"); // Forçar mesma linha
 
-        // Coluna 1: Ranking Criadores
-        Div rankingCol = createChartCard("30%");
+        // Ranking Criadores
+        Div rankingCol = createChartCard("50%");
+        rankingCol.getStyle().set("flex", "1");
         userRankingChartDiv = new Div();
         userRankingChartDiv.setId("user-ranking-chart");
         userRankingChartDiv.getStyle().set("flex-grow", "1");
         rankingHeaderDiv = createChartHeader("Ranking Criadores de Tarefas");
         rankingCol.add(rankingHeaderDiv, userRankingChartDiv);
 
-        // Coluna 2: Ranking Concluidores
-        Div finalizerCol = createChartCard("30%");
+        // Ranking Concluidores
+        Div finalizerCol = createChartCard("50%");
+        finalizerCol.getStyle().set("flex", "1");
         finalizerRankingChartDiv = new Div();
         finalizerRankingChartDiv.setId("finalizer-ranking-chart");
         finalizerRankingChartDiv.getStyle().set("flex-grow", "1");
         finalizerRankingHeaderDiv = createChartHeader("Ranking Concluidores (Delivery)");
         finalizerCol.add(finalizerRankingHeaderDiv, finalizerRankingChartDiv);
 
-        // Coluna 3: TMA
-        Div tmaCol = createChartCard("30%");
-        tmaStackedChartDiv = new Div();
-        tmaStackedChartDiv.setId("tma-stacked-chart");
-        tmaStackedChartDiv.getStyle().set("flex-grow", "1");
-        tmaCol.add(createChartHeader("TMA Médio Total por Tipo"), tmaStackedChartDiv);
+        rankingRow.add(rankingCol, finalizerCol);
+        add(rankingRow);
 
-        chartsContainer.add(rankingCol, finalizerCol, tmaCol);
-        /*
-         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
-         */
-        add(chartsContainer);
+        // --- LINHA 5: Performance por SLA ---
+        Div slaPerformanceRow = new Div();
+        slaPerformanceRow.addClassNames("charts-container", "animate-in");
+        slaPerformanceRow.getStyle().set("margin-top", "24px").set("width", "100%");
 
-        Div bottomChartContainer = new Div();
-        bottomChartContainer.addClassNames("charts-container", "animate-in");
-        bottomChartContainer.getStyle()
-                .set("display", "flex")
-                .set("margin-top", "24px")
-                .set("width", "100%");
-
-        Div mixedCol = new Div();
-        mixedCol.addClassNames("chart-card");
-        mixedCol.getStyle()
-                .set("animation-delay", "0.6s")
-                .set("flex", "1 1 100%")
-                .set("background", "var(--dash-card-bg, #ffffff)")
-                .set("color", "#1e293b")
-                .set("border-radius", "16px")
-                .set("padding", "24px")
-                .set("box-shadow", "0 4px 6px -1px rgba(0,0,0,0.1)")
-                .set("border", "1px solid var(--dash-border, #e2e8f0)")
-                .set("display", "flex")
-                .set("flex-direction", "column")
-                .set("height", "350px");
-
-        mixedChartDiv = new Div();
-        mixedChartDiv.setId("mixed-history-chart");
-        mixedChartDiv.getStyle().set("flex-grow", "1");
-        
-        mixedCol.add(createChartHeader("Evolução Diária - Tarefas e SLA"), mixedChartDiv);
-
-        bottomChartContainer.add(mixedCol);
-        /*
-         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
-         */
-        add(bottomChartContainer);
-
-        // ====== SEÇÃO DE INSIGHTS DE SLA ======
-        Div slaInsightsContainer = new Div();
-        slaInsightsContainer.addClassNames("charts-container", "animate-in");
-        slaInsightsContainer.getStyle()
-                .set("display", "flex")
-                .set("gap", "24px")
-                .set("margin-top", "24px")
-                .set("width", "100%")
-                .set("flex-wrap", "wrap");
-
-        // Gráfico de Performance SLA por Nome (barras agrupadas)
-        Div slaPerformanceCol = createChartCard("40%");
+        Div slaPerformanceCol = createChartCard("100%");
         slaPerformanceChartDiv = new Div();
         slaPerformanceChartDiv.setId("sla-performance-chart");
         slaPerformanceChartDiv.getStyle().set("flex-grow", "1");
         slaPerformanceCol.add(createChartHeader("Performance por SLA"), slaPerformanceChartDiv);
+        slaPerformanceRow.add(slaPerformanceCol);
+        add(slaPerformanceRow);
 
-        // Gráfico de Justificativas (donut)
-        Div justificationCol = createChartCard("25%");
+        // --- LINHA 6: Justificativas (Fim do Dashboard) ---
+        Div justificationsRow = new Div();
+        justificationsRow.addClassNames("charts-container", "animate-in");
+        justificationsRow.getStyle()
+                .set("margin-top", "24px")
+                .set("margin-bottom", "40px") // Margem inferior solicitada
+                .set("width", "100%");
+
+        Div justificationCol = createChartCard("100%");
+        
+        HorizontalLayout justificationContent = new HorizontalLayout();
+        justificationContent.setSizeFull();
+        justificationContent.setSpacing(true);
+
         justificationDonutChartDiv = new Div();
         justificationDonutChartDiv.setId("justification-donut-chart");
-        justificationDonutChartDiv.getStyle().set("flex-grow", "1");
-        justificationCol.add(createChartHeader("Justificativas de Atraso"), justificationDonutChartDiv);
+        justificationDonutChartDiv.getStyle().set("flex", "1");
 
-        // Análise Textual (Nuvem e Comentários)
-        Div textualInsightCol = createChartCard("30%");
-        textualInsightCol.getStyle().set("overflow", "hidden");
-        
+        Div textAnalysisDiv = new Div();
+        textAnalysisDiv.getStyle()
+                .set("flex", "1")
+                .set("min-width", "0")
+                .set("display", "flex")
+                .set("flex-direction", "column")
+                .set("overflow", "hidden");
+
+        Span textAnalysisTitle = new Span("Palavras Frequentes e Comentários");
+        textAnalysisTitle.getStyle()
+                .set("font-weight", "bold")
+                .set("font-size", "14px")
+                .set("margin-bottom", "8px")
+                .set("color", "var(--dash-text-sec)");
+
         wordCloudDiv = new Div();
         wordCloudDiv.setId("word-cloud-container");
         wordCloudDiv.getStyle()
                 .set("flex", "1")
-                .set("margin-top", "20px")
+                .set("margin-top", "10px")
                 .set("display", "flex")
                 .set("flex-wrap", "wrap")
                 .set("align-content", "start")
@@ -453,10 +495,12 @@ public class HomeView extends Div {
                 .set("border-top", "1px solid #e2e8f0")
                 .set("padding-top", "10px");
 
-        textualInsightCol.add(createChartHeader("Análise de Texto"), wordCloudDiv, recentCommentsDiv);
-
-        slaInsightsContainer.add(slaPerformanceCol, justificationCol, textualInsightCol);
-        add(slaInsightsContainer);
+        textAnalysisDiv.add(textAnalysisTitle, wordCloudDiv, recentCommentsDiv);
+        justificationContent.add(justificationDonutChartDiv, textAnalysisDiv);
+        
+        justificationCol.add(createChartHeader("Justificativas de Atraso"), justificationContent);
+        justificationsRow.add(justificationCol);
+        add(justificationsRow);
     }
 
     /**
@@ -517,9 +561,19 @@ public class HomeView extends Div {
         String activeCreatorFilter = creator != null ? creator.getName() : null;
         User finalizer = finalizerFilter.getValue();
         String activeFinalizerFilter = finalizer != null ? finalizer.getName() : null;
+        String activeSlaFilter = slaFilter.getValue();
+        String activeJustFilter = justificationFilter.getValue();
 
-        DashboardService.DashboardData data = dashboardService.getDashboardData(start, end, group, type, activeCreatorFilter, activeFinalizerFilter, null);
+        DashboardService.DashboardData data = dashboardService.getDashboardData(start, end, group, type, activeCreatorFilter, activeFinalizerFilter, null, activeSlaFilter, activeJustFilter);
         this.lastDashboardData = data;
+
+        // Atualizar itens dos novos filtros se estiverem vazios
+        if (slaFilter.getGenericDataView().getItems().count() == 0) {
+            slaFilter.setItems(data.slaInsights().stream().map(d -> d.slaName()).sorted().collect(Collectors.toList()));
+        }
+        if (justificationFilter.getGenericDataView().getItems().count() == 0) {
+            justificationFilter.setItems(data.justificationRanking().stream().map(d -> d.justification()).sorted().collect(Collectors.toList()));
+        }
 
         /*
          * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
@@ -969,9 +1023,17 @@ public class HomeView extends Div {
                                 yaxis: [
                                     { seriesName: 'Total de Tarefas', labels: { formatter: (v) => Math.floor(v) } },
                                     { seriesName: 'Total de Tarefas', show: false },
-                                    { opposite: true, seriesName: '%% No Prazo', labels: { formatter: (v) => v.toFixed(1) + '%%' }, min: 0, max: 100 }
+                                    { opposite: true, seriesName: '%% No Prazo', labels: { formatter: (v) => v.toFixed(0) + '%%' }, min: 0, max: 100 }
                                 ],
-                                dataLabels: { enabled: true, enabledOnSeries: [2], formatter: (v) => v.toFixed(1) + "%%", style: { colors: [tc] }, background: { enabled: true, foreColor: '#fff' } },
+                                dataLabels: { enabled: true, enabledOnSeries: [2], formatter: (v) => v.toFixed(0) + "%%", style: { colors: [tc] }, background: { enabled: true, foreColor: '#fff' } },
+                                tooltip: {
+                                    y: {
+                                        formatter: function(val, { seriesIndex }) {
+                                            if (seriesIndex === 2) return val.toFixed(0) + "%%";
+                                            return val;
+                                        }
+                                    }
+                                },
                                 legend: { position: 'bottom' }
                         };
 
@@ -1050,9 +1112,22 @@ public class HomeView extends Div {
                                         height: '100%%',
                                         stacked: true,
                                         toolbar: { show: false },
-                                        background: 'transparent',
-                                        fontFamily: 'Inter, sans-serif',
-                                        foreColor: tc
+                                        foreColor: tc,
+                                        events: {
+                                            click: function(event, chartContext, config) {
+                                                if (config && config.dataPointIndex !== undefined && config.dataPointIndex !== -1) {
+                                                    const category = chartContext.w.config.xaxis.categories[config.dataPointIndex];
+                                                    if (category) {
+                                                        const rootEl = document.getElementById('dashboard-home');
+                                                        if (rootEl) {
+                                                            rootEl.dispatchEvent(new CustomEvent('sla-clicked', { 
+                                                                detail: { category: String(category) }, bubbles: true, composed: true 
+                                                            }));
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     },
                                     series: [
                                         { name: 'No Prazo', data: slaOnTime },
@@ -1107,9 +1182,20 @@ public class HomeView extends Div {
                                         type: 'donut',
                                         height: '100%%',
                                         toolbar: { show: false },
-                                        background: 'transparent',
-                                        fontFamily: 'Inter, sans-serif',
-                                        foreColor: tc
+                                        foreColor: tc,
+                                        events: {
+                                            dataPointSelection: function(event, chartContext, config) {
+                                                const category = chartContext.w.config.labels[config.dataPointIndex];
+                                                if (category) {
+                                                    const rootEl = document.getElementById('dashboard-home');
+                                                    if (rootEl) {
+                                                        rootEl.dispatchEvent(new CustomEvent('justification-clicked', { 
+                                                            detail: { category: String(category) }, bubbles: true, composed: true 
+                                                        }));
+                                                    }
+                                                }
+                                            }
+                                        }
                                     },
                                     series: justValues,
                                     labels: justLabels,
@@ -1136,7 +1222,7 @@ public class HomeView extends Div {
                                         enabled: true,
                                         formatter: function(val, opts) {
                                             const raw = opts.w.globals.series[opts.seriesIndex];
-                                            return raw + ' (' + val.toFixed(1) + '%%)';
+                                            return raw + ' (' + val.toFixed(0) + '%%)';
                                         }
                                     }
                                 }).render();
@@ -1162,6 +1248,8 @@ public class HomeView extends Div {
                                     span.style.color = '#3b82f6';
                                     span.style.fontWeight = w.count > maxCount * 0.5 ? 'bold' : 'normal';
                                     span.style.padding = '2px 4px';
+                                    span.style.wordBreak = 'break-word';
+                                    span.style.overflowWrap = 'break-word';
                                     wordCloudEl.appendChild(span);
                                 });
                             } else {
@@ -1181,6 +1269,8 @@ public class HomeView extends Div {
                                     div.style.paddingLeft = '8px';
                                     div.style.borderLeft = '2px solid #3b82f6';
                                     div.style.fontStyle = 'italic';
+                                    div.style.wordBreak = 'break-word';
+                                    div.style.overflowWrap = 'break-word';
                                     div.innerText = c;
                                     commentsEl.appendChild(div);
                                 });

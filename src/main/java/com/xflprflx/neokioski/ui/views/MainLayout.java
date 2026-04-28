@@ -105,7 +105,20 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
         logout.getStyle().set("cursor", "pointer");
         logout.getStyle().set("margin-right", "20px");
 
-        HorizontalLayout header = new HorizontalLayout(new DrawerToggle(), logo, changePasswordBtn, logout);
+        Button themeToggle = new Button(VaadinIcon.ADJUST.create(), e -> {
+            com.vaadin.flow.component.UI.getCurrent().getElement().executeJs(
+                "const theme = document.documentElement.getAttribute('theme') === 'dark' ? 'light' : 'dark';" +
+                "document.documentElement.setAttribute('theme', theme);" +
+                "localStorage.setItem('dashboard-theme', theme);" +
+                "window.dispatchEvent(new Event('theme-changed'));"
+            );
+        });
+        themeToggle.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        themeToggle.getStyle().set("cursor", "pointer");
+        // Use margin-left auto to push right-aligned items
+        themeToggle.getStyle().set("margin-left", "auto");
+
+        HorizontalLayout header = new HorizontalLayout(new DrawerToggle(), logo, themeToggle, changePasswordBtn, logout);
         header.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
         header.expand(logo);
         header.setWidthFull();

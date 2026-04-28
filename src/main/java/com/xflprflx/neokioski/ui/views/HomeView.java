@@ -233,18 +233,7 @@ public class HomeView extends Div {
         H1 title = new H1("Olá, " + user.getName() + " 👋");
         title.getStyle().set("margin", "0").set("font-size", "2rem").set("font-weight", "800");
         
-        Button themeToggle = new Button(VaadinIcon.ADJUST.create(), e -> {
-            UI.getCurrent().getElement().executeJs(
-                "const theme = document.documentElement.getAttribute('theme') === 'dark' ? 'light' : 'dark';" +
-                "document.documentElement.setAttribute('theme', theme);" +
-                "localStorage.setItem('dashboard-theme', theme);" +
-                "window.dispatchEvent(new Event('theme-changed'));"
-            );
-        });
-        themeToggle.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        themeToggle.getStyle().set("margin-left", "auto").set("cursor", "pointer");
-        
-        titleRow.add(title, themeToggle);
+        titleRow.add(title);
         
         Span subtitle = new Span("Painel de Visibilidade Operacional");
         subtitle.getStyle().set("color", "var(--dash-text-sec)").set("font-weight", "500");

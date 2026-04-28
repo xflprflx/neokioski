@@ -133,6 +133,27 @@ public class TaskDetailsDialog extends Dialog {
                 slaRow.setSpacing(false);
                 slaRow.setAlignItems(FlexComponent.Alignment.CENTER);
                 content.add(slaRow);
+
+                if (sla.getStatus() == com.xflprflx.neokioski.models.enums.SlaStatus.DELAYED) {
+                    if (sla.getJustification() != null && !sla.getJustification().isBlank()) {
+                        Span justLabel = new Span("  Justificativa: " + sla.getJustification());
+                        justLabel.getStyle()
+                                .set("font-style", "italic")
+                                .set("color", "var(--lumo-secondary-text-color)")
+                                .set("margin-left", "20px")
+                                .set("font-size", "var(--lumo-font-size-s)");
+                        content.add(justLabel);
+                    }
+                    if (sla.getJustificationComments() != null && !sla.getJustificationComments().isBlank()) {
+                        Span commentLabel = new Span("  Comentários: " + sla.getJustificationComments());
+                        commentLabel.getStyle()
+                                .set("font-style", "italic")
+                                .set("color", "var(--lumo-secondary-text-color)")
+                                .set("margin-left", "20px")
+                                .set("font-size", "var(--lumo-font-size-s)");
+                        content.add(commentLabel);
+                    }
+                }
             }
         }
 

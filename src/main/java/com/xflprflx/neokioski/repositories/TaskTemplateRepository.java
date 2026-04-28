@@ -21,7 +21,7 @@ public interface TaskTemplateRepository extends JpaRepository<TaskTemplate, Long
         "templateStepRelation", "templateStepRelation.taskStepDefinition", 
         "templateStepRelation.responseOptions", "templateStepRelation.allowedNextSteps", "templateStepRelation.alertRoles",
         "templateFieldRelation", "templateFieldRelation.taskFieldDefinition", "templateFieldRelation.taskFieldDefinition.taskFieldOptions",
-        "alertRoles", "authorizingUsers", "groups"
+        "alertRoles", "authorizingUsers", "groups", "mentionsMappings", "mentionsMappings.users"
     }, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     @Query("SELECT t FROM TaskTemplate t WHERE t.id = :id")
     Optional<TaskTemplate> findByIdWithMetadata(@Param("id") Long id);

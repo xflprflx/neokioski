@@ -275,6 +275,9 @@ public class TaskAlertService {
             message = "ALERTA: A tarefa '" + task.getTaskTemplate().getName() + "' está pendente há mais de " + alert.getTimeoutMinutes() + " minutos!";
         }
 
+        // Resolver menções customizadas (mapeamento por grupo)
+        message = com.xflprflx.neokioski.utils.TaskMentionUtils.resolveCustomMentions(message, task);
+
         java.util.Collection<com.xflprflx.neokioski.models.User> authorizers = task.getTaskTemplate().getAuthorizingUsers();
         /*
          * Avalia uma condição (if) para desvio de fluxo da lógica principal.

@@ -79,6 +79,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     private Tab workflowTab = new Tab("Fluxo de Trabalho");
     private Tab alertsTab = new Tab("Alertas");
     private Tab slasTab = new Tab("SLA (Metas)");
+    private Tab mentionsTab = new Tab("Menções Dinâmicas");
     private VerticalLayout tabContent = new VerticalLayout();
     private VerticalLayout workflowPreview = new VerticalLayout();
     private VerticalLayout chatLayout = new VerticalLayout();
@@ -153,12 +154,14 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     private List<StepDTO> steps = new ArrayList<>();
     private List<AlertDTO> alerts = new ArrayList<>();
     private List<SlaDTO> slas = new ArrayList<>();
+    private List<TaskTemplateMention> mentionMappings = new ArrayList<>();
 
 
     private Grid<FieldDTO> fieldsGrid = new Grid<>(FieldDTO.class, false);
     private Grid<StepDTO> stepsGrid = new Grid<>(StepDTO.class, false);
     private Grid<AlertDTO> alertsGrid = new Grid<>(AlertDTO.class, false);
     private Grid<SlaDTO> slasGrid = new Grid<>(SlaDTO.class, false);
+    private Grid<Group> mentionsGrid = new Grid<>(Group.class, false);
 
     private FieldDTO draggedField;
     private StepDTO draggedStep;
@@ -509,7 +512,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
      * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Component createTabs() {
-        tabs.add(formFieldsTab, workflowTab, alertsTab, slasTab);
+        tabs.add(formFieldsTab, workflowTab, alertsTab, slasTab, mentionsTab);
         tabs.setWidthFull();
         tabs.addSelectedChangeListener(event -> {
             /*
@@ -521,6 +524,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 showWorkflowTab();
             } else if (event.getSelectedTab().equals(alertsTab)) {
                 showAlertsTab();
+            } else if (event.getSelectedTab().equals(mentionsTab)) {
+                showMentionsTab();
             } else {
                 showSlaTab();
             }
@@ -2345,7 +2350,33 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             taskSlas.add(config);
         }
 
-        templateService.saveTemplate(t, fieldRelations, stepRelations, taskAlerts, taskSlas);
+        // Validação de Menções Dinâmicas (Obrigatório por requisito do usuário)
+        Set<String> placeholders = extractPlaceholders();
+        Set<Group> selectedGroups = groupComboBox.getValue();
+        
+        for (String p : placeholders) {
+            for (Group g : selectedGroups) {
+                boolean isMapped = mentionMappings.stream()
+                        .anyMatch(m -> m.getPlaceholder().equalsIgnoreCase(p) && 
+                                       m.getGroup().getId().equals(g.getId()) && 
+                                       m.getUsers() != null && 
+                                       !m.getUsers().isEmpty());
+                
+                if (!isMapped) {
+                    Notification.show("A menção '" + p + "' deve ser mapeada para o grupo '" + g.getName() + "' antes de salvar.", 5000, Notification.Position.MIDDLE)
+                            .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                    tabs.setSelectedTab(mentionsTab);
+                    showMentionsTab();
+                    return;
+                }
+            }
+        }
+
+        // Limpar mapeamentos órfãos (de grupos ou placeholders que foram removidos)
+        mentionMappings.removeIf(m -> selectedGroups.stream().noneMatch(sg -> sg.getId().equals(m.getGroup().getId())) || 
+                                      placeholders.stream().noneMatch(p -> p.equalsIgnoreCase(m.getPlaceholder())));
+
+        templateService.saveTemplate(t, fieldRelations, stepRelations, taskAlerts, taskSlas, mentionMappings);
         Notification.show("Template Salvo com Sucesso!");
         getUI().ifPresent(ui -> ui.navigate(TaskTemplateListView.class));
     }
@@ -2483,8 +2514,105 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 }
                 slasGrid.getDataProvider().refreshAll();
                 
+                mentionMappings.clear();
+                mentionMappings.addAll(t.getMentionsMappings());
+
                 updateCardsPreview();
             }
         }
+    }
+
+    private Set<String> extractPlaceholders() {
+        Set<String> placeholders = new HashSet<>();
+        Set<String> reserved = Set.of("@criador", "@autorizadores", "@usuario", "@autor_anterior", "@resposta");
+
+        // Buscar usernames reais para não confundi-los com menções dinâmicas
+        Set<String> realUsernames = userService.findAll().stream()
+                .map(u -> "@" + u.getUsername().toLowerCase())
+                .collect(Collectors.toSet());
+
+        for (AlertDTO alert : alerts) {
+            if (alert.alertMessage != null) {
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("@\\w+").matcher(alert.alertMessage);
+                while (m.find()) {
+                    String p = m.group();
+                    if (!reserved.contains(p.toLowerCase()) && !realUsernames.contains(p.toLowerCase())) {
+                        placeholders.add(p);
+                    }
+                }
+            }
+        }
+
+        for (StepDTO step : steps) {
+            if (step.notificationMessage != null) {
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("@\\w+").matcher(step.notificationMessage);
+                while (m.find()) {
+                    String p = m.group();
+                    if (!reserved.contains(p.toLowerCase()) && !realUsernames.contains(p.toLowerCase())) {
+                        placeholders.add(p);
+                    }
+                }
+            }
+        }
+        return placeholders;
+    }
+
+    private void showMentionsTab() {
+        tabContent.removeAll();
+        Set<String> placeholders = extractPlaceholders();
+
+        if (placeholders.isEmpty()) {
+            tabContent.add(new Span("Nenhuma menção customizada encontrada nos textos de alerta ou workflow. Use @ seguido de um nome (ex: @mencao1) para criar menções dinâmicas."));
+            return;
+        }
+
+        H3 title = new H3("Mapeamento de Menções por Grupo");
+        Span help = new Span("Para cada grupo que utiliza este template, defina quais usuários serão notificados para cada etiqueta.");
+        help.getStyle().set("font-size", "var(--lumo-font-size-s)").set("color", "var(--lumo-secondary-text-color)");
+
+        mentionsGrid.removeAllColumns();
+        mentionsGrid.addColumn(Group::getName).setHeader("Grupo").setFrozen(true).setWidth("200px").setFlexGrow(0);
+
+        for (String p : placeholders) {
+            mentionsGrid.addComponentColumn(group -> {
+                MultiSelectComboBox<User> userCombo = new MultiSelectComboBox<>();
+                userCombo.setItems(group.getUsers());
+                userCombo.setItemLabelGenerator(User::getName);
+                userCombo.setWidthFull();
+
+                // Buscar valor existente
+                TaskTemplateMention mapping = mentionMappings.stream()
+                        .filter(m -> m.getGroup().getId().equals(group.getId()) && m.getPlaceholder().equalsIgnoreCase(p))
+                        .findFirst().orElse(null);
+
+                if (mapping != null) {
+                    userCombo.setValue(mapping.getUsers());
+                }
+
+                userCombo.addValueChangeListener(e -> {
+                    TaskTemplateMention m = mentionMappings.stream()
+                            .filter(map -> map.getGroup().getId().equals(group.getId()) && map.getPlaceholder().equalsIgnoreCase(p))
+                            .findFirst().orElse(null);
+                    
+                    if (m == null) {
+                        m = new TaskTemplateMention();
+                        m.setGroup(group);
+                        m.setPlaceholder(p);
+                        mentionMappings.add(m);
+                    }
+                    m.setUsers(new HashSet<>(e.getValue()));
+                });
+
+                return userCombo;
+            }).setHeader(p);
+        }
+
+        // Recarregar os grupos selecionados com os usuários para evitar LazyInitializationException no Grid
+        List<Group> selectedGroups = groupComboBox.getValue().stream()
+                .map(g -> groupService.findById(g.getId()).orElse(g))
+                .collect(Collectors.toList());
+        mentionsGrid.setItems(selectedGroups);
+
+        tabContent.add(title, help, mentionsGrid);
     }
 }

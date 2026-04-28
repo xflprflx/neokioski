@@ -225,6 +225,9 @@ public class TaskService {
                         // Se não há autor anterior, remove a tag para não ficar visível
                         message = message.replace("@autor_anterior", "");
                     }
+
+                    // 6. Processar Menções Customizadas (Mapeamento por Grupo)
+                    message = com.xflprflx.neokioski.utils.TaskMentionUtils.resolveCustomMentions(message, task);
                     
                     String rolesStr = relation.getAlertRoles() != null ? relation.getAlertRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.joining(",")) : null;
                     chatService.sendVolatileMessage(message, user, task.getGroup(), originalMsg, stepSound, rolesStr);

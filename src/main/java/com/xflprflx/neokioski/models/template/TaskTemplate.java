@@ -89,6 +89,11 @@ public class TaskTemplate {
     @org.hibernate.annotations.BatchSize(size = 50)
     private Set<User> authorizingUsers = new HashSet<>();
 
+    @OneToMany(mappedBy = "taskTemplate", cascade = CascadeType.ALL, orphanRemoval = true)
+    @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
+    @org.hibernate.annotations.BatchSize(size = 50)
+    private Set<TaskTemplateMention> mentionsMappings = new HashSet<>();
+
     public TaskTemplate() {
     }
 
@@ -214,6 +219,14 @@ public class TaskTemplate {
 
     public void setAlerts(Set<TaskAlert> alerts) {
         this.alerts = alerts;
+    }
+
+    public Set<TaskTemplateMention> getMentionsMappings() {
+        return mentionsMappings;
+    }
+
+    public void setMentionsMappings(Set<TaskTemplateMention> mentionsMappings) {
+        this.mentionsMappings = mentionsMappings;
     }
 
     /**

@@ -23,6 +23,7 @@ public class TaskTemplateService {
     private final TaskFieldOptionRepository taskFieldOptionRepository;
     private final TaskAlertRepository taskAlertRepository;
     private final TaskSlaConfigRepository taskSlaConfigRepository;
+    private final TaskTemplateMentionRepository taskTemplateMentionRepository;
     @org.springframework.context.annotation.Lazy
     @org.springframework.beans.factory.annotation.Autowired
     private TaskRepository taskRepository;
@@ -38,7 +39,8 @@ public class TaskTemplateService {
                                TemplateStepRelationRepository templateStepRelationRepository,
                                TaskFieldOptionRepository taskFieldOptionRepository,
                                TaskAlertRepository taskAlertRepository,
-                               TaskSlaConfigRepository taskSlaConfigRepository) {
+                               TaskSlaConfigRepository taskSlaConfigRepository,
+                               TaskTemplateMentionRepository taskTemplateMentionRepository) {
         this.taskTemplateRepository = taskTemplateRepository;
         this.taskFieldDefinitionRepository = taskFieldDefinitionRepository;
         this.taskStepDefinitionRepository = taskStepDefinitionRepository;
@@ -47,6 +49,7 @@ public class TaskTemplateService {
         this.taskFieldOptionRepository = taskFieldOptionRepository;
         this.taskAlertRepository = taskAlertRepository;
         this.taskSlaConfigRepository = taskSlaConfigRepository;
+        this.taskTemplateMentionRepository = taskTemplateMentionRepository;
     }
 
     @Transactional
@@ -57,7 +60,8 @@ public class TaskTemplateService {
                                      List<TemplateFieldRelation> fieldRelations, 
                                      List<TemplateStepRelation> stepRelations,
                                      List<TaskAlert> alerts,
-                                     List<TaskSlaConfig> slas) {
+                                     List<TaskSlaConfig> slas,
+                                     List<TaskTemplateMention> mentionsMappings) {
         
         TaskTemplate savedTemplate = taskTemplateRepository.save(template);
 
@@ -66,6 +70,7 @@ public class TaskTemplateService {
         reconcileSteps(savedTemplate, stepRelations);
         reconcileAlerts(savedTemplate, alerts);
         manageSlas(savedTemplate, slas);
+        reconcileMentions(savedTemplate, mentionsMappings);
 
         // Reagendar alertas das tarefas ativas após a alteração das regras do template
         try {
@@ -190,6 +195,33 @@ public class TaskTemplateService {
             } else {
                 alert.setTaskTemplate(template);
                 template.getAlerts().add(alert);
+            }
+        }
+    }
+
+    private void reconcileMentions(TaskTemplate template, List<TaskTemplateMention> incoming) {
+        Map<Long, TaskTemplateMention> existingMap = template.getMentionsMappings().stream()
+                .filter(m -> m.getId() != null)
+                .collect(Collectors.toMap(TaskTemplateMention::getId, m -> m));
+
+        Set<Long> incomingIds = incoming.stream()
+                .map(TaskTemplateMention::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        // 1. Remover quem sumiu (Orphan Removal)
+        template.getMentionsMappings().removeIf(m -> m.getId() != null && !incomingIds.contains(m.getId()));
+
+        for (TaskTemplateMention mention : incoming) {
+            if (mention.getId() != null && existingMap.containsKey(mention.getId())) {
+                TaskTemplateMention existing = existingMap.get(mention.getId());
+                existing.setPlaceholder(mention.getPlaceholder());
+                existing.setGroup(mention.getGroup());
+                existing.getUsers().clear();
+                existing.getUsers().addAll(mention.getUsers());
+            } else {
+                mention.setTaskTemplate(template);
+                template.getMentionsMappings().add(mention);
             }
         }
     }

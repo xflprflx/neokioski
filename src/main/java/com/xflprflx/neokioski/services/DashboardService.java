@@ -303,15 +303,30 @@ public class DashboardService {
                 .limit(20)
                 .toList();
 
-        // Gerar nuvem de palavras simplificada
+        // Gerar nuvem de palavras simplificada (ignorando tamanho para permitir siglas, usando lista de exclusão)
+        List<String> stopWords = Arrays.asList(
+                "o", "a", "os", "as", "um", "uma", "uns", "umas",
+                "de", "do", "da", "dos", "das", "em", "no", "na", "nos", "nas",
+                "por", "para", "com", "que", "se", "sua", "seu", "suas", "seus",
+                "este", "esta", "estes", "estas", "esse", "essa", "esses", "essas",
+                "aquele", "aquela", "aqueles", "aquelas", "isso", "isto", "aquilo",
+                "pela", "pelo", "pelas", "pelos", "ao", "aos", "à", "às",
+                "e", "ou", "mas", "como", "qual", "quais",
+                "eu", "tu", "ele", "ela", "nós", "vós", "eles", "elas",
+                "me", "te", "nos", "vos", "lhe", "lhes",
+                "já", "só", "até", "nem", "também", "mais", "muito", "pouco",
+                "não", "sim", "foi", "era", "ser", "são", "tem", "ter", "tinha", "está", "estava", "estão",
+                "quando", "onde", "quem", "porque", "pois"
+        );
+
         Map<String, Long> wordFreq = allSlaResults.stream()
                 .filter(r -> r.getStatus() == SlaStatus.DELAYED)
                 .filter(r -> r.getJustificationComments() != null && !r.getJustificationComments().isBlank())
                 .flatMap(r -> Arrays.stream(r.getJustificationComments().toLowerCase()
                         .replaceAll("[^a-zA-Záéíóúàèìòùâêîôûãõç\\s]", "")
                         .split("\\s+")))
-                .filter(w -> w.length() > 3)
-                .filter(w -> !Arrays.asList("para", "com", "que", "uma", "este", "esta", "pela", "pelo", "pelas", "pelos").contains(w))
+                .filter(w -> !w.isBlank())
+                .filter(w -> !stopWords.contains(w))
                 .collect(Collectors.groupingBy(w -> w, Collectors.counting()));
 
         List<JustificationRankData> wordCloud = wordFreq.entrySet().stream()

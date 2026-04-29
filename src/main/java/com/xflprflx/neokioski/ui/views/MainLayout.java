@@ -61,6 +61,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
     private User currentUser;
     private List<String> availableSounds = new ArrayList<>();
     private Consumer<ChatMessage> chatMessageListener;
+    private Long currentChatGroupId = null;
 
     public MainLayout(AuthenticationContext authContext, GroupService groupService,
                       SecurityService securityService, TaskService taskService, UserService userService, 
@@ -262,10 +263,17 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
                  */
                 try {
                     long groupId = Long.parseLong(parts[parts.length - 1]);
+                    this.currentChatGroupId = groupId;
                     group = groupService.findById(groupId).orElse(null);
-                } catch (NumberFormatException ignored) {}
+                } catch (NumberFormatException ignored) {
+                    this.currentChatGroupId = null;
+                }
+            } else {
+                this.currentChatGroupId = null;
             }
             showChatNav(group);
+        } else {
+            this.currentChatGroupId = null;
         }
     }
 
@@ -373,6 +381,23 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
                                      " | Pedidos: " + freshUser.isNotifyStoreOrder() + 
                                      " | Chat: " + freshUser.isNotifyChatSounds());
 
+                    // 1) Verificar se o chat aberto é o chat da mensagem
+                    boolean isCurrentChat = this.currentChatGroupId != null && 
+                                          message.getGroup() != null && 
+                                          message.getGroup().getId().equals(this.currentChatGroupId);
+
+                    if (!isCurrentChat) {
+                        System.out.println("[DEBUG-SOUND] Ignorando som: o usuário não está no chat do alerta.");
+                        return; // Só ouvir se estiver com o chat da conversa aberto
+                    }
+
+                    // 2) Só ouvir se não for o próprio autor
+                    boolean isAuthor = message.getUser() != null && message.getUser().getId().equals(freshUser.getId());
+                    if (isAuthor) {
+                        System.out.println("[DEBUG-SOUND] Ignorando som: o usuário é o próprio autor da mensagem.");
+                        return; // Quem mandou a mensagem/evento não ouve
+                    }
+
                     // Prioridade 1: Alertas operacionais (AlertSound preenchido)
                     /*
                      * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
@@ -427,40 +452,35 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
                      * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
                      */
                     if (freshUser.isNotifyChatSounds() && !isSystemMessageWithNoSound) {
-                        /*
-                         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                         */
-                        if (message.getUser() == null || !message.getUser().getId().equals(freshUser.getId())) {
-                            getUI().ifPresent(ui -> ui.access(() -> {
-                                String soundToPlay = null;
-                                
-                                boolean isReplyToMe = message.getReplyTo() != null && 
-                                                     message.getReplyTo().getUser() != null &&
-                                                     message.getReplyTo().getUser().getId().equals(freshUser.getId());
-                                
-                                boolean mentioned = message.getContent() != null && 
-                                                   message.getContent().contains("@" + freshUser.getUsername());
+                        getUI().ifPresent(ui -> ui.access(() -> {
+                            String soundToPlay = null;
+                            
+                            boolean isReplyToMe = message.getReplyTo() != null && 
+                                                 message.getReplyTo().getUser() != null &&
+                                                 message.getReplyTo().getUser().getId().equals(freshUser.getId());
+                            
+                            boolean mentioned = message.getContent() != null && 
+                                               message.getContent().contains("@" + freshUser.getUsername());
 
-                                /*
-                                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                                 */
-                                if (isReplyToMe) {
-                                    soundToPlay = "reply-to-me";
-                                } else if (mentioned) {
-                                    soundToPlay = "i-was-mentioned";
-                                } else if (message.getAlertSound() == null || message.getAlertSound().isEmpty()) {
-                                    soundToPlay = "new-message";
-                                }
-                                
-                                /*
-                                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                                 */
-                                if (soundToPlay != null) {
-                                    System.out.println("[DEBUG-SOUND] Tocar JS Chat: " + soundToPlay);
-                                    ui.getPage().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", soundToPlay);
-                                }
-                            }));
-                        }
+                            /*
+                             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                             */
+                            if (isReplyToMe) {
+                                soundToPlay = "reply-to-me";
+                            } else if (mentioned) {
+                                soundToPlay = "i-was-mentioned";
+                            } else if (message.getAlertSound() == null || message.getAlertSound().isEmpty()) {
+                                soundToPlay = "new-message";
+                            }
+                            
+                            /*
+                             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                             */
+                            if (soundToPlay != null) {
+                                System.out.println("[DEBUG-SOUND] Tocar JS Chat: " + soundToPlay);
+                                ui.getPage().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", soundToPlay);
+                            }
+                        }));
                     }
                 }, () -> {
                     System.out.println("[DEBUG-SOUND] ERRO: Usuário ID " + u.getId() + " não encontrado pelo userService!");

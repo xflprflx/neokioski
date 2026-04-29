@@ -97,7 +97,6 @@ public class HomeView extends Div {
         this.taskService = taskService;
         this.userService = userService;
 
-        setSizeFull();
         addClassName("dashboard-view-container");
         setId("dashboard-home");
         getStyle()
@@ -445,7 +444,6 @@ public class HomeView extends Div {
         justificationsRow.addClassNames("charts-container", "animate-in");
         justificationsRow.getStyle()
                 .set("margin-top", "24px")
-                .set("margin-bottom", "40px") // Margem inferior solicitada
                 .set("width", "100%");
 
         Div justificationCol = createChartCard("100%");

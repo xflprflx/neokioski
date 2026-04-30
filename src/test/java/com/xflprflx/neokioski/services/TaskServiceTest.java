@@ -74,7 +74,7 @@ class TaskServiceTest {
         Set<TaskSlaResult> slaResults = mock(Set.class);
         Set<TaskEvent> events = mock(Set.class);
         Set<TaskFieldValue> fieldValues = mock(Set.class);
-        List<TaskStepDefinition> stepDefinitions = mock(List.class);
+        Set<TaskStepDefinition> stepDefinitions = mock(Set.class);
         Set<TemplateStepRelation> relations = mock(Set.class);
 
         when(template.getId()).thenReturn(1L);

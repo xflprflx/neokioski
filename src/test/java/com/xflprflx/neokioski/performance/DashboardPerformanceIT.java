@@ -217,7 +217,7 @@ public class DashboardPerformanceIT {
         stats.clear(); // Zera o contador
 
         // EXECUÇÃO: Chama o métodx principal do serviço que queremos validar
-        DashboardService.DashboardData data = dashboardService.getDashboardData(start, end, group, null, null, null, null);
+        DashboardService.DashboardData data = dashboardService.getDashboardData(start, end, group, null, null, null, null, null, null);
 
         // CONTROLE: Quantas queries o banco executou para gerar esse dashboard?
         long queryCount = stats.getQueryExecutionCount();

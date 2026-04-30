@@ -2341,6 +2341,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
          */
         for (SlaDTO dto : slas) {
             TaskSlaConfig config = new TaskSlaConfig();
+            if (dto.id != null) {
+                config.setId(dto.id);
+            }
             config.setName(dto.name);
             /*
              * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
@@ -2509,6 +2512,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                  */
                 for (TaskSlaConfig sla : templateService.getSlaConfigsByTemplateId(parameter)) {
                     SlaDTO dto = new SlaDTO();
+                    dto.id = sla.getId();
                     dto.name = sla.getName();
                     /*
                      * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.

@@ -63,7 +63,35 @@ public class TaskTemplateService {
                                      List<TaskSlaConfig> slas,
                                      List<TaskTemplateMention> mentionsMappings) {
         
-        TaskTemplate savedTemplate = taskTemplateRepository.save(template);
+        TaskTemplate managedTemplate;
+        if (template.getId() != null) {
+            managedTemplate = taskTemplateRepository.findById(template.getId()).orElse(template);
+            
+            // Copia propriedades simples
+            managedTemplate.setName(template.getName());
+            managedTemplate.setShowSendButton(template.isShowSendButton());
+            managedTemplate.setRequiresSignature(template.isRequiresSignature());
+            managedTemplate.setPlayAlertSound(template.isPlayAlertSound());
+            managedTemplate.setRegistraNoRelatorioLoja(template.isRegistraNoRelatorioLoja());
+            managedTemplate.setAlertSound(template.getAlertSound());
+            managedTemplate.setDefaultResponsibleRole(template.getDefaultResponsibleRole());
+            managedTemplate.setSortOrder(template.getSortOrder());
+            managedTemplate.setDeleted(template.isDeleted());
+
+            // Reconcilia coleções básicas mantendo o tracking do Hibernate (evita delete-all / reinsert)
+            managedTemplate.getAlertRoles().retainAll(template.getAlertRoles());
+            managedTemplate.getAlertRoles().addAll(template.getAlertRoles());
+
+            managedTemplate.getGroups().retainAll(template.getGroups());
+            managedTemplate.getGroups().addAll(template.getGroups());
+
+            managedTemplate.getAuthorizingUsers().retainAll(template.getAuthorizingUsers());
+            managedTemplate.getAuthorizingUsers().addAll(template.getAuthorizingUsers());
+        } else {
+            managedTemplate = template;
+        }
+
+        TaskTemplate savedTemplate = taskTemplateRepository.save(managedTemplate);
 
         // Reconciliação de coleções para evitar o "delete-all-and-reinsert"
         reconcileFields(savedTemplate, fieldRelations);
@@ -102,18 +130,42 @@ public class TaskTemplateService {
 
         // 2. Atualizar ou Adicionar
         for (TemplateFieldRelation fr : incoming) {
-            TaskFieldDefinition fieldDef = fr.getTaskFieldDefinition();
-            if (fieldDef.getTaskFieldOptions() != null) {
-                taskFieldOptionRepository.saveAll(fieldDef.getTaskFieldOptions());
-            }
-            taskFieldDefinitionRepository.save(fieldDef);
+            TaskFieldDefinition incomingDef = fr.getTaskFieldDefinition();
 
             if (fr.getId() != null && existingMap.containsKey(fr.getId())) {
                 TemplateFieldRelation existing = existingMap.get(fr.getId());
+                TaskFieldDefinition existingDef = existing.getTaskFieldDefinition();
+                
+                if (existingDef != null) {
+                    // Update simple properties
+                    existingDef.setLabel(incomingDef.getLabel());
+                    existingDef.setDescription(incomingDef.getDescription());
+                    existingDef.setInputType(incomingDef.getInputType());
+                    
+                    if (existingDef.getTaskFieldOptions() != null && incomingDef.getTaskFieldOptions() != null) {
+                        Map<String, TaskFieldOption> existingOptionsMap = existingDef.getTaskFieldOptions().stream()
+                                .filter(o -> o.getOptionLabel() != null)
+                                .collect(Collectors.toMap(TaskFieldOption::getOptionLabel, o -> o, (o1, o2) -> o1));
+                        
+                        List<TaskFieldOption> mergedOptions = new java.util.ArrayList<>();
+                        for (TaskFieldOption incomingOpt : incomingDef.getTaskFieldOptions()) {
+                            TaskFieldOption existingOpt = existingOptionsMap.get(incomingOpt.getOptionLabel());
+                            if (existingOpt != null) {
+                                mergedOptions.add(existingOpt); // Use managed instance
+                            } else {
+                                mergedOptions.add(incomingOpt); // Use new instance
+                            }
+                        }
+                        existingDef.getTaskFieldOptions().clear();
+                        existingDef.getTaskFieldOptions().addAll(mergedOptions);
+                    }
+                }
+
                 existing.setOrder(fr.getOrder());
                 existing.setRequired(fr.isRequired());
-                existing.setTaskFieldDefinition(fieldDef);
+                // Leave existing.setTaskFieldDefinition intact as it's already linked to existingDef
             } else {
+                taskFieldDefinitionRepository.save(incomingDef);
                 fr.setTaskTemplate(template);
                 template.getTemplateFieldRelation().add(fr);
             }
@@ -160,8 +212,24 @@ public class TaskTemplateService {
                 existing.getAllowedNextSteps().clear();
                 existing.getAllowedNextSteps().addAll(sr.getAllowedNextSteps());
 
+                Map<String, TaskFieldOption> existingOptionsMap = existing.getResponseOptions().stream()
+                        .filter(o -> o.getOptionLabel() != null)
+                        .collect(Collectors.toMap(TaskFieldOption::getOptionLabel, o -> o, (o1, o2) -> o1));
+                
+                Set<TaskFieldOption> mergedOptions = new java.util.LinkedHashSet<>();
+                if (sr.getResponseOptions() != null) {
+                    for (TaskFieldOption incomingOpt : sr.getResponseOptions()) {
+                        TaskFieldOption existingOpt = existingOptionsMap.get(incomingOpt.getOptionLabel());
+                        if (existingOpt != null) {
+                            mergedOptions.add(existingOpt); // Use managed instance
+                        } else {
+                            mergedOptions.add(incomingOpt); // Use new instance
+                        }
+                    }
+                }
+                
                 existing.getResponseOptions().clear();
-                existing.getResponseOptions().addAll(sr.getResponseOptions());
+                existing.getResponseOptions().addAll(mergedOptions);
             } else {
                 sr.setTaskTemplate(template);
                 template.getTemplateStepRelation().add(sr);
@@ -229,16 +297,56 @@ public class TaskTemplateService {
     private void manageSlas(TaskTemplate template, List<TaskSlaConfig> incoming) {
         java.time.Instant now = java.time.Instant.now();
         List<TaskSlaConfig> activeSlas = taskSlaConfigRepository.findByTaskTemplateAndValidToIsNull(template);
-        for (TaskSlaConfig activeSla : activeSlas) {
-            activeSla.setValidTo(now);
+        
+        Map<Long, TaskSlaConfig> activeMap = activeSlas.stream()
+                .collect(Collectors.toMap(TaskSlaConfig::getId, s -> s));
+
+        Set<Long> incomingIds = incoming == null ? Collections.emptySet() : 
+                incoming.stream().map(TaskSlaConfig::getId).filter(Objects::nonNull).collect(Collectors.toSet());
+
+        // Invalidate removed SLAs
+        for (TaskSlaConfig active : activeSlas) {
+            if (!incomingIds.contains(active.getId())) {
+                active.setValidTo(now);
+                taskSlaConfigRepository.save(active);
+            }
         }
+
         if (incoming != null) {
-            for (TaskSlaConfig sla : incoming) {
-                sla.setId(null);
-                sla.setTaskTemplate(template);
-                if (sla.getValidFrom() == null) sla.setValidFrom(now);
-                sla.setValidTo(null);
-                taskSlaConfigRepository.save(sla);
+            for (TaskSlaConfig incomingSla : incoming) {
+                if (incomingSla.getId() != null && activeMap.containsKey(incomingSla.getId())) {
+                    TaskSlaConfig active = activeMap.get(incomingSla.getId());
+                    
+                    String activeSource = active.getSourceStep() != null ? active.getSourceStep().getLabel() : null;
+                    String incomingSource = incomingSla.getSourceStep() != null ? incomingSla.getSourceStep().getLabel() : null;
+                    
+                    String activeTarget = active.getTargetStep() != null ? active.getTargetStep().getLabel() : null;
+                    String incomingTarget = incomingSla.getTargetStep() != null ? incomingSla.getTargetStep().getLabel() : null;
+
+                    boolean changed = !Objects.equals(active.getName(), incomingSla.getName()) ||
+                                      active.getTargetValue() != incomingSla.getTargetValue() ||
+                                      active.getUnit() != incomingSla.getUnit() ||
+                                      !Objects.equals(active.getJustificationOptions(), incomingSla.getJustificationOptions()) ||
+                                      !Objects.equals(activeSource, incomingSource) ||
+                                      !Objects.equals(activeTarget, incomingTarget);
+
+                    if (changed) {
+                        active.setValidTo(now);
+                        taskSlaConfigRepository.save(active);
+                        
+                        incomingSla.setId(null);
+                        incomingSla.setTaskTemplate(template);
+                        incomingSla.setValidFrom(now);
+                        incomingSla.setValidTo(null);
+                        taskSlaConfigRepository.save(incomingSla);
+                    }
+                } else {
+                    incomingSla.setId(null);
+                    incomingSla.setTaskTemplate(template);
+                    incomingSla.setValidFrom(now);
+                    incomingSla.setValidTo(null);
+                    taskSlaConfigRepository.save(incomingSla);
+                }
             }
         }
     }

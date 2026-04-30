@@ -669,7 +669,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             InputType type = rel.getTaskFieldDefinition().getInputType();
             String label = rel.getTaskFieldDefinition().getLabel();
             String desc = rel.getTaskFieldDefinition().getDescription();
-            List<TaskFieldOption> options = rel.getTaskFieldDefinition().getTaskFieldOptions();
+            java.util.Set<TaskFieldOption> options = rel.getTaskFieldDefinition().getTaskFieldOptions();
             
             com.vaadin.flow.component.Component fieldComponent = createInputComponent(type, label, desc, rel.isRequired(), options, "", true);
 

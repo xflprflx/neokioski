@@ -94,10 +94,12 @@ public class GeneralTaskReportView extends VerticalLayout {
 
         startDate = new DatePicker("De");
         startDate.setLocale(Locale.forLanguageTag("pt-BR"));
+        startDate.setI18n(TaskUIUtils.getPtBrI18n());
         startDate.setValue(LocalDate.now());
         
         endDate = new DatePicker("Até");
         endDate.setLocale(Locale.forLanguageTag("pt-BR"));
+        endDate.setI18n(TaskUIUtils.getPtBrI18n());
         endDate.setValue(LocalDate.now());
 
         creatorCombo = new ComboBox<>("Criador");

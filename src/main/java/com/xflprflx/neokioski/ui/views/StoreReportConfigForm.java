@@ -23,6 +23,7 @@ import com.xflprflx.neokioski.models.ReportColumnConfig;
 import com.xflprflx.neokioski.models.StoreReportConfig;
 import com.xflprflx.neokioski.models.enums.ReportOrientation;
 import com.xflprflx.neokioski.services.TaskService;
+import com.xflprflx.neokioski.ui.utils.TaskUIUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,7 +43,9 @@ public class StoreReportConfigForm extends VerticalLayout {
     
     {
         startDate.setLocale(Locale.forLanguageTag("pt-BR"));
+        startDate.setI18n(TaskUIUtils.getPtBrI18n());
         endDate.setLocale(Locale.forLanguageTag("pt-BR"));
+        endDate.setI18n(TaskUIUtils.getPtBrI18n());
     }
     Select<ReportOrientation> orientation = new Select<>("Orientação");
     

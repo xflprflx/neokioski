@@ -1,6 +1,8 @@
 package com.xflprflx.neokioski.ui.utils;
 
+import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.html.Span;
+import java.util.List;
 
 /**
  * Classe utilitária contendo métodxs auxiliares para a construção e formatação da interface de tarefas (badges de status, cores).
@@ -125,5 +127,20 @@ public class TaskUIUtils {
         } else {
             component.getStyle().set("color", "#ffffff");
         }
+    }
+
+    /**
+     * Retorna a configuração de tradução (I18n) para DatePickers no padrão pt-BR.
+     */
+    public static DatePicker.DatePickerI18n getPtBrI18n() {
+        DatePicker.DatePickerI18n i18n = new DatePicker.DatePickerI18n();
+        i18n.setMonthNames(List.of("Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", 
+                                   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"));
+        i18n.setWeekdays(List.of("Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", 
+                                 "Quinta-feira", "Sexta-feira", "Sábado"));
+        i18n.setWeekdaysShort(List.of("dom", "seg", "ter", "qua", "qui", "sex", "sáb"));
+        i18n.setToday("Hoje");
+        i18n.setCancel("Cancelar");
+        return i18n;
     }
 }

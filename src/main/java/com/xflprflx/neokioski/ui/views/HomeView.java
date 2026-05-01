@@ -1,4 +1,5 @@
 package com.xflprflx.neokioski.ui.views;
+// v2 - forced refresh for i18n
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -279,10 +280,12 @@ public class HomeView extends Div {
         startDatePicker = new DatePicker("De");
         startDatePicker.setValue(LocalDate.now().minusDays(30));
         startDatePicker.setLocale(Locale.forLanguageTag("pt-BR"));
+        startDatePicker.setI18n(TaskUIUtils.getPtBrI18n());
 
         endDatePicker = new DatePicker("Até");
         endDatePicker.setValue(LocalDate.now());
         endDatePicker.setLocale(Locale.forLanguageTag("pt-BR"));
+        endDatePicker.setI18n(TaskUIUtils.getPtBrI18n());
 
         groupFilter = new ComboBox<>("Grupo");
         groupFilter.setItems(groupService.findAll());

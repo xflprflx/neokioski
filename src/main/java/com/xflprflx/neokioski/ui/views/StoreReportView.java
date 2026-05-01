@@ -17,6 +17,7 @@ import com.vaadin.flow.server.StreamResource;
 import com.xflprflx.neokioski.repositories.StoreReportConfigRepository;
 import com.xflprflx.neokioski.services.PdfService;
 import com.xflprflx.neokioski.services.TaskService;
+import com.xflprflx.neokioski.ui.utils.TaskUIUtils;
 import jakarta.annotation.security.PermitAll;
 
 import java.time.Instant;
@@ -43,7 +44,9 @@ public class StoreReportView extends VerticalLayout {
 
     {
         startDatePicker.setLocale(Locale.forLanguageTag("pt-BR"));
+        startDatePicker.setI18n(TaskUIUtils.getPtBrI18n());
         endDatePicker.setLocale(Locale.forLanguageTag("pt-BR"));
+        endDatePicker.setI18n(TaskUIUtils.getPtBrI18n());
     }
 
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")

@@ -974,13 +974,15 @@ public class HomeView extends Div {
                                     }
                                 },
                                 dataLabels: { enabled: true, formatter: (val) => { 
-                                    const h = Math.floor(val / 3600);
-                                    const m = Math.floor((val %% 3600) / 60);
-                                    /*
-                                     * Retorna o componente renderizado ou o valor da operação atual.
-                                     */
-                                    return h > 0 ? h + "h " + m + "m" : m + "m";
-                                }, style: { colors: [tc] } },
+                                    if (!val || val === 0) return "0s";
+                                    const totalSecs = Math.round(val * 10) / 10;
+                                    const h = Math.floor(totalSecs / 3600);
+                                    const m = Math.floor((totalSecs %% 3600) / 60);
+                                    const s = (totalSecs %% 60).toFixed(h > 0 || m > 0 ? 0 : 1);
+                                    if (h > 0) return h + "h " + m + "m " + s + "s";
+                                    if (m > 0) return m + "m " + s + "s";
+                                    return s + "s";
+                                }, style: { colors: [tc], fontSize: '10px' } },
                                 legend: { show: false }
                         };
 

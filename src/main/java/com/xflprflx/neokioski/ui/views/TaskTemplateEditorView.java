@@ -1937,6 +1937,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 break;
             case DATE:
                 com.vaadin.flow.component.datepicker.DatePicker dp = new com.vaadin.flow.component.datepicker.DatePicker(label);
+                dp.setLocale(Locale.forLanguageTag("pt-BR"));
                 /*
                  * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
                  */

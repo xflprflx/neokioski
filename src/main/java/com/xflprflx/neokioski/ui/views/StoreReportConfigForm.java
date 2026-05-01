@@ -26,6 +26,7 @@ import com.xflprflx.neokioski.services.TaskService;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Formulário da interface para a configuração de regras e parâmetros dos relatórios específicos das lojas.
@@ -38,6 +39,11 @@ public class StoreReportConfigForm extends VerticalLayout {
     TextField templateCode = new TextField("Código do Template");
     DatePicker startDate = new DatePicker("Data de Início");
     DatePicker endDate = new DatePicker("Data de Fim");
+    
+    {
+        startDate.setLocale(Locale.forLanguageTag("pt-BR"));
+        endDate.setLocale(Locale.forLanguageTag("pt-BR"));
+    }
     Select<ReportOrientation> orientation = new Select<>("Orientação");
     
     Grid<ReportColumnConfig> columnsGrid = new Grid<>(ReportColumnConfig.class, false);

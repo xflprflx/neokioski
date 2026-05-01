@@ -24,6 +24,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 
 @PermitAll
 @Route(value = "relatorio-loja", layout = MainLayout.class)
@@ -39,6 +40,11 @@ public class StoreReportView extends VerticalLayout {
     private final Grid<TaskService.StoreReportEntry> grid = new Grid<>(TaskService.StoreReportEntry.class, false);
     private final DatePicker startDatePicker = new DatePicker("Data Inicial");
     private final DatePicker endDatePicker = new DatePicker("Data Final");
+
+    {
+        startDatePicker.setLocale(Locale.forLanguageTag("pt-BR"));
+        endDatePicker.setLocale(Locale.forLanguageTag("pt-BR"));
+    }
 
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
             .withZone(ZoneId.systemDefault());

@@ -32,6 +32,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 
 @PageTitle("Relatório Geral de Tarefas | NeoKioski")
 @Route(value = "relatorio-geral", layout = MainLayout.class)
@@ -92,9 +93,11 @@ public class GeneralTaskReportView extends VerticalLayout {
         filterRow1.setAlignItems(Alignment.END);
 
         startDate = new DatePicker("De");
+        startDate.setLocale(Locale.forLanguageTag("pt-BR"));
         startDate.setValue(LocalDate.now());
         
         endDate = new DatePicker("Até");
+        endDate.setLocale(Locale.forLanguageTag("pt-BR"));
         endDate.setValue(LocalDate.now());
 
         creatorCombo = new ComboBox<>("Criador");

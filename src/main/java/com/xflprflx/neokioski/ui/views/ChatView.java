@@ -283,6 +283,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
         // Filtros de Data
         startDatePicker = new com.vaadin.flow.component.datepicker.DatePicker("Início");
+        startDatePicker.setLocale(java.util.Locale.forLanguageTag("pt-BR"));
         startDatePicker.setValue(java.time.LocalDate.now());
         startDatePicker.setWidth("140px");
         startDatePicker.addValueChangeListener(e -> {
@@ -290,6 +291,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         });
 
         endDatePicker = new com.vaadin.flow.component.datepicker.DatePicker("Fim");
+        endDatePicker.setLocale(java.util.Locale.forLanguageTag("pt-BR"));
         endDatePicker.setValue(java.time.LocalDate.now());
         endDatePicker.setWidth("140px");
         endDatePicker.addValueChangeListener(e -> {
@@ -2143,6 +2145,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                 break;
             case DATE:
                 com.vaadin.flow.component.datepicker.DatePicker dp = new com.vaadin.flow.component.datepicker.DatePicker(label);
+                dp.setLocale(Locale.forLanguageTag("pt-BR"));
                 /*
                  * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
                  */

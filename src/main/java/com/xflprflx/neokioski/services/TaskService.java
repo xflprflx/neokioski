@@ -285,10 +285,9 @@ public class TaskService {
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public Optional<Task> findById(Long id) {
-        /*
-         * Retorna o resultado final processado pelo métodx.
-         */
-        return taskRepository.findById(id);
+        Optional<Task> task = taskRepository.findById(id);
+        task.ifPresent(this::initializeTaskData);
+        return task;
     }
 
     /**

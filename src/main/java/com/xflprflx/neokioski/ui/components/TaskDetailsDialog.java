@@ -264,8 +264,9 @@ public class TaskDetailsDialog extends Dialog {
                     "         var h = Math.floor(totalSecs / 3600);" +
                     "         var m = Math.floor((totalSecs % 3600) / 60);" +
                     "         var s = totalSecs % 60;" +
-                    "         if (h > 0) return h + ':' + (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);" +
-                    "         if (m > 0) return m + ':' + (s < 10 ? '0' + s : s);" +
+                    "         var pad = function(n) { return n < 10 ? '0' + n : n; };" +
+                    "         if (h > 0) return pad(h) + ':' + pad(m) + ':' + pad(s);" +
+                    "         if (m > 0) return pad(m) + ':' + pad(s);" +
                     "         return s + 's';" +
                     "      };" +
                     "      var updateTotal = function(chart) {" +
@@ -294,8 +295,7 @@ public class TaskDetailsDialog extends Dialog {
                     "           style: { fontSize: '9px', fontWeight: 'bold' }, " +
                     "           formatter: function(val) { " +
                     "               if (val < 0.01) return ''; " +
-                    "               if (val < 1) return (val * 60).toFixed(1) + 's'; " +
-                    "               return val.toFixed(1) + 'm'; " +
+                    "               return formatMins(val); " +
                     "           } " +
                     "        }," +
                     "        tooltip: { " +
@@ -393,21 +393,11 @@ public class TaskDetailsDialog extends Dialog {
      * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private String formatSeconds(long seconds) {
-        /*
-         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-         */
         if (seconds < 60) return seconds + "s";
-        long mins = seconds / 60;
-        long secs = seconds % 60;
-        /*
-         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-         */
-        if (mins < 60) return mins + "m " + secs + "s";
-        long hrs = mins / 60;
-        mins = mins % 60;
-        /*
-         * Retorna o componente renderizado ou o valor da operação atual.
-         */
-        return hrs + "h " + mins + "m " + secs + "s";
+        long h = seconds / 3600;
+        long m = (seconds % 3600) / 60;
+        long s = seconds % 60;
+        if (h > 0) return String.format("%02d:%02d:%02d", h, m, s);
+        return String.format("%02d:%02d", m, s);
     }
 }

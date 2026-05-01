@@ -13,6 +13,7 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.xflprflx.neokioski.models.Group;
@@ -23,7 +24,9 @@ import com.xflprflx.neokioski.services.DashboardService;
 import com.xflprflx.neokioski.services.GroupService;
 import com.xflprflx.neokioski.services.TaskTemplateService;
 import com.xflprflx.neokioski.services.UserService;
+import com.xflprflx.neokioski.ui.components.TaskDetailsDialog;
 import com.xflprflx.neokioski.ui.utils.TaskUIUtils;
+import com.xflprflx.neokioski.models.Task;
 import jakarta.annotation.security.PermitAll;
 
 import java.time.Instant;
@@ -59,6 +62,8 @@ public class HomeView extends Div {
     private ComboBox<User> finalizerFilter;
     private ComboBox<String> slaFilter;
     private ComboBox<String> justificationFilter;
+    private TextField keywordFilter; // Mantido para estado, mas fora do layout
+    private String activeKeyword;
 
     private Div kpiGrid;
     private Div rankingHeaderDiv;
@@ -201,6 +206,39 @@ public class HomeView extends Div {
             } catch (Exception ex) { ex.printStackTrace(); }
         }).addEventData("event.detail.category");
 
+        getElement().addEventListener("keyword-clicked", e -> {
+            try {
+                var keywordNode = e.getEventData().get("event.detail.keyword");
+                if (keywordNode != null && !keywordNode.isNull()) {
+                    String keyword = keywordNode.toString().replaceAll("^\"|\"$", "");
+                    if (keyword != null) {
+                        if (keyword.equalsIgnoreCase(activeKeyword)) {
+                            activeKeyword = null;
+                            keywordFilter.setValue("");
+                        } else {
+                            activeKeyword = keyword;
+                            keywordFilter.setValue(keyword);
+                        }
+                        updateDashboard();
+                    }
+                }
+            } catch (Exception ex) { ex.printStackTrace(); }
+        }).addEventData("event.detail.keyword");
+
+        getElement().addEventListener("comment-task-clicked", e -> {
+            try {
+                var taskIdNode = e.getEventData().get("event.detail.taskId");
+                if (taskIdNode != null && !taskIdNode.isNull()) {
+                    long taskId = taskIdNode.asLong();
+                    taskService.findById(taskId).ifPresent(task -> {
+                        getUI().ifPresent(ui -> ui.access(() -> {
+                            new TaskDetailsDialog(task).open();
+                        }));
+                    });
+                }
+            } catch (Exception ex) { ex.printStackTrace(); }
+        }).addEventData("event.detail.taskId");
+
         updateDashboard();
     }
 
@@ -314,6 +352,12 @@ public class HomeView extends Div {
         justificationFilter.setClearButtonVisible(true);
         justificationFilter.setWidth("150px");
 
+        keywordFilter = new TextField("Palavra-Chave");
+        keywordFilter.setPlaceholder("Busca na nuvem...");
+        keywordFilter.setClearButtonVisible(true);
+        keywordFilter.setWidth("180px");
+        keywordFilter.setPrefixComponent(VaadinIcon.SEARCH.create());
+
         startDatePicker.addValueChangeListener(e -> updateDashboard());
         endDatePicker.addValueChangeListener(e -> updateDashboard());
         groupFilter.addValueChangeListener(e -> updateDashboard());
@@ -322,6 +366,7 @@ public class HomeView extends Div {
         finalizerFilter.addValueChangeListener(e -> updateDashboard());
         slaFilter.addValueChangeListener(e -> updateDashboard());
         justificationFilter.addValueChangeListener(e -> updateDashboard());
+        keywordFilter.addValueChangeListener(e -> updateDashboard());
 
         filtersRow.add(startDatePicker, endDatePicker, groupFilter, templateFilter, creatorFilter, finalizerFilter, slaFilter, justificationFilter);
         
@@ -442,45 +487,25 @@ public class HomeView extends Div {
         justificationDonutChartDiv.setId("justification-donut-chart");
         justificationDonutChartDiv.getStyle().set("flex", "1");
 
-        Div textAnalysisDiv = new Div();
-        textAnalysisDiv.getStyle()
-                .set("flex", "1")
-                .set("min-width", "0")
-                .set("display", "flex")
-                .set("flex-direction", "column")
-                .set("overflow", "hidden");
-
-        Span textAnalysisTitle = new Span("Palavras Frequentes e Comentários");
-        textAnalysisTitle.getStyle()
-                .set("font-weight", "bold")
-                .set("font-size", "14px")
-                .set("margin-bottom", "8px")
-                .set("color", "var(--dash-text-sec)");
-
+        Div cloudCol = new Div();
+        cloudCol.getStyle().set("flex", "1").set("display", "flex").set("flex-direction", "column");
+        Span cloudTitle = new Span("Nuvem de Justificativas");
+        cloudTitle.getStyle().set("font-weight", "bold").set("font-size", "14px").set("margin-bottom", "8px").set("color", "var(--dash-text-sec)");
         wordCloudDiv = new Div();
         wordCloudDiv.setId("word-cloud-container");
-        wordCloudDiv.getStyle()
-                .set("flex", "1")
-                .set("margin-top", "10px")
-                .set("display", "flex")
-                .set("flex-wrap", "wrap")
-                .set("align-content", "start")
-                .set("justify-content", "center")
-                .set("gap", "8px")
-                .set("overflow-y", "auto");
-        
+        wordCloudDiv.getStyle().set("flex", "1").set("overflow-y", "auto");
+        cloudCol.add(cloudTitle, wordCloudDiv);
+
+        Div commentsCol = new Div();
+        commentsCol.getStyle().set("flex", "1.2").set("display", "flex").set("flex-direction", "column").set("min-width", "0");
+        Span commentsTitle = new Span("Comentários Recentes");
+        commentsTitle.getStyle().set("font-weight", "bold").set("font-size", "14px").set("margin-bottom", "8px").set("color", "var(--dash-text-sec)");
         recentCommentsDiv = new Div();
         recentCommentsDiv.setId("recent-comments-container");
-        recentCommentsDiv.getStyle()
-                .set("flex", "1")
-                .set("margin-top", "10px")
-                .set("font-size", "12px")
-                .set("overflow-y", "auto")
-                .set("border-top", "1px solid #e2e8f0")
-                .set("padding-top", "10px");
+        recentCommentsDiv.getStyle().set("flex", "1").set("overflow-y", "auto");
+        commentsCol.add(commentsTitle, recentCommentsDiv);
 
-        textAnalysisDiv.add(textAnalysisTitle, wordCloudDiv, recentCommentsDiv);
-        justificationContent.add(justificationDonutChartDiv, textAnalysisDiv);
+        justificationContent.add(justificationDonutChartDiv, cloudCol, commentsCol);
         
         justificationCol.add(createChartHeader("Justificativas de Atraso"), justificationContent);
         justificationsRow.add(justificationCol);
@@ -548,7 +573,7 @@ public class HomeView extends Div {
         String activeSlaFilter = slaFilter.getValue();
         String activeJustFilter = justificationFilter.getValue();
 
-        DashboardService.DashboardData data = dashboardService.getDashboardData(start, end, group, type, activeCreatorFilter, activeFinalizerFilter, null, activeSlaFilter, activeJustFilter);
+        DashboardService.DashboardData data = dashboardService.getDashboardData(start, end, group, type, activeCreatorFilter, activeFinalizerFilter, null, activeSlaFilter, activeJustFilter, keywordFilter.getValue());
         this.lastDashboardData = data;
 
         // Atualizar itens dos novos filtros se estiverem vazios
@@ -1262,58 +1287,150 @@ public class HomeView extends Div {
                             }
                         }
 
-                        // Nuvem de Palavras
+                        // Nuvem de Palavras (Versão Refinada com Gingado)
                         const wordCloudEl = document.querySelector("#word-cloud-container");
                         if (wordCloudEl) {
                             wordCloudEl.innerHTML = "";
-                            const words = %s; // [{justification: '...', count: 12}]
+                            const words = %s;
                             if (words.length > 0) {
+                                wordCloudEl.style.display = 'flex';
+                                wordCloudEl.style.flexWrap = 'wrap';
+                                wordCloudEl.style.alignItems = 'baseline';
+                                wordCloudEl.style.justifyContent = 'center';
+                                wordCloudEl.style.gap = '10px 15px'; 
+                                wordCloudEl.style.padding = '10px';
+                                wordCloudEl.style.width = '100%%';
+                                wordCloudEl.style.maxWidth = '100%%';
+                                wordCloudEl.style.margin = '0';
+                                wordCloudEl.style.overflow = 'hidden';
+                                
                                 const maxCount = Math.max(...words.map(w => w.count));
-                                words.forEach(w => {
+                                const palette = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4'];
+                                
+                                // Embaralhar as palavras para um look de nuvem mais natural
+                                const shuffledWords = [...words].sort(() => Math.random() - 0.5);
+                                
+                                shuffledWords.forEach((w, i) => {
                                     const span = document.createElement('span');
                                     span.innerText = w.justification;
-                                    const size = 12 + (w.count / maxCount) * 14;
+                                    
+                                    // Escala de tamanho equilibrada (12px a 28px) para o novo layout
+                                    const size = 12 + (w.count / maxCount) * 16;
                                     const opacity = 0.6 + (w.count / maxCount) * 0.4;
+                                    const tilt = ((i * 13) %% 11) - 5; 
+                                    const originalColor = palette[i %% palette.length];
+
                                     span.style.fontSize = size + 'px';
                                     span.style.opacity = opacity;
-                                    span.style.color = '#3b82f6';
-                                    span.style.fontWeight = w.count > maxCount * 0.5 ? 'bold' : 'normal';
-                                    span.style.padding = '2px 4px';
-                                    span.style.wordBreak = 'break-word';
-                                    span.style.overflowWrap = 'break-word';
+                                    span.style.color = originalColor;
+                                    span.style.fontWeight = w.count > maxCount * 0.5 ? '700' : '500';
+                                    
+                                    const isActive = "%s" && w.justification.toLowerCase() === "%s".toLowerCase();
+                                    if (isActive) {
+                                        span.style.color = '#2563eb';
+                                        span.style.fontWeight = '900';
+                                        span.style.textDecoration = 'underline';
+                                        span.style.background = 'rgba(37, 99, 235, 0.1)';
+                                        span.style.padding = '2px 8px';
+                                        span.style.borderRadius = '4px';
+                                        span.style.transform = 'rotate(0deg) scale(1.1)';
+                                    } else {
+                                        span.style.transform = `rotate(${tilt}deg)`;
+                                    }
+
+                                    span.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+                                    span.style.display = 'inline-block';
+                                    span.style.cursor = 'pointer';
+                                    
+                                    span.onmouseover = () => {
+                                        span.style.transform = `scale(1.15) rotate(0deg)`;
+                                        span.style.opacity = '1';
+                                        span.style.color = '#2563eb';
+                                        span.style.textShadow = '0 0 10px rgba(37,99,235,0.2)';
+                                        span.style.zIndex = '100';
+                                    };
+                                    span.onmouseout = () => {
+                                        if (isActive) {
+                                            span.style.transform = 'rotate(0deg) scale(1.1)';
+                                            span.style.opacity = '1';
+                                            span.style.color = '#2563eb';
+                                        } else {
+                                            span.style.transform = `rotate(${tilt}deg)`;
+                                            span.style.opacity = opacity;
+                                            span.style.color = originalColor;
+                                        }
+                                        span.style.textShadow = 'none';
+                                        span.style.zIndex = '1';
+                                    };
+                                    span.onclick = () => {
+                                        const rootEl = document.getElementById('dashboard-home');
+                                        if (rootEl) {
+                                            rootEl.dispatchEvent(new CustomEvent('keyword-clicked', { 
+                                                detail: { keyword: w.justification },
+                                                bubbles: true, 
+                                                composed: true 
+                                            }));
+                                        }
+                                    };
+                                    
                                     wordCloudEl.appendChild(span);
                                 });
                             } else {
-                                wordCloudEl.innerHTML = '<div style="color:var(--lumo-secondary-text-color);font-size:12px;">Sem dados</div>';
+                                wordCloudEl.innerHTML = '<div style="color:var(--lumo-secondary-text-color);font-size:12px;padding:20px;">Sem dados</div>';
                             }
                         }
 
-                        // Comentários Recentes
+                        // Comentários Recentes (Tabela)
                         const commentsEl = document.querySelector("#recent-comments-container");
                         if (commentsEl) {
                             commentsEl.innerHTML = "";
-                            const comments = %s;
+                            const comments = %s; // [{taskName: '...', comment: '...'}]
                             if (comments.length > 0) {
+                                const table = document.createElement('table');
+                                table.style.width = '100%%';
+                                table.style.borderCollapse = 'collapse';
+                                table.style.fontSize = '11px';
+                                
+                                const thead = document.createElement('thead');
+                                thead.innerHTML = `
+                                    <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; color: var(--dash-text-sec);">
+                                        <th style="padding: 4px;">Comentário</th>
+                                        <th style="padding: 4px;">Ação</th>
+                                    </tr>
+                                `;
+                                table.appendChild(thead);
+                                
+                                const tbody = document.createElement('tbody');
                                 comments.forEach(c => {
-                                    const div = document.createElement('div');
-                                    div.style.marginBottom = '6px';
-                                    div.style.paddingLeft = '8px';
-                                    div.style.borderLeft = '2px solid #3b82f6';
-                                    div.style.fontStyle = 'italic';
-                                    div.style.wordBreak = 'break-word';
-                                    div.style.overflowWrap = 'break-word';
-                                    div.innerText = c;
-                                    commentsEl.appendChild(div);
+                                    const tr = document.createElement('tr');
+                                    tr.style.borderBottom = '1px solid #f1f5f9';
+                                    tr.innerHTML = `
+                                        <td style="padding: 6px 4px; font-style: italic; color: #475569; word-break: break-word;">
+                                            ${c.comment}
+                                        </td>
+                                        <td style="padding: 6px 4px; vertical-align: top; width: 100px;">
+                                            <a href="javascript:void(0)" 
+                                               style="font-weight: bold; color: #3b82f6; text-decoration: none; font-size: 10px; white-space: nowrap;"
+                                               onmouseover="this.style.textDecoration='underline'"
+                                               onmouseout="this.style.textDecoration='none'"
+                                               onclick="document.getElementById('dashboard-home').dispatchEvent(new CustomEvent('comment-task-clicked', { detail: { taskId: ${c.taskId} }, bubbles: true, composed: true }))">
+                                               Ver detalhes
+                                            </a>
+                                        </td>
+                                    `;
+                                    tbody.appendChild(tr);
                                 });
+                                table.appendChild(tbody);
+                                commentsEl.appendChild(table);
                             } else {
-                                commentsEl.innerHTML = '<div style="color:var(--lumo-secondary-text-color);font-size:12px;">Nenhum comentário textual</div>';
+                                commentsEl.innerHTML = '<div style="color:var(--lumo-secondary-text-color);font-size:12px;padding:10px;">Nenhum comentário textual</div>';
                             }
                         }
                     };
                     tryRender();
                     window.addEventListener('theme-changed', tryRender);
                 })();
-                """, slaNamesJson, slaOnTimeJson, slaDelayedJson, justLabelsJson, justValuesJson, objectMapper.writeValueAsString(data.wordCloud()), objectMapper.writeValueAsString(data.recentComments()));
+                """, slaNamesJson, slaOnTimeJson, slaDelayedJson, justLabelsJson, justValuesJson, objectMapper.writeValueAsString(data.wordCloud()), activeKeyword != null ? activeKeyword : "", activeKeyword != null ? activeKeyword : "", objectMapper.writeValueAsString(data.recentComments()));
 
             UI.getCurrent().getPage().executeJs(js);
             UI.getCurrent().getPage().executeJs(slaJs);

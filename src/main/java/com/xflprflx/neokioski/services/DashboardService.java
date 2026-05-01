@@ -46,7 +46,7 @@ public class DashboardService {
     /**
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
-    public DashboardData getDashboardData(Instant start, Instant end, Group group, TaskTemplate type, String creatorNameFilter, String finalizerNameFilter, String dateFilterStr, String slaNameFilter, String justificationFilter) {
+    public DashboardData getDashboardData(Instant start, Instant end, Group group, TaskTemplate type, String creatorNameFilter, String finalizerNameFilter, String dateFilterStr, String slaNameFilter, String justificationFilter, String keywordFilter) {
         // Buscar todas as tasks no período base de dados limitados pelas DatePickers
         List<Task> tasks = taskRepository.findAllByCreatedAtBetween(start, end);
 
@@ -137,6 +137,8 @@ public class DashboardService {
                 .filter(t -> dateFilterStr == null || formatDate(t.getCreatedAt()).equals(dateFilterStr))
                 .filter(t -> slaNameFilter == null || t.getSlaResults().stream().anyMatch(r -> r.getSlaConfig() != null && Objects.equals(r.getSlaConfig().getName(), slaNameFilter)))
                 .filter(t -> justificationFilter == null || t.getSlaResults().stream().anyMatch(r -> Objects.equals(r.getJustification(), justificationFilter)))
+                .filter(t -> keywordFilter == null || t.getSlaResults().stream().anyMatch(r -> 
+                        r.getJustificationComments() != null && r.getJustificationComments().toLowerCase().contains(keywordFilter.toLowerCase())))
                 .collect(Collectors.toList());
 
         // KPI Calculations (Restritos ao extremo)
@@ -303,12 +305,18 @@ public class DashboardService {
                 .limit(10)
                 .toList();
 
-        // Coleta de comentários opcionais e nuvem de palavras
-        List<String> recentComments = allSlaResults.stream()
-                .filter(r -> r.getStatus() == SlaStatus.DELAYED)
-                .filter(r -> r.getJustificationComments() != null && !r.getJustificationComments().isBlank())
-                .map(TaskSlaResult::getJustificationComments)
-                .sorted(Comparator.reverseOrder())
+        // Coleta de comentários opcionais e nuvem de palavras com identificação da tarefa
+        List<RecentCommentData> recentComments = strictFilteredTasks.stream()
+                .filter(t -> t.getSlaResults() != null)
+                .flatMap(t -> t.getSlaResults().stream()
+                        .filter(r -> r.getStatus() == SlaStatus.DELAYED)
+                        .filter(r -> r.getJustificationComments() != null && !r.getJustificationComments().isBlank())
+                        .map(r -> new RecentCommentData(
+                                t.getId(),
+                                t.getTaskTemplate() != null ? t.getTaskTemplate().getName() : "Tarefa",
+                                r.getJustificationComments()
+                        )))
+                .sorted(Comparator.comparing(RecentCommentData::comment).reversed())
                 .limit(20)
                 .toList();
 
@@ -332,7 +340,7 @@ public class DashboardService {
                 .filter(r -> r.getStatus() == SlaStatus.DELAYED)
                 .filter(r -> r.getJustificationComments() != null && !r.getJustificationComments().isBlank())
                 .flatMap(r -> Arrays.stream(r.getJustificationComments().toLowerCase()
-                        .replaceAll("[^a-zA-Záéíóúàèìòùâêîôûãõç\\s]", "")
+                        .replaceAll("[^a-zA-Z0-9áéíóúàèìòùâêîôûãõç.\\-\\s]", "")
                         .split("\\s+")))
                 .filter(w -> !w.isBlank())
                 .filter(w -> !stopWords.contains(w))
@@ -472,12 +480,18 @@ public class DashboardService {
         double onTimePct
     ) {}
 
-    /**
-     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
-     */
     public record JustificationRankData(
         String justification,
         long count
+    ) {}
+
+    /**
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
+    public record RecentCommentData(
+        Long taskId,
+        String taskName,
+        String comment
     ) {}
 
     /**
@@ -491,7 +505,7 @@ public class DashboardService {
         List<StackedBarData> tmaPerStep,
         List<SlaInsightData> slaInsights,
         List<JustificationRankData> justificationRanking,
-        List<String> recentComments,
+        List<RecentCommentData> recentComments,
         List<JustificationRankData> wordCloud,
         Map<String, String> stepThemes
     ) {}

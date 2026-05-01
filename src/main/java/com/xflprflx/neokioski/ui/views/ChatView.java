@@ -7,6 +7,7 @@ import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.contextmenu.ContextMenu;
 import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Span;
@@ -540,7 +541,15 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     .set("color", "var(--lumo-secondary-text-color)")
                     .set("font-size", "var(--lumo-font-size-m)");
             
-            emptyState.add(img, title, subtitle);
+            Anchor attribution = new Anchor("https://www.magnific.com/br/vetores-gratis/ilustracao-de-espirito-comunitario-desenhada-a-mao_38477296.htm#fromView=search&page=1&position=23&uuid=80b0c183-c50f-4f46-b405-1b5aef5a98f7&query=equipe", "Imagem de freepik");
+            attribution.setTarget("_blank");
+            attribution.getStyle()
+                       .set("font-size", "var(--lumo-font-size-xxs)")
+                       .set("color", "var(--lumo-tertiary-text-color)")
+                       .set("margin-top", "var(--lumo-space-s)")
+                       .set("text-decoration", "none");
+            
+            emptyState.add(img, title, subtitle, attribution);
             taskListArea.add(emptyState);
         }
     }

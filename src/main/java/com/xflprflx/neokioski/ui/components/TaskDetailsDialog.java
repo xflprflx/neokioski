@@ -161,9 +161,106 @@ public class TaskDetailsDialog extends Dialog {
          * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
          */
         if (!task.getTaskEvents().isEmpty()) {
-            Span histTitle = new Span("Histórico:");
+            Span histTitle = new Span("Histórico e Tempos:");
             histTitle.getStyle().set("font-weight", "bold");
             content.add(histTitle);
+
+            // Gráfico de tempo por etapa
+            java.util.List<com.xflprflx.neokioski.models.TaskEvent> events = new java.util.ArrayList<>(task.getTaskEvents());
+            events.sort(java.util.Comparator.comparing(com.xflprflx.neokioski.models.TaskEvent::getTimestamp));
+            
+            // Identificar IDs de etapas finalizadoras para ocultar na legenda/barra
+            java.util.Set<Long> finalizerStepIds = task.getTaskTemplate() != null ? 
+                task.getTaskTemplate().getTemplateStepRelation().stream()
+                    .filter(com.xflprflx.neokioski.models.template.TemplateStepRelation::isFinalizer)
+                    .map(r -> r.getTaskStepDefinition().getId())
+                    .collect(java.util.stream.Collectors.toSet()) : java.util.Collections.emptySet();
+
+            java.util.Map<String, Long> stepDurations = new java.util.LinkedHashMap<>();
+            for (int i = 0; i < events.size(); i++) {
+                com.xflprflx.neokioski.models.TaskEvent current = events.get(i);
+                java.time.Instant start = (i == 0 && current.getTimestamp().isAfter(task.getCreatedAt())) 
+                                         ? task.getCreatedAt() : current.getTimestamp();
+                java.time.Instant end;
+                if (i < events.size() - 1) {
+                    end = events.get(i + 1).getTimestamp();
+                } else {
+                    end = (task.getFinalizedAt() != null) ? task.getFinalizedAt() : java.time.Instant.now();
+                }
+                
+                long durationMillis = Math.max(0, end.toEpochMilli() - start.toEpochMilli());
+                
+                // Se for etapa finalizadora ou tiver tempo desprezível, não incluímos no gráfico
+                if (current.getTaskStepDefinition() != null && finalizerStepIds.contains(current.getTaskStepDefinition().getId())) {
+                    continue;
+                }
+
+                String sLabel = current.getTaskStepDefinition() != null ? current.getTaskStepDefinition().getLabel() : "Aguardando";
+                stepDurations.put(sLabel, stepDurations.getOrDefault(sLabel, 0L) + durationMillis);
+            }
+
+            java.util.List<String> seriesList = new java.util.ArrayList<>();
+            for (java.util.Map.Entry<String, Long> entry : stepDurations.entrySet()) {
+                if (entry.getValue() <= 0) continue; // Pula etapas sem tempo registrado
+                double mins = entry.getValue() / 60000.0;
+                String valJs = String.format(java.util.Locale.US, "%.2f", mins);
+                seriesList.add("{ name: '" + entry.getKey().replace("'", "\\'") + "', data: [" + valJs + "] }");
+            }
+            String seriesDataJs = "[" + String.join(",", seriesList) + "]";
+
+            com.vaadin.flow.component.html.Div chartDiv = new com.vaadin.flow.component.html.Div();
+            chartDiv.setId("chart-step-time-" + task.getId());
+            chartDiv.setWidthFull();
+            chartDiv.setHeight("90px"); // Reduzido
+            
+            chartDiv.addAttachListener(e -> {
+                e.getUI().getPage().executeJs(
+                    "if (typeof ApexCharts === 'undefined') {" +
+                    "  var script = document.createElement('script');" +
+                    "  script.src = 'https://cdn.jsdelivr.net/npm/apexcharts';" +
+                    "  script.onload = function() { renderTimeline($0); };" +
+                    "  document.head.appendChild(script);" +
+                    "} else {" +
+                    "  renderTimeline($0);" +
+                    "}" +
+                    "function renderTimeline(id) {" +
+                    "  setTimeout(function() {" +
+                    "    var el = document.getElementById(id);" +
+                    "    if (el) {" +
+                    "      el.innerHTML = '';" +
+                    "      var options = {" +
+                    "        series: " + seriesDataJs + "," +
+                    "        chart: { type: 'bar', height: 75, stacked: true, toolbar: { show: false }, sparkline: { enabled: true } }," +
+                    "        grid: { padding: { left: 30, right: 30, top: 0, bottom: 0 } }," +
+                    "        plotOptions: { bar: { horizontal: true, barHeight: '30%', borderRadius: 3 } }," +
+                    "        dataLabels: { " +
+                    "           enabled: true, " +
+                    "           style: { fontSize: '9px', fontWeight: 'bold' }, " +
+                    "           formatter: function(val) { " +
+                    "               if (val < 0.1) return ''; " +
+                    "               if (val < 1) return Math.round(val * 60) + 's'; " +
+                    "               return val.toFixed(1) + 'm'; " +
+                    "           } " +
+                    "        }," +
+                    "        tooltip: { " +
+                    "           enabled: true, " +
+                    "           y: { formatter: function(val) { " +
+                    "               if (val < 1) return Math.round(val * 60) + ' segundos'; " +
+                    "               return val.toFixed(2) + ' minutos'; " +
+                    "           } } " +
+                    "        }," +
+                    "        legend: { show: true, position: 'top', horizontalAlign: 'left', fontSize: '10px', markers: { radius: 12, width: 8, height: 8 } }," +
+                    "        xaxis: { categories: ['Duração'] }" +
+                    "      };" +
+                    "      var chart = new ApexCharts(el, options);" +
+                    "      chart.render();" +
+                    "    }" +
+                    "  }, 100);" +
+                    "}", chartDiv.getId().get()
+                );
+            });
+            content.add(chartDiv);
+
             /*
              * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
              */
@@ -177,8 +274,19 @@ public class TaskDetailsDialog extends Dialog {
                  * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
                  */
                 if (ev.getResponse() != null && !ev.getResponse().isBlank()) {
+                    String respLabel = "Resp";
+                    if (task.getTaskTemplate() != null && ev.getTaskStepDefinition() != null) {
+                        for (com.xflprflx.neokioski.models.template.TemplateStepRelation rel : task.getTaskTemplate().getTemplateStepRelation()) {
+                            if (rel.getTaskStepDefinition() != null && rel.getTaskStepDefinition().getId().equals(ev.getTaskStepDefinition().getId())) {
+                                if (rel.getResponseFieldLabel() != null && !rel.getResponseFieldLabel().isBlank()) {
+                                    respLabel = rel.getResponseFieldLabel();
+                                }
+                                break;
+                            }
+                        }
+                    }
                     String respStr = ev.getResponse();
-                    Span resp = new Span("  Resp: " + respStr);
+                    Span resp = new Span("  " + respLabel + ": " + respStr);
                     resp.getStyle().set("font-style", "italic").set("color", "var(--lumo-secondary-text-color)").set("margin-left", "20px");
                     
                     Button copyBtn = new Button(VaadinIcon.COPY.create(), e -> copyToClipboard(respStr.replace(", ", "\n")));

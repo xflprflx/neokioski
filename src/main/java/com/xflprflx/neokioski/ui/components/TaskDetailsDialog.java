@@ -177,6 +177,8 @@ public class TaskDetailsDialog extends Dialog {
                     .collect(java.util.stream.Collectors.toSet()) : java.util.Collections.emptySet();
 
             java.util.Map<String, Long> stepDurations = new java.util.LinkedHashMap<>();
+            java.util.Map<String, String> stepThemes = new java.util.HashMap<>();
+
             for (int i = 0; i < events.size(); i++) {
                 com.xflprflx.neokioski.models.TaskEvent current = events.get(i);
                 java.time.Instant start = (i == 0 && current.getTimestamp().isAfter(task.getCreatedAt())) 
@@ -190,23 +192,41 @@ public class TaskDetailsDialog extends Dialog {
                 
                 long durationMillis = Math.max(0, end.toEpochMilli() - start.toEpochMilli());
                 
-                // Se for etapa finalizadora ou tiver tempo desprezível, não incluímos no gráfico
                 if (current.getTaskStepDefinition() != null && finalizerStepIds.contains(current.getTaskStepDefinition().getId())) {
                     continue;
                 }
 
                 String sLabel = current.getTaskStepDefinition() != null ? current.getTaskStepDefinition().getLabel() : "Aguardando";
+                String sTheme = current.getTaskStepDefinition() != null ? current.getTaskStepDefinition().getColorTheme() : "waiting";
+                
                 stepDurations.put(sLabel, stepDurations.getOrDefault(sLabel, 0L) + durationMillis);
+                stepThemes.putIfAbsent(sLabel, sTheme);
             }
 
             java.util.List<String> seriesList = new java.util.ArrayList<>();
+            java.util.List<String> colorList = new java.util.ArrayList<>();
+            
             for (java.util.Map.Entry<String, Long> entry : stepDurations.entrySet()) {
-                if (entry.getValue() <= 0) continue; // Pula etapas sem tempo registrado
+                if (entry.getValue() <= 0) continue;
                 double mins = entry.getValue() / 60000.0;
                 String valJs = String.format(java.util.Locale.US, "%.2f", mins);
                 seriesList.add("{ name: '" + entry.getKey().replace("'", "\\'") + "', data: [" + valJs + "] }");
+                
+                String theme = stepThemes.get(entry.getKey());
+                String[] tColors = TaskUIUtils.getThemeColors(theme);
+                String color;
+                if ("waiting".equals(theme)) {
+                    color = "#b0bec5";
+                } else if ("black".equalsIgnoreCase(theme)) {
+                    color = "#212121"; // Força preto para a barra
+                } else {
+                    color = tColors[1];
+                }
+                colorList.add("'" + color + "'");
             }
+            
             String seriesDataJs = "[" + String.join(",", seriesList) + "]";
+            String colorsJs = "[" + String.join(",", colorList) + "]";
 
             com.vaadin.flow.component.html.Div chartDiv = new com.vaadin.flow.component.html.Div();
             chartDiv.setId("chart-step-time-" + task.getId());
@@ -259,6 +279,7 @@ public class TaskDetailsDialog extends Dialog {
                     "      };" +
                     "      var options = {" +
                     "        series: " + seriesDataJs + "," +
+                    "        colors: " + colorsJs + "," +
                     "        chart: {" +
                     "           type: 'bar', height: 75, stacked: true, toolbar: { show: false }, sparkline: { enabled: true }," +
                     "           events: {" +

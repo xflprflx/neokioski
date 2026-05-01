@@ -12,6 +12,7 @@ import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.xflprflx.neokioski.models.Group;
@@ -33,6 +34,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Route(value = "", layout = MainLayout.class)
 @PageTitle("Início | NeoKioski")
@@ -91,11 +93,10 @@ public class HomeView extends Div {
         addClassName("dashboard-view-container");
         setId("dashboard-home");
         getStyle()
-            .set("padding", "32px")
+            .set("padding", "12px 24px")
             .set("box-sizing", "border-box");
 
-        createHeaderSection();
-        createFilterSection();
+        createTopSection();
         createKpiSection();
         createChartsSection();
 
@@ -109,7 +110,7 @@ public class HomeView extends Div {
                  * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
                  */
                 if (categoryNode != null && !categoryNode.isNull()) {
-                    String clickedName = categoryNode.isTextual() ? categoryNode.textValue() : categoryNode.toString().replace("\"", "");
+                    String clickedName = categoryNode.toString().replaceAll("^\"|\"$", "");
                     /*
                      * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
                      */
@@ -135,7 +136,7 @@ public class HomeView extends Div {
                  * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
                  */
                 if (categoryNode != null && !categoryNode.isNull()) {
-                    String templateStr = categoryNode.isString() ? categoryNode.stringValue() : categoryNode.toString().replace("\"", "");
+                    String templateStr = categoryNode.toString().replaceAll("^\"|\"$", "");
                     
                     /*
                      * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
@@ -163,7 +164,7 @@ public class HomeView extends Div {
                  * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
                  */
                 if (categoryNode != null && !categoryNode.isNull()) {
-                    String clickedName = categoryNode.isString() ? categoryNode.stringValue() : categoryNode.toString().replace("\"", "");
+                    String clickedName = categoryNode.toString().replaceAll("^\"|\"$", "");
                     /*
                      * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
                      */
@@ -183,7 +184,7 @@ public class HomeView extends Div {
             try {
                 var categoryNode = e.getEventData().get("event.detail.category");
                 if (categoryNode != null && !categoryNode.isNull()) {
-                    String clickedSla = categoryNode.isString() ? categoryNode.stringValue() : categoryNode.toString().replace("\"", "");
+                    String clickedSla = categoryNode.toString().replaceAll("^\"|\"$", "");
                     if (clickedSla != null) {
                         slaFilter.setValue(clickedSla);
                     }
@@ -195,7 +196,7 @@ public class HomeView extends Div {
             try {
                 var categoryNode = e.getEventData().get("event.detail.category");
                 if (categoryNode != null && !categoryNode.isNull()) {
-                    String clickedJust = categoryNode.isString() ? categoryNode.stringValue() : categoryNode.toString().replace("\"", "");
+                    String clickedJust = categoryNode.toString().replaceAll("^\"|\"$", "");
                     if (clickedJust != null) {
                         justificationFilter.setValue(clickedJust);
                     }
@@ -234,106 +235,101 @@ public class HomeView extends Div {
     /**
      * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
-    private void createHeaderSection() {
-        User user = securityService.getAuthenticatedInternalUser().orElse(null);
-        /*
-         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-         */
-        if (user == null) return;
+    private void createTopSection() {
+        VerticalLayout topLayout = new VerticalLayout();
+        topLayout.addClassNames("dashboard-header", "animate-in");
+        topLayout.setWidthFull();
+        topLayout.setPadding(false);
+        topLayout.setSpacing(false);
+        topLayout.getStyle()
+                .set("animation-delay", "0.1s")
+                .set("margin-bottom", "20px")
+                .set("background", "var(--dash-card-bg)")
+                .set("padding", "12px 24px")
+                .set("border-radius", "12px")
+                .set("box-shadow", "var(--dash-shadow)")
+                .set("border", "1px solid var(--dash-border)")
+                .set("grid-column", "span 12");
 
-        Div welcome = new Div();
-        welcome.addClassNames("welcome-section", "dashboard-header", "animate-in");
-        welcome.getStyle().set("animation-delay", "0.1s");
-        
-        Div titleRow = new Div();
-        titleRow.getStyle().set("display", "flex").set("justify-content", "space-between").set("align-items", "center").set("width", "100%");
-        
-        H1 title = new H1("Olá, " + user.getName() + " 👋");
-        title.getStyle().set("margin", "0").set("font-size", "2rem").set("font-weight", "800");
-        
-        titleRow.add(title);
-        
-        Span subtitle = new Span("Painel de Visibilidade Operacional");
-        subtitle.getStyle().set("color", "var(--dash-text-sec)").set("font-weight", "500");
-        
-        welcome.add(titleRow, subtitle);
-        /*
-         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
-         */
-        add(welcome);
-    }
-    /**
-     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
-     */
-    private void createFilterSection() {
-        Div filters = new Div();
-        filters.addClassNames("filter-section", "dashboard-filters", "animate-in");
-        filters.getStyle()
-                .set("animation-delay", "0.2s")
-                .set("display", "flex")
-                .set("flex-wrap", "wrap")
-                .set("gap", "16px")
-                .set("align-items", "center")
-                .set("margin-bottom", "24px")
-                .set("width", "100%");
+        Span title = new Span("Painel de Visibilidade Operacional");
+        title.getStyle()
+                .set("font-size", "1.1rem")
+                .set("font-weight", "700")
+                .set("color", "var(--dash-text-sec)")
+                .set("margin-bottom", "12px")
+                .set("letter-spacing", "0.05em")
+                .set("text-transform", "uppercase");
+
+        HorizontalLayout filtersRow = new HorizontalLayout();
+        filtersRow.setWidthFull();
+        filtersRow.setSpacing(true);
+        filtersRow.setPadding(false);
+        filtersRow.getStyle().set("overflow-x", "auto");
 
         startDatePicker = new DatePicker("De");
         startDatePicker.setValue(LocalDate.now().minusDays(30));
         startDatePicker.setLocale(Locale.forLanguageTag("pt-BR"));
         startDatePicker.setI18n(TaskUIUtils.getPtBrI18n());
+        startDatePicker.setWidth("140px");
 
         endDatePicker = new DatePicker("Até");
         endDatePicker.setValue(LocalDate.now());
         endDatePicker.setLocale(Locale.forLanguageTag("pt-BR"));
         endDatePicker.setI18n(TaskUIUtils.getPtBrI18n());
+        endDatePicker.setWidth("140px");
 
         groupFilter = new ComboBox<>("Grupo");
         groupFilter.setItems(groupService.findAll());
         groupFilter.setItemLabelGenerator(Group::getName);
-        groupFilter.setPlaceholder("Todos os grupos");
+        groupFilter.setPlaceholder("Todos");
         groupFilter.setClearButtonVisible(true);
+        groupFilter.setWidth("180px");
 
-        templateFilter = new ComboBox<>("Tipo de Tarefa");
+        templateFilter = new ComboBox<>("Tipo");
         templateFilter.setItems(templateService.findAll());
         templateFilter.setItemLabelGenerator(TaskTemplate::getName);
-        templateFilter.setPlaceholder("Todos os tipos");
+        templateFilter.setPlaceholder("Todos");
         templateFilter.setClearButtonVisible(true);
-
-        startDatePicker.addValueChangeListener(e -> updateDashboard());
-        endDatePicker.addValueChangeListener(e -> updateDashboard());
-        groupFilter.addValueChangeListener(e -> updateDashboard());
-        templateFilter.addValueChangeListener(e -> updateDashboard());
+        templateFilter.setWidth("180px");
 
         List<User> allUsers = userService.findAll();
         creatorFilter = new ComboBox<>("Criador");
         creatorFilter.setItems(allUsers);
         creatorFilter.setItemLabelGenerator(User::getName);
-        creatorFilter.setPlaceholder("Todos os criadores");
+        creatorFilter.setPlaceholder("Todos");
         creatorFilter.setClearButtonVisible(true);
-        creatorFilter.addValueChangeListener(e -> updateDashboard());
+        creatorFilter.setWidth("180px");
 
-        finalizerFilter = new ComboBox<>("Concluidor (Delivery)");
+        finalizerFilter = new ComboBox<>("Concluidor");
         finalizerFilter.setItems(allUsers);
         finalizerFilter.setItemLabelGenerator(User::getName);
-        finalizerFilter.setPlaceholder("Todos os concluidores");
+        finalizerFilter.setPlaceholder("Todos");
         finalizerFilter.setClearButtonVisible(true);
-        finalizerFilter.addValueChangeListener(e -> updateDashboard());
+        finalizerFilter.setWidth("180px");
 
-        slaFilter = new ComboBox<>("Filtro SLA");
-        slaFilter.setPlaceholder("Todos os SLAs");
+        slaFilter = new ComboBox<>("SLA");
+        slaFilter.setPlaceholder("Todos");
         slaFilter.setClearButtonVisible(true);
-        slaFilter.addValueChangeListener(e -> updateDashboard());
+        slaFilter.setWidth("150px");
 
         justificationFilter = new ComboBox<>("Justificativa");
         justificationFilter.setPlaceholder("Todas");
         justificationFilter.setClearButtonVisible(true);
+        justificationFilter.setWidth("150px");
+
+        startDatePicker.addValueChangeListener(e -> updateDashboard());
+        endDatePicker.addValueChangeListener(e -> updateDashboard());
+        groupFilter.addValueChangeListener(e -> updateDashboard());
+        templateFilter.addValueChangeListener(e -> updateDashboard());
+        creatorFilter.addValueChangeListener(e -> updateDashboard());
+        finalizerFilter.addValueChangeListener(e -> updateDashboard());
+        slaFilter.addValueChangeListener(e -> updateDashboard());
         justificationFilter.addValueChangeListener(e -> updateDashboard());
 
-        filters.add(startDatePicker, endDatePicker, groupFilter, templateFilter, creatorFilter, finalizerFilter, slaFilter, justificationFilter);
-        /*
-         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
-         */
-        add(filters);
+        filtersRow.add(startDatePicker, endDatePicker, groupFilter, templateFilter, creatorFilter, finalizerFilter, slaFilter, justificationFilter);
+        
+        topLayout.add(title, filtersRow);
+        add(topLayout);
     }
 
     /**

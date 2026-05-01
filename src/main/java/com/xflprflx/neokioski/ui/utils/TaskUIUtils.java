@@ -21,16 +21,21 @@ public class TaskUIUtils {
         String bg, fg;
         boolean isDark = false;
         switch (theme.toLowerCase()) {
-            case "blue": bg = "#e3f2fd"; fg = "#1565c0"; break;
-            case "yellow": bg = "#fff9c4"; fg = "#dc6d00"; break;
-            case "green": bg = "#e8f5e9"; fg = "#2e7d32"; break;
-            case "red": bg = "#ffebee"; fg = "#c62828"; break;
-            case "purple": bg = "#f3e5f5"; fg = "#7b1fa2"; break;
-            case "orange": bg = "#fff3e0"; fg = "#ef6c00"; break;
-            case "cyan": bg = "#e0f7fa"; fg = "#00838f"; break;
-            case "pink": bg = "#fce4ec"; fg = "#c2185b"; break;
-            case "gray": bg = "#f5f5f5"; fg = "#616161"; break;
-            case "black": bg = "#212121"; fg = "#ffffff"; isDark = true; break;
+            case "blue": case "azul": bg = "#e3f2fd"; fg = "#1565c0"; break;
+            case "yellow": case "amarelo": bg = "#fef9c3"; fg = "#ca8a04"; break;
+            case "green": case "verde": bg = "#e8f5e9"; fg = "#2e7d32"; break;
+            case "red": case "vermelho": bg = "#ffebee"; fg = "#c62828"; break;
+            case "purple": case "roxo": case "violeta": bg = "#f3e5f5"; fg = "#7b1fa2"; break;
+            case "orange": case "laranja": bg = "#fff3e0"; fg = "#ef6c00"; break;
+            case "cyan": case "ciano": bg = "#e0f7fa"; fg = "#00838f"; break;
+            case "pink": case "rosa": bg = "#fce4ec"; fg = "#c2185b"; break;
+            case "gray": case "cinza": bg = "#f5f5f5"; fg = "#616161"; break;
+            case "black": case "preto": bg = "#212121"; fg = "#000000"; isDark = true; break;
+            case "lime": case "lima": bg = "#f7fee7"; fg = "#4d7c0f"; break;
+            case "indigo": bg = "#eef2ff"; fg = "#4338ca"; break;
+            case "teal": case "turquesa": bg = "#f0fdfa"; fg = "#0f766e"; break;
+            case "gold": case "ouro": bg = "#fefce8"; fg = "#a16207"; break;
+            case "brown": case "marrom": bg = "#efebe9"; fg = "#5d4037"; break;
             default:
                 bg = "var(--lumo-contrast-5pct)";
                 fg = "var(--lumo-contrast-80pct)";
@@ -53,16 +58,21 @@ public class TaskUIUtils {
          * Retorna o componente renderizado ou o valor da operação atual.
          */
         return switch (theme.toLowerCase()) {
-            case "blue" -> "21, 101, 192";
-            case "yellow" -> "220, 109, 0";
-            case "green" -> "46, 125, 50";
-            case "red" -> "198, 40, 40";
-            case "purple" -> "123, 31, 162";
-            case "orange" -> "239, 108, 0";
-            case "cyan" -> "0, 131, 143";
-            case "pink" -> "194, 24, 91";
-            case "gray" -> "97, 97, 97";
-            case "black" -> "255, 255, 255";
+            case "blue", "azul" -> "21, 101, 192";
+            case "yellow", "amarelo" -> "202, 138, 4";
+            case "green", "verde" -> "46, 125, 50";
+            case "red", "vermelho" -> "198, 40, 40";
+            case "purple", "roxo", "violeta" -> "123, 31, 162";
+            case "orange", "laranja" -> "239, 108, 0";
+            case "cyan", "ciano" -> "0, 131, 143";
+            case "pink", "rosa" -> "194, 24, 91";
+            case "gray", "cinza" -> "97, 97, 97";
+            case "black", "preto" -> "0, 0, 0";
+            case "lime", "lima" -> "77, 124, 15";
+            case "indigo" -> "67, 56, 202";
+            case "teal", "turquesa" -> "15, 118, 110";
+            case "gold", "ouro" -> "161, 98, 7";
+            case "brown", "marrom" -> "93, 64, 55";
             default -> "110, 110, 110";
         };
     }
@@ -119,14 +129,9 @@ public class TaskUIUtils {
     public static void applyThemeStyles(com.vaadin.flow.component.HasStyle component, String theme) {
         String[] colors = getThemeColors(theme);
         component.getStyle().set("background-color", colors[1]);
-        /*
-         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-         */
-        if (theme != null && theme.equalsIgnoreCase("black")) {
-            component.getStyle().set("color", "#212121");
-        } else {
-            component.getStyle().set("color", "#ffffff");
-        }
+        // Se o tema for preto ou ouro (muito escuro), usa texto branco. 
+        // Se for amarelo claro (bg), usaria preto, mas aqui usamos fg como fundo.
+        component.getStyle().set("color", "#ffffff");
     }
 
     /**

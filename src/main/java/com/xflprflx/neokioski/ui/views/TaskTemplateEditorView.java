@@ -1124,7 +1124,23 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         dialog.setHeaderTitle(existingDto == null ? "Nova Etapa" : "Editar Etapa");
 
         TextField labelField = new TextField("Rótulo da Etapa");
-        ComboBox<String> colorCombo = new ComboBox<>("Tema", List.of("blue", "yellow", "green", "red", "purple", "orange", "cyan", "pink", "gray", "black"));
+        ComboBox<String> colorCombo = new ComboBox<>("Tema");
+        List<String> themeItems = new ArrayList<>(List.of("azul", "amarelo", "verde", "vermelho", "roxo", "laranja", "ciano", "rosa", "cinza", "preto", "lima", "indigo", "turquesa", "ouro", "marrom"));
+        Collections.sort(themeItems, (a, b) -> {
+            String labelA = getThemeLabel(a);
+            String labelB = getThemeLabel(b);
+            return labelA.compareToIgnoreCase(labelB);
+        });
+        colorCombo.setItems(themeItems);
+        colorCombo.setItemLabelGenerator(this::getThemeLabel);
+        colorCombo.setRenderer(new com.vaadin.flow.data.renderer.ComponentRenderer<>(item -> {
+            Span s = new Span(getThemeLabel(item));
+            String[] colors = TaskUIUtils.getThemeColors(item);
+            s.getStyle().set("color", colors[1]);
+            s.getStyle().set("font-weight", "600");
+            return s;
+        }));
+        colorCombo.setWidthFull();
         Checkbox finalizerCheck = new Checkbox("É Finalizador?");
         Checkbox globalCheck = new Checkbox("É Global?");
         Checkbox shouldPulseCheck = new Checkbox("Deve pulsar?");
@@ -2640,5 +2656,27 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         mentionsGrid.setItems(selectedGroups);
 
         tabContent.add(title, help, mentionsGrid);
+    }
+
+    private String getThemeLabel(String s) {
+        if (s == null) return "";
+        return switch (s.toLowerCase()) {
+            case "blue", "azul" -> "Azul";
+            case "yellow", "amarelo" -> "Amarelo";
+            case "green", "verde" -> "Verde";
+            case "red", "vermelho" -> "Vermelho";
+            case "purple", "roxo", "violeta" -> "Roxo";
+            case "orange", "laranja" -> "Laranja";
+            case "cyan", "ciano" -> "Ciano";
+            case "pink", "rosa" -> "Rosa";
+            case "gray", "cinza" -> "Cinza";
+            case "black", "preto" -> "Preto";
+            case "lime", "lima" -> "Lima";
+            case "indigo" -> "Indigo";
+            case "teal", "turquesa" -> "Turquesa";
+            case "gold", "ouro" -> "Ouro";
+            case "brown", "marrom" -> "Marrom";
+            default -> s.substring(0, 1).toUpperCase() + s.substring(1);
+        };
     }
 }

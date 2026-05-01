@@ -29,10 +29,7 @@ import jakarta.annotation.security.PermitAll;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -380,7 +377,7 @@ public class HomeView extends Div {
         tmaStackedChartDiv = new Div();
         tmaStackedChartDiv.setId("tma-stacked-chart");
         tmaStackedChartDiv.getStyle().set("flex-grow", "1");
-        tmaCol.add(createChartHeader("TMA Médio Total por Tipo"), tmaStackedChartDiv);
+        tmaCol.add(createChartHeader("TMA por Tipo e Step"), tmaStackedChartDiv);
         tmaRow.add(tmaCol);
         add(tmaRow);
 
@@ -409,7 +406,7 @@ public class HomeView extends Div {
         finalizerRankingChartDiv = new Div();
         finalizerRankingChartDiv.setId("finalizer-ranking-chart");
         finalizerRankingChartDiv.getStyle().set("flex-grow", "1");
-        finalizerRankingHeaderDiv = createChartHeader("Ranking Concluidores (Delivery)");
+        finalizerRankingHeaderDiv = createChartHeader("Ranking Concluidores");
         finalizerCol.add(finalizerRankingHeaderDiv, finalizerRankingChartDiv);
 
         rankingRow.add(rankingCol, finalizerCol);
@@ -577,7 +574,7 @@ public class HomeView extends Div {
         if (activeFinalizerFilter != null) {
              finalizerRankingHeaderDiv.setText("Ranking (Filtro: " + activeFinalizerFilter + ")");
         } else {
-             finalizerRankingHeaderDiv.setText("Ranking Concluidores (Delivery)");
+             finalizerRankingHeaderDiv.setText("Ranking Concluidores");
         }
 
         renderKpiCards(data.stats());
@@ -715,21 +712,49 @@ public class HomeView extends Div {
             String mixedPct = objectMapper.writeValueAsString(data.history().stream().map(d -> d.percentage()).toList());
             String mixedLabels = objectMapper.writeValueAsString(data.history().stream().map(d -> d.date()).toList());
 
-            // Processar TMA
-            List<String> tmaCategories = data.tmaPerStep().stream().map(d -> d.category()).toList();
-            List<Double> tmaTotals = data.tmaPerStep().stream().map(d -> d.totalAvgSeconds()).toList();
-
-            Map<String, Map<String, Double>> detailedTmaMap = new HashMap<>();
-            /*
-             * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
-             */
-            for (DashboardService.StackedBarData d : data.tmaPerStep()) {
-                detailedTmaMap.put(d.category(), d.seriesValues());
+            // Processar TMA para Barras Empilhadas (Horizontal Stacked) - Ordenado por tempo total (maior para menor)
+            List<DashboardService.StackedBarData> sortedTmaData = new java.util.ArrayList<>(data.tmaPerStep());
+            sortedTmaData.sort(java.util.Comparator.comparingDouble(DashboardService.StackedBarData::totalAvgSeconds).reversed());
+            
+            List<String> tmaCategories = sortedTmaData.stream().map(d -> d.category()).toList();
+            
+            // Coletar todos os nomes únicos de etapas e mapear temas para cores
+            Set<String> allSteps = new java.util.LinkedHashSet<>();
+            for (DashboardService.StackedBarData d : sortedTmaData) {
+                allSteps.addAll(d.seriesValues().keySet());
             }
 
-            String stackedSeriesJson = objectMapper.writeValueAsString(tmaTotals);
+            // Mapear temas das etapas para cores usando o mapa fornecido pelo serviço (seguro contra LazyInitializationException)
+            Map<String, String> stepToTheme = data.stepThemes();
+
+            List<String> tmaColorList = new java.util.ArrayList<>();
+            List<Map<String, Object>> tmaSeriesList = new java.util.ArrayList<>();
+            for (String step : allSteps) {
+                // Resolver Cor
+                String theme = stepToTheme.get(step);
+                String color;
+                if ("Aguardando".equals(step) || theme == null) {
+                    color = "#b0bec5"; // Cor neutra para aguardando/sem tema
+                } else if ("black".equalsIgnoreCase(theme)) {
+                    color = "#212121";
+                } else {
+                    color = com.xflprflx.neokioski.ui.utils.TaskUIUtils.getThemeColors(theme)[1];
+                }
+                tmaColorList.add(color);
+
+                Map<String, Object> series = new HashMap<>();
+                series.put("name", step);
+                List<Double> stepValues = new java.util.ArrayList<>();
+                for (DashboardService.StackedBarData d : sortedTmaData) {
+                    stepValues.add(d.seriesValues().getOrDefault(step, 0.0));
+                }
+                series.put("data", stepValues);
+                tmaSeriesList.add(series);
+            }
+
+            String stackedSeriesJson = objectMapper.writeValueAsString(tmaSeriesList);
             String stackedCategoriesJson = objectMapper.writeValueAsString(tmaCategories);
-            String detailedTmaJson = objectMapper.writeValueAsString(detailedTmaMap);
+            String stackedColorsJson = objectMapper.writeValueAsString(tmaColorList);
 
             String js = String.format("""
                 (function() {
@@ -875,13 +900,13 @@ public class HomeView extends Div {
                             dataLabels: { enabled: true }
                         };
 
-                        const detailedTma = %s;
                         const tmaOptions = {
                                 ...commonOptions,
-                                series: [{ name: 'TMA Total', data: %s }],
+                                series: %s,
                                 chart: { 
                                     ...commonOptions.chart, 
                                     type: 'bar', 
+                                    stacked: true,
                                     height: '100%%',
                                     events: {
                                         click: function(event, chartContext, config) {
@@ -913,10 +938,17 @@ public class HomeView extends Div {
                                         }
                                     }
                                 },
-                                plotOptions: { bar: { horizontal: false, borderRadius: 4, columnWidth: '40%%' } },
-                                colors: ['#3b82f6'],
-                                xaxis: { categories: %s },
-                                yaxis: { 
+                                colors: %s,
+                                plotOptions: { 
+                                    bar: { 
+                                        horizontal: true, 
+                                        borderRadius: 4, 
+                                        barHeight: '60%%'
+                                    } 
+                                },
+                                stroke: { width: 1, colors: ['#fff'] },
+                                xaxis: { 
+                                    categories: %s,
                                     labels: { 
                                         formatter: function(val) {
                                             const h = Math.floor(val / 3600);
@@ -932,58 +964,79 @@ public class HomeView extends Div {
                                         }
                                     } 
                                 },
+                                yaxis: { labels: { maxWidth: 150 } },
+                                legend: { show: false },
                                 tooltip: {
+                                    shared: true,
+                                    intersect: false,
                                     custom: function({series, seriesIndex, dataPointIndex, w}) {
                                         const category = w.globals.labels[dataPointIndex];
-                                        const totalVal = series[seriesIndex][dataPointIndex];
-                                        const formatTime = (val) => {
-                                            if (!val || val === 0) return "0s";
-                                            if (val < 60) return val.toFixed(1) + "s";
-                                            const totalSecs = Math.round(val);
-                                            const h = Math.floor(totalSecs / 3600);
-                                            const m = Math.floor((totalSecs %% 3600) / 60);
-                                            const s = totalSecs %% 60;
-                                            if (h > 0) return h + "h " + m + "m " + s + "s";
-                                            return m + "m " + s + "s";
-                                        };
-                                        const bgColor = '#ffffff';
-                                        const textColor = '#1e293b';
-                                        const borderColor = '#e2e8f0';
-                                        let tHTML = '<div style="padding: 12px; background: ' + bgColor + '; color: ' + textColor + '; min-width: 220px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-radius: 6px; border: 1px solid ' + borderColor + ';">';
-                                        tHTML += '<div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid ' + borderColor + '; padding-bottom: 6px;">' + category + '</div>';
-                                        tHTML += '<div style="margin-bottom: 10px; font-weight: 600; color: #3b82f6;">Tempo Total: ' + formatTime(totalVal) + '</div>';
-                                        /*
-                                         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                                         */
-                                        if (detailedTma && detailedTma[category]) {
-                                            /*
-                                             * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
-                                             */
-                                            for (const [stepName, stepVal] of Object.entries(detailedTma[category])) {
-                                                tHTML += '<div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px;">';
-                                                tHTML += '<span style="opacity: 0.8; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">- ' + stepName + '</span>';
-                                                tHTML += '<span style="font-weight: 500;">' + formatTime(stepVal) + '</span>';
-                                                tHTML += '</div>';
+                                        let totalVal = 0;
+                                        let itemsHtml = "";
+                                        
+                                        // Calcular total e construir lista de itens
+                                        w.config.series.forEach((s, idx) => {
+                                            const val = s.data[dataPointIndex];
+                                            if (val && val > 0) {
+                                                totalVal += val;
+                                                const color = w.config.colors[idx];
+                                                const formatTime = (v) => {
+                                                    const ts = Math.round(v * 10) / 10;
+                                                    const h = Math.floor(ts / 3600);
+                                                    const m = Math.floor((ts %% 3600) / 60);
+                                                    const s = (ts %% 60).toFixed(h > 0 || m > 0 ? 0 : 1);
+                                                    if (h > 0) return h + "h " + m + "m " + s + "s";
+                                                    if (m > 0) return m + "m " + s + "s";
+                                                    return s + "s";
+                                                };
+                                                
+                                                itemsHtml += `
+                                                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 4px; font-size: 12px;">
+                                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                                            <span style="width: 8px; height: 8px; border-radius: 50%%; background: ${color};"></span>
+                                                            <span style="opacity: 0.8;">${s.name}</span>
+                                                        </div>
+                                                        <span style="font-weight: 600;">${formatTime(val)}</span>
+                                                    </div>
+                                                `;
                                             }
-                                        }
-                                        tHTML += '</div>';
-                                        /*
-                                         * Retorna o componente renderizado ou o valor da operação atual.
-                                         */
-                                        return tHTML;
+                                        });
+
+                                        const formatTotal = (v) => {
+                                            const ts = Math.round(v * 10) / 10;
+                                            const h = Math.floor(ts / 3600);
+                                            const m = Math.floor((ts %% 3600) / 60);
+                                            const s = (ts %% 60).toFixed(h > 0 || m > 0 ? 0 : 1);
+                                            if (h > 0) return h + "h " + m + "m " + s + "s";
+                                            if (m > 0) return m + "m " + s + "s";
+                                            return s + "s";
+                                        };
+
+                                        return `
+                                            <div style="padding: 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); min-width: 240px; color: #1e293b;">
+                                                <div style="font-weight: bold; font-size: 14px; margin-bottom: 4px;">${category}</div>
+                                                <div style="font-size: 13px; color: #3b82f6; font-weight: 600; margin-bottom: 10px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">
+                                                    TMA Médio Total: ${formatTotal(totalVal)}
+                                                </div>
+                                                <div>${itemsHtml}</div>
+                                            </div>
+                                        `;
                                     }
                                 },
-                                dataLabels: { enabled: true, formatter: (val) => { 
-                                    if (!val || val === 0) return "0s";
-                                    const totalSecs = Math.round(val * 10) / 10;
-                                    const h = Math.floor(totalSecs / 3600);
-                                    const m = Math.floor((totalSecs %% 3600) / 60);
-                                    const s = (totalSecs %% 60).toFixed(h > 0 || m > 0 ? 0 : 1);
-                                    if (h > 0) return h + "h " + m + "m " + s + "s";
-                                    if (m > 0) return m + "m " + s + "s";
-                                    return s + "s";
-                                }, style: { colors: [tc], fontSize: '10px' } },
-                                legend: { show: false }
+                                dataLabels: { 
+                                    enabled: true, 
+                                    formatter: function(val) { 
+                                        if (!val || val === 0) return "";
+                                        const totalSecs = Math.round(val * 10) / 10;
+                                        const h = Math.floor(totalSecs / 3600);
+                                        const m = Math.floor((totalSecs %% 3600) / 60);
+                                        const s = (totalSecs %% 60).toFixed(h > 0 || m > 0 ? 0 : 1);
+                                        if (h > 0) return h + "h " + m + "m " + s + "s";
+                                        if (m > 0) return m + "m " + s + "s";
+                                        return s + "s";
+                                    }, 
+                                    style: { fontSize: '10px' } 
+                                }
                         };
 
                         const mixedChartOptions = {
@@ -1045,7 +1098,7 @@ public class HomeView extends Div {
                     window.removeEventListener('theme-changed', tryRenderAll);
                     window.addEventListener('theme-changed', tryRenderAll);
                 })();
-                """, mixedTotal, mixedOnTime, mixedDelayed, mixedPct, rankingSeries, rankingLabels, finalizerSeries, finalizerLabels, detailedTmaJson, stackedSeriesJson, stackedCategoriesJson, mixedTotal, mixedOnTime, mixedPct, mixedLabels);
+                """, mixedTotal, mixedOnTime, mixedDelayed, mixedPct, rankingSeries, rankingLabels, finalizerSeries, finalizerLabels, stackedSeriesJson, stackedColorsJson, stackedCategoriesJson, mixedTotal, mixedOnTime, mixedPct, mixedLabels);
 
             // ====== SLA INSIGHTS CHARTS ======
             // Performance por SLA (barras agrupadas)

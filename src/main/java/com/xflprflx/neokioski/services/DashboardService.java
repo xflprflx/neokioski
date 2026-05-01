@@ -61,8 +61,9 @@ public class DashboardService {
                 .map(t -> t.getTaskTemplate() != null ? t.getTaskTemplate().getId() : null)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
+        List<TemplateStepRelation> allRels = new ArrayList<>();
         if (!uniqueTemplateIds.isEmpty()) {
-            List<TemplateStepRelation> allRels = stepRelationRepository.findByTaskTemplateIdIn(uniqueTemplateIds);
+            allRels = stepRelationRepository.findByTaskTemplateIdIn(uniqueTemplateIds);
             for (TemplateStepRelation r : allRels) {
                 if (r.getTaskTemplate() != null && r.getTaskStepDefinition() != null) {
                     relCache.put(r.getTaskTemplate().getId() + "-" + r.getTaskStepDefinition().getId(), r);
@@ -70,7 +71,15 @@ public class DashboardService {
             }
         } else {
             // Se não há tasks, podemos pular o processamento pesado
-            return new DashboardData(new DashboardStats(0, 0, 0, 0, 0, 0), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
+            return new DashboardData(new DashboardStats(0, 0, 0, 0, 0, 0), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new HashMap<>());
+        }
+
+        // Mapear temas das etapas para cores para uso no gráfico de TMA
+        Map<String, String> stepThemes = new HashMap<>();
+        for (TemplateStepRelation r : allRels) {
+            if (r.getTaskStepDefinition() != null) {
+                stepThemes.putIfAbsent(r.getTaskStepDefinition().getLabel(), r.getTaskStepDefinition().getColorTheme());
+            }
         }
 
         // 2. Ranking Base (Menu de Criadores) -> Afetado por Tipo, Concluidor e Data Clique. Ignora clique em Criador.
@@ -335,7 +344,7 @@ public class DashboardService {
                 .limit(30)
                 .toList();
 
-        return new DashboardData(stats, userRanking, finalizerRanking, history, tmaPerStep, slaInsights, justificationRanking, recentComments, wordCloud);
+        return new DashboardData(stats, userRanking, finalizerRanking, history, tmaPerStep, slaInsights, justificationRanking, recentComments, wordCloud, stepThemes);
     }
 
     /**
@@ -347,33 +356,23 @@ public class DashboardService {
          */
         if (t.getTaskEvents() == null || t.getTaskEvents().isEmpty()) return null;
         
-        // Buscar o evento que preencheu o campo de Delivery
-        // No NeoKioski, isso é identificado via TemplateStepRelation que tenha hasResponseField=true e label contendo 'DELIVERY'
-        /*
-         * Inicia um laço de repetição (for) para iterar sobre os elementos.
-         */
-        for (TaskEvent event : t.getTaskEvents()) {
-            /*
-             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-             */
+        // Identificar o concluidor como o usuário do último passo finalizador
+        List<TaskEvent> events = new ArrayList<>(t.getTaskEvents());
+        events.sort(Comparator.comparing(TaskEvent::getTimestamp).reversed());
+
+        for (TaskEvent event : events) {
             if (event.getTaskStepDefinition() == null) continue;
             
             String cacheKey = t.getTaskTemplate().getId() + "-" + event.getTaskStepDefinition().getId();
-
             TemplateStepRelation relation = relCache.get(cacheKey);
             
-            // #improve_n+1 - Remoção da query de fallback. O cache deve ser populado integralmente no início.
-            if (relation != null && relation.isHasResponseField() &&
-                relation.getResponseFieldLabel() != null &&
-                relation.getResponseFieldLabel().toUpperCase().contains("DELIVERY")) {
-                
+            if (relation != null && relation.isFinalizer()) {
                 return event.getUser() != null ? event.getUser().getName() : null;
             }
         }
-        /*
-         * Retorna o resultado final processado pelo métodx.
-         */
-        return null;
+
+        // Fallback: Se não houver passo explicitamente finalizador com evento, pega o último usuário que interagiu
+        return events.get(0).getUser() != null ? events.get(0).getUser().getName() : null;
     }
 
     /**
@@ -493,6 +492,7 @@ public class DashboardService {
         List<SlaInsightData> slaInsights,
         List<JustificationRankData> justificationRanking,
         List<String> recentComments,
-        List<JustificationRankData> wordCloud
+        List<JustificationRankData> wordCloud,
+        Map<String, String> stepThemes
     ) {}
 }

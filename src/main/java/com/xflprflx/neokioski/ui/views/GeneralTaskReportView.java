@@ -25,6 +25,7 @@ import com.xflprflx.neokioski.models.template.TaskTemplate;
 import com.xflprflx.neokioski.services.*;
 import com.xflprflx.neokioski.ui.components.TaskDetailsDialog;
 import com.xflprflx.neokioski.ui.utils.TaskUIUtils;
+import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 
 import java.time.Instant;
@@ -34,9 +35,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 
+@PermitAll
 @PageTitle("Relatório Geral de Tarefas | NeoKioski")
 @Route(value = "relatorio-geral", layout = MainLayout.class)
-@RolesAllowed("ADMIN")
 /**
  * View do painel de administração que permite gerar e visualizar relatórios consolidados sobre as tarefas.
  */

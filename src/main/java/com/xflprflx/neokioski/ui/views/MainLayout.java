@@ -143,6 +143,8 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
         SideNavItem chatsItem = new SideNavItem("Chats", (String) null, VaadinIcon.CHAT.create());
         chatsItem.getElement().addEventListener("click", e -> showChatNav(null));
         nav.addItem(chatsItem);
+        nav.addItem(new SideNavItem("Relatório Loja", StoreReportView.class, VaadinIcon.CHART.create()));
+        nav.addItem(new SideNavItem("Relatório Geral", GeneralTaskReportView.class, VaadinIcon.LIST_OL.create()));
 
         /*
          * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
@@ -151,8 +153,6 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
             nav.addItem(new SideNavItem("Grupos", GroupListView.class, VaadinIcon.USERS.create()));
             nav.addItem(new SideNavItem("Usuários", UserListView.class, VaadinIcon.USER_CARD.create()));
             nav.addItem(new SideNavItem("Templates", TaskTemplateListView.class, VaadinIcon.FILE_TEXT.create()));
-            nav.addItem(new SideNavItem("Relatório Geral", GeneralTaskReportView.class, VaadinIcon.LIST_OL.create()));
-            nav.addItem(new SideNavItem("Relatório Loja", StoreReportView.class, VaadinIcon.CHART.create()));
             nav.addItem(new SideNavItem("Modelos de Relatório", StoreReportConfigListView.class, VaadinIcon.EDIT.create()));
         }
 

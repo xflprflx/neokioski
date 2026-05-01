@@ -1,24 +1,25 @@
 package com.xflprflx.neokioski.ui.views;
 
+import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.grid.Grid;
-import com.vaadin.flow.component.html.H2;
-import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
-import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.router.PageTitle;
-import com.vaadin.flow.router.Route;
-import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.html.Anchor;
+import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.router.PageTitle;
+import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.StreamResource;
 import com.xflprflx.neokioski.repositories.StoreReportConfigRepository;
 import com.xflprflx.neokioski.services.PdfService;
 import com.xflprflx.neokioski.services.TaskService;
 import com.xflprflx.neokioski.ui.utils.TaskUIUtils;
 import jakarta.annotation.security.PermitAll;
+import jakarta.annotation.security.RolesAllowed;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -27,12 +28,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 
-@PermitAll
-@Route(value = "relatorio-loja", layout = MainLayout.class)
-@PageTitle("Relatório de Loja | NeoKioski")
 /**
  * View dedicada à exibição dos relatórios de uma unidade/loja específica com opções de exportação (PDF/Excel).
  */
+@PermitAll
+@Route(value = "relatorio-loja", layout = MainLayout.class)
+@PageTitle("Relatório de Loja | NeoKioski")
 public class StoreReportView extends VerticalLayout {
 
     private final TaskService taskService;

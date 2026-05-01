@@ -211,26 +211,61 @@ public class TaskDetailsDialog extends Dialog {
             com.vaadin.flow.component.html.Div chartDiv = new com.vaadin.flow.component.html.Div();
             chartDiv.setId("chart-step-time-" + task.getId());
             chartDiv.setWidthFull();
-            chartDiv.setHeight("90px"); // Reduzido
+            chartDiv.setHeight("75px");
             
+            com.vaadin.flow.component.html.Span totalTimeSpan = new com.vaadin.flow.component.html.Span("Calculando tempo total...");
+            totalTimeSpan.setId("total-time-" + task.getId());
+            totalTimeSpan.getStyle()
+                    .set("font-size", "var(--lumo-font-size-xs)")
+                    .set("font-weight", "bold")
+                    .set("color", "var(--lumo-secondary-text-color)")
+                    .set("margin-left", "30px")
+                    .set("margin-top", "-10px")
+                    .set("margin-bottom", "var(--lumo-space-xs)");
+
             chartDiv.addAttachListener(e -> {
                 e.getUI().getPage().executeJs(
                     "if (typeof ApexCharts === 'undefined') {" +
                     "  var script = document.createElement('script');" +
                     "  script.src = 'https://cdn.jsdelivr.net/npm/apexcharts';" +
-                    "  script.onload = function() { renderTimeline($0); };" +
+                    "  script.onload = function() { renderTimeline($0, $1); };" +
                     "  document.head.appendChild(script);" +
                     "} else {" +
-                    "  renderTimeline($0);" +
+                    "  renderTimeline($0, $1);" +
                     "}" +
-                    "function renderTimeline(id) {" +
+                    "function renderTimeline(id, totalId) {" +
                     "  setTimeout(function() {" +
                     "    var el = document.getElementById(id);" +
+                    "    var totalEl = document.getElementById(totalId);" +
                     "    if (el) {" +
                     "      el.innerHTML = '';" +
+                    "      var formatMins = function(val) {" +
+                    "         var totalSecs = Math.round(val * 60);" +
+                    "         var h = Math.floor(totalSecs / 3600);" +
+                    "         var m = Math.floor((totalSecs % 3600) / 60);" +
+                    "         var s = totalSecs % 60;" +
+                    "         if (h > 0) return h + ':' + (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);" +
+                    "         if (m > 0) return m + ':' + (s < 10 ? '0' + s : s);" +
+                    "         return s + 's';" +
+                    "      };" +
+                    "      var updateTotal = function(chart) {" +
+                    "         var total = 0;" +
+                    "         var series = chart.w.config.series;" +
+                    "         var collapsed = chart.w.globals.collapsedSeriesIndices || [];" +
+                    "         series.forEach(function(s, i) {" +
+                    "            if (collapsed.indexOf(i) === -1) total += s.data[0];" +
+                    "         });" +
+                    "         if (totalEl) totalEl.innerText = '⏱️ Tempo Total Visualizado: ' + formatMins(total);" +
+                    "      };" +
                     "      var options = {" +
                     "        series: " + seriesDataJs + "," +
-                    "        chart: { type: 'bar', height: 75, stacked: true, toolbar: { show: false }, sparkline: { enabled: true } }," +
+                    "        chart: {" +
+                    "           type: 'bar', height: 75, stacked: true, toolbar: { show: false }, sparkline: { enabled: true }," +
+                    "           events: {" +
+                    "              mounted: function(chart) { updateTotal(chart); }," +
+                    "              legendClick: function(chart, sIdx, opts) { setTimeout(function(){ updateTotal(chart); }, 100); }" +
+                    "           }" +
+                    "        }," +
                     "        grid: { padding: { left: 30, right: 30, top: 0, bottom: 0 } }," +
                     "        plotOptions: { bar: { horizontal: true, barHeight: '30%', borderRadius: 3 } }," +
                     "        dataLabels: { " +
@@ -244,10 +279,7 @@ public class TaskDetailsDialog extends Dialog {
                     "        }," +
                     "        tooltip: { " +
                     "           enabled: true, " +
-                    "           y: { formatter: function(val) { " +
-                    "               if (val < 1) return Math.round(val * 60) + ' segundos'; " +
-                    "               return val.toFixed(2) + ' minutos'; " +
-                    "           } } " +
+                    "           y: { formatter: function(val) { return formatMins(val); } } " +
                     "        }," +
                     "        legend: { show: true, position: 'top', horizontalAlign: 'left', fontSize: '10px', markers: { radius: 12, width: 8, height: 8 } }," +
                     "        xaxis: { categories: ['Duração'] }" +
@@ -256,10 +288,10 @@ public class TaskDetailsDialog extends Dialog {
                     "      chart.render();" +
                     "    }" +
                     "  }, 100);" +
-                    "}", chartDiv.getId().get()
+                    "}", chartDiv.getId().get(), totalTimeSpan.getId().get()
                 );
             });
-            content.add(chartDiv);
+            content.add(chartDiv, totalTimeSpan);
 
             /*
              * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.

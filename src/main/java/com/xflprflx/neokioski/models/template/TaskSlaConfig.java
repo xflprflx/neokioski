@@ -7,6 +7,7 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "tb_task_sla_configs")
+@org.hibernate.annotations.BatchSize(size = 50)
 /**
  * Entidade de configuração que define os parâmetros de limite de tempo (SLA) para os passos de um template de tarefa.
  */
@@ -16,18 +17,18 @@ public class TaskSlaConfig {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "task_template_id", nullable = false)
     private TaskTemplate taskTemplate;
 
     @Column(nullable = false)
     private String name;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "source_step_id")
     private TaskStepDefinition sourceStep;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "target_step_id")
     private TaskStepDefinition targetStep;
 
@@ -42,6 +43,9 @@ public class TaskSlaConfig {
     private Instant validFrom;
 
     private Instant validTo;
+
+    @Column(columnDefinition = "TEXT")
+    private String justificationOptions;
 
     public TaskSlaConfig() {
     }
@@ -116,6 +120,26 @@ public class TaskSlaConfig {
 
     public void setValidTo(Instant validTo) {
         this.validTo = validTo;
+    }
+
+    public String getJustificationOptions() {
+        return justificationOptions;
+    }
+
+    public void setJustificationOptions(String justificationOptions) {
+        this.justificationOptions = justificationOptions;
+    }
+
+    /**
+     * Retorna as opções de justificativa como uma lista, separadas por vírgula.
+     */
+    public java.util.List<String> getJustificationOptionsList() {
+        if (justificationOptions == null || justificationOptions.isBlank()) {
+            return java.util.Collections.emptyList();
+        }
+        return java.util.Arrays.stream(justificationOptions.split("\\s*,\\s*"))
+                .filter(s -> !s.isBlank())
+                .toList();
     }
 
     @Override

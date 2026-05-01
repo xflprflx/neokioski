@@ -6,10 +6,12 @@ import com.xflprflx.neokioski.models.TaskEvent;
 import com.xflprflx.neokioski.models.TaskSlaResult;
 import com.xflprflx.neokioski.models.enums.SlaStatus;
 import com.xflprflx.neokioski.models.template.TaskTemplate;
+import com.xflprflx.neokioski.models.template.TemplateStepRelation;
 import com.xflprflx.neokioski.repositories.TaskRepository;
 import com.xflprflx.neokioski.repositories.TaskSlaResultRepository;
 import com.xflprflx.neokioski.repositories.TaskTemplateRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -40,10 +42,11 @@ public class DashboardService {
         this.stepRelationRepository = stepRelationRepository;
     }
 
+    @Transactional(readOnly = true)
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
-    public DashboardData getDashboardData(Instant start, Instant end, Group group, TaskTemplate type, String creatorNameFilter, String finalizerNameFilter, String dateFilterStr) {
+    public DashboardData getDashboardData(Instant start, Instant end, Group group, TaskTemplate type, String creatorNameFilter, String finalizerNameFilter, String dateFilterStr, String slaNameFilter, String justificationFilter) {
         // Buscar todas as tasks no período base de dados limitados pelas DatePickers
         List<Task> tasks = taskRepository.findAllByCreatedAtBetween(start, end);
 
@@ -52,10 +55,28 @@ public class DashboardService {
                 .filter(t -> group == null || group.equals(t.getGroup()))
                 .collect(Collectors.toList());
 
+        // #improve_n+1 pre-cache em lote para evitar query N+1 em loop
+        Map<String, TemplateStepRelation> relCache = new HashMap<>();
+        Set<Long> uniqueTemplateIds = globalBaseTasks.stream()
+                .map(t -> t.getTaskTemplate() != null ? t.getTaskTemplate().getId() : null)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (!uniqueTemplateIds.isEmpty()) {
+            List<TemplateStepRelation> allRels = stepRelationRepository.findByTaskTemplateIdIn(uniqueTemplateIds);
+            for (TemplateStepRelation r : allRels) {
+                if (r.getTaskTemplate() != null && r.getTaskStepDefinition() != null) {
+                    relCache.put(r.getTaskTemplate().getId() + "-" + r.getTaskStepDefinition().getId(), r);
+                }
+            }
+        } else {
+            // Se não há tasks, podemos pular o processamento pesado
+            return new DashboardData(new DashboardStats(0, 0, 0, 0, 0, 0), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
+        }
+
         // 2. Ranking Base (Menu de Criadores) -> Afetado por Tipo, Concluidor e Data Clique. Ignora clique em Criador.
         List<Task> rankingBaseTasks = globalBaseTasks.stream()
                 .filter(t -> type == null || type.equals(t.getTaskTemplate()))
-                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t), finalizerNameFilter))
+                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t, relCache), finalizerNameFilter))
                 .filter(t -> dateFilterStr == null || formatDate(t.getCreatedAt()).equals(dateFilterStr))
                 .collect(Collectors.toList());
 
@@ -76,7 +97,7 @@ public class DashboardService {
                 .collect(Collectors.toList());
 
         List<ChartDataPoint> finalizerRanking = finalizerBaseTasks.stream()
-                .map(this::getTaskFinalizerName)
+                .map(t -> getTaskFinalizerName(t, relCache))
                 .filter(Objects::nonNull)
                 .collect(Collectors.groupingBy(name -> name, Collectors.counting()))
                 .entrySet().stream()
@@ -88,7 +109,7 @@ public class DashboardService {
         // 3. TMA Base (Menu de Tipos) -> Afetado por Criador, Concluidor e Data Clique. Ignora clique em Tipo.
         List<Task> tmaBaseTasks = globalBaseTasks.stream()
                 .filter(t -> creatorNameFilter == null || (t.getCreator() != null && t.getCreator().getName().equals(creatorNameFilter)))
-                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t), finalizerNameFilter))
+                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t, relCache), finalizerNameFilter))
                 .filter(t -> dateFilterStr == null || formatDate(t.getCreatedAt()).equals(dateFilterStr))
                 .collect(Collectors.toList());
 
@@ -96,15 +117,17 @@ public class DashboardService {
         List<Task> historyBaseTasks = globalBaseTasks.stream()
                 .filter(t -> type == null || type.equals(t.getTaskTemplate()))
                 .filter(t -> creatorNameFilter == null || (t.getCreator() != null && t.getCreator().getName().equals(creatorNameFilter)))
-                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t), finalizerNameFilter))
+                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t, relCache), finalizerNameFilter))
                 .collect(Collectors.toList());
 
         // 5. Strict Base (Variáveis centrais da tela KPIs, afetado por TODOS OS SELETORES EM CADEIA)
         List<Task> strictFilteredTasks = globalBaseTasks.stream()
                 .filter(t -> type == null || type.equals(t.getTaskTemplate()))
                 .filter(t -> creatorNameFilter == null || (t.getCreator() != null && t.getCreator().getName().equals(creatorNameFilter)))
-                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t), finalizerNameFilter))
+                .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t, relCache), finalizerNameFilter))
                 .filter(t -> dateFilterStr == null || formatDate(t.getCreatedAt()).equals(dateFilterStr))
+                .filter(t -> slaNameFilter == null || t.getSlaResults().stream().anyMatch(r -> r.getSlaConfig() != null && Objects.equals(r.getSlaConfig().getName(), slaNameFilter)))
+                .filter(t -> justificationFilter == null || t.getSlaResults().stream().anyMatch(r -> Objects.equals(r.getJustification(), justificationFilter)))
                 .collect(Collectors.toList());
 
         // KPI Calculations (Restritos ao extremo)
@@ -148,7 +171,7 @@ public class DashboardService {
                     long dDelayed = dCompleted - dOnTime;
                     double dPct = dCompleted == 0 ? 0 : (double) dOnTime / dCompleted * 100;
                     /*
-                     * Retorna o resultado final processado pelo método.
+                     * Retorna o resultado final processado pelo métodx.
                      */
                     return new MixedChartPoint(date, dTotal, dOnTime, dDelayed, dPct);
                 })
@@ -236,16 +259,89 @@ public class DashboardService {
             tmaPerStep.add(new StackedBarData(templateName, trueTemplateAvg, seriesValues));
         }
 
-        /*
-         * Retorna o resultado final processado pelo método.
-         */
-        return new DashboardData(stats, userRanking, finalizerRanking, history, tmaPerStep);
+        // === INSIGHTS DE SLA ===
+        // Performance por nome de SLA
+        List<TaskSlaResult> allSlaResults = strictFilteredTasks.stream()
+                .filter(t -> t.getSlaResults() != null)
+                .flatMap(t -> t.getSlaResults().stream())
+                .toList();
+
+        Map<String, List<TaskSlaResult>> resultsBySlaName = allSlaResults.stream()
+                .filter(r -> r.getSlaConfig() != null && r.getSlaConfig().getName() != null)
+                .collect(Collectors.groupingBy(r -> r.getSlaConfig().getName()));
+
+        List<SlaInsightData> slaInsights = resultsBySlaName.entrySet().stream()
+                .map(entry -> {
+                    String slaName = entry.getKey();
+                    List<TaskSlaResult> results = entry.getValue();
+                    long total = results.size();
+                    long slaOnTime = results.stream().filter(r -> r.getStatus() == SlaStatus.ON_TIME).count();
+                    long slaDelayed = total - slaOnTime;
+                    double pct = total == 0 ? 0 : (double) slaOnTime / total * 100;
+                    return new SlaInsightData(slaName, total, slaOnTime, slaDelayed, pct);
+                })
+                .sorted(Comparator.comparing(SlaInsightData::total).reversed())
+                .toList();
+
+        // Ranking de justificativas mais frequentes
+        List<JustificationRankData> justificationRanking = allSlaResults.stream()
+                .filter(r -> r.getStatus() == SlaStatus.DELAYED)
+                .filter(r -> r.getJustification() != null && !r.getJustification().isBlank())
+                .collect(Collectors.groupingBy(TaskSlaResult::getJustification, Collectors.counting()))
+                .entrySet().stream()
+                .map(e -> new JustificationRankData(e.getKey(), e.getValue()))
+                .sorted(Comparator.comparing(JustificationRankData::count).reversed())
+                .limit(10)
+                .toList();
+
+        // Coleta de comentários opcionais e nuvem de palavras
+        List<String> recentComments = allSlaResults.stream()
+                .filter(r -> r.getStatus() == SlaStatus.DELAYED)
+                .filter(r -> r.getJustificationComments() != null && !r.getJustificationComments().isBlank())
+                .map(TaskSlaResult::getJustificationComments)
+                .sorted(Comparator.reverseOrder())
+                .limit(20)
+                .toList();
+
+        // Gerar nuvem de palavras simplificada (ignorando tamanho para permitir siglas, usando lista de exclusão)
+        List<String> stopWords = Arrays.asList(
+                "o", "a", "os", "as", "um", "uma", "uns", "umas",
+                "de", "do", "da", "dos", "das", "em", "no", "na", "nos", "nas",
+                "por", "para", "com", "que", "se", "sua", "seu", "suas", "seus",
+                "este", "esta", "estes", "estas", "esse", "essa", "esses", "essas",
+                "aquele", "aquela", "aqueles", "aquelas", "isso", "isto", "aquilo",
+                "pela", "pelo", "pelas", "pelos", "ao", "aos", "à", "às",
+                "e", "ou", "mas", "como", "qual", "quais",
+                "eu", "tu", "ele", "ela", "nós", "vós", "eles", "elas",
+                "me", "te", "nos", "vos", "lhe", "lhes",
+                "já", "só", "até", "nem", "também", "mais", "muito", "pouco",
+                "não", "sim", "foi", "era", "ser", "são", "tem", "ter", "tinha", "está", "estava", "estão",
+                "quando", "onde", "quem", "porque", "pois"
+        );
+
+        Map<String, Long> wordFreq = allSlaResults.stream()
+                .filter(r -> r.getStatus() == SlaStatus.DELAYED)
+                .filter(r -> r.getJustificationComments() != null && !r.getJustificationComments().isBlank())
+                .flatMap(r -> Arrays.stream(r.getJustificationComments().toLowerCase()
+                        .replaceAll("[^a-zA-Záéíóúàèìòùâêîôûãõç\\s]", "")
+                        .split("\\s+")))
+                .filter(w -> !w.isBlank())
+                .filter(w -> !stopWords.contains(w))
+                .collect(Collectors.groupingBy(w -> w, Collectors.counting()));
+
+        List<JustificationRankData> wordCloud = wordFreq.entrySet().stream()
+                .map(e -> new JustificationRankData(e.getKey(), e.getValue()))
+                .sorted(Comparator.comparing(JustificationRankData::count).reversed())
+                .limit(30)
+                .toList();
+
+        return new DashboardData(stats, userRanking, finalizerRanking, history, tmaPerStep, slaInsights, justificationRanking, recentComments, wordCloud);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
-    private String getTaskFinalizerName(Task t) {
+    private String getTaskFinalizerName(Task t, Map<String, TemplateStepRelation> relCache) {
         /*
          * Avalia uma condição (if) para desvio de fluxo da lógica principal.
          */
@@ -262,30 +358,26 @@ public class DashboardService {
              */
             if (event.getTaskStepDefinition() == null) continue;
             
-            var relOpt = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
-                t.getTaskTemplate().getId(), event.getTaskStepDefinition().getId());
+            String cacheKey = t.getTaskTemplate().getId() + "-" + event.getTaskStepDefinition().getId();
+
+            TemplateStepRelation relation = relCache.get(cacheKey);
+            
+            // #improve_n+1 - Remoção da query de fallback. O cache deve ser populado integralmente no início.
+            if (relation != null && relation.isHasResponseField() &&
+                relation.getResponseFieldLabel() != null &&
+                relation.getResponseFieldLabel().toUpperCase().contains("DELIVERY")) {
                 
-            /*
-             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-             */
-            if (relOpt.isPresent() && relOpt.get().isHasResponseField() && 
-                relOpt.get().getResponseFieldLabel() != null && 
-                relOpt.get().getResponseFieldLabel().toUpperCase().contains("DELIVERY")) {
-                
-                /*
-                 * Retorna o resultado final processado pelo método.
-                 */
                 return event.getUser() != null ? event.getUser().getName() : null;
             }
         }
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return null;
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private double calculateInterquartileMeanTma(List<Task> completed) {
         /*
@@ -304,7 +396,7 @@ public class DashboardService {
          */
         if (size < 4) {
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
             return durations.stream().mapToLong(Long::longValue).average().orElse(0);
         }
@@ -315,17 +407,17 @@ public class DashboardService {
         // Pegar o miolo (50% central)
         List<Long> middleDurations = durations.subList(q1Idx, q3Idx);
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return middleDurations.stream().mapToLong(Long::longValue).average().orElse(0); // Retornar em segundos
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private String formatDate(Instant instant) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return DateTimeFormatter.ofPattern("dd/MM")
                 .withZone(ZoneId.systemDefault())
@@ -334,7 +426,7 @@ public class DashboardService {
 
     // DTOs
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public record DashboardStats(
         long activeTasks,
@@ -346,12 +438,12 @@ public class DashboardService {
     ) {}
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public record ChartDataPoint(String label, double value) {}
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public record MixedChartPoint(
         String date,
@@ -362,7 +454,7 @@ public class DashboardService {
     ) {}
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public record StackedBarData(
         String category,
@@ -371,13 +463,36 @@ public class DashboardService {
     ) {}
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
+    public record SlaInsightData(
+        String slaName,
+        long total,
+        long onTime,
+        long delayed,
+        double onTimePct
+    ) {}
+
+    /**
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
+    public record JustificationRankData(
+        String justification,
+        long count
+    ) {}
+
+    /**
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public record DashboardData(
         DashboardStats stats,
         List<ChartDataPoint> userRanking,
         List<ChartDataPoint> finalizerRanking,
         List<MixedChartPoint> history,
-        List<StackedBarData> tmaPerStep
+        List<StackedBarData> tmaPerStep,
+        List<SlaInsightData> slaInsights,
+        List<JustificationRankData> justificationRanking,
+        List<String> recentComments,
+        List<JustificationRankData> wordCloud
     ) {}
 }

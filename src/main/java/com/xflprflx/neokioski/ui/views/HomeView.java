@@ -1,22 +1,17 @@
 package com.xflprflx.neokioski.ui.views;
+// v2 - forced refresh for i18n
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.vaadin.flow.component.ClientCallable;
 import com.vaadin.flow.component.UI;
-import com.vaadin.flow.component.button.Button;
-import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.dependency.JavaScript;
-import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
-import com.vaadin.flow.component.notification.Notification;
-import com.vaadin.flow.component.notification.NotificationVariant;
-import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.xflprflx.neokioski.models.Group;
@@ -33,13 +28,11 @@ import jakarta.annotation.security.PermitAll;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
+import java.util.stream.Collectors;
 
 @Route(value = "", layout = MainLayout.class)
 @PageTitle("Início | NeoKioski")
@@ -65,6 +58,8 @@ public class HomeView extends Div {
     private ComboBox<TaskTemplate> templateFilter;
     private ComboBox<User> creatorFilter;
     private ComboBox<User> finalizerFilter;
+    private ComboBox<String> slaFilter;
+    private ComboBox<String> justificationFilter;
 
     private Div kpiGrid;
     private Div rankingHeaderDiv;
@@ -73,6 +68,10 @@ public class HomeView extends Div {
     private Div finalizerRankingChartDiv;
     private Div tmaStackedChartDiv;
     private Div mixedChartDiv;
+    private Div slaPerformanceChartDiv;
+    private Div justificationDonutChartDiv;
+    private Div wordCloudDiv;
+    private Div recentCommentsDiv;
     
     private DashboardService.DashboardData lastDashboardData;
 
@@ -89,7 +88,6 @@ public class HomeView extends Div {
         this.taskService = taskService;
         this.userService = userService;
 
-        setSizeFull();
         addClassName("dashboard-view-container");
         setId("dashboard-home");
         getStyle()
@@ -181,12 +179,36 @@ public class HomeView extends Div {
             }
         }).addEventData("event.detail.category");
 
+        getElement().addEventListener("sla-clicked", e -> {
+            try {
+                var categoryNode = e.getEventData().get("event.detail.category");
+                if (categoryNode != null && !categoryNode.isNull()) {
+                    String clickedSla = categoryNode.isString() ? categoryNode.stringValue() : categoryNode.toString().replace("\"", "");
+                    if (clickedSla != null) {
+                        slaFilter.setValue(clickedSla);
+                    }
+                }
+            } catch (Exception ex) { ex.printStackTrace(); }
+        }).addEventData("event.detail.category");
+
+        getElement().addEventListener("justification-clicked", e -> {
+            try {
+                var categoryNode = e.getEventData().get("event.detail.category");
+                if (categoryNode != null && !categoryNode.isNull()) {
+                    String clickedJust = categoryNode.isString() ? categoryNode.stringValue() : categoryNode.toString().replace("\"", "");
+                    if (clickedJust != null) {
+                        justificationFilter.setValue(clickedJust);
+                    }
+                }
+            } catch (Exception ex) { ex.printStackTrace(); }
+        }).addEventData("event.detail.category");
+
         updateDashboard();
     }
 
     @Override
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
         super.onAttach(attachEvent);
@@ -197,7 +219,7 @@ public class HomeView extends Div {
 
     @Override
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     protected void onDetach(com.vaadin.flow.component.DetachEvent detachEvent) {
         /*
@@ -210,7 +232,7 @@ public class HomeView extends Div {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void createHeaderSection() {
         User user = securityService.getAuthenticatedInternalUser().orElse(null);
@@ -229,18 +251,7 @@ public class HomeView extends Div {
         H1 title = new H1("Olá, " + user.getName() + " 👋");
         title.getStyle().set("margin", "0").set("font-size", "2rem").set("font-weight", "800");
         
-        Button themeToggle = new Button(VaadinIcon.ADJUST.create(), e -> {
-            UI.getCurrent().getElement().executeJs(
-                "const theme = document.documentElement.getAttribute('theme') === 'dark' ? 'light' : 'dark';" +
-                "document.documentElement.setAttribute('theme', theme);" +
-                "localStorage.setItem('dashboard-theme', theme);" +
-                "window.dispatchEvent(new Event('theme-changed'));"
-            );
-        });
-        themeToggle.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        themeToggle.getStyle().set("margin-left", "auto").set("cursor", "pointer");
-        
-        titleRow.add(title, themeToggle);
+        titleRow.add(title);
         
         Span subtitle = new Span("Painel de Visibilidade Operacional");
         subtitle.getStyle().set("color", "var(--dash-text-sec)").set("font-weight", "500");
@@ -252,7 +263,7 @@ public class HomeView extends Div {
         add(welcome);
     }
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void createFilterSection() {
         Div filters = new Div();
@@ -269,10 +280,12 @@ public class HomeView extends Div {
         startDatePicker = new DatePicker("De");
         startDatePicker.setValue(LocalDate.now().minusDays(30));
         startDatePicker.setLocale(Locale.forLanguageTag("pt-BR"));
+        startDatePicker.setI18n(TaskUIUtils.getPtBrI18n());
 
         endDatePicker = new DatePicker("Até");
         endDatePicker.setValue(LocalDate.now());
         endDatePicker.setLocale(Locale.forLanguageTag("pt-BR"));
+        endDatePicker.setI18n(TaskUIUtils.getPtBrI18n());
 
         groupFilter = new ComboBox<>("Grupo");
         groupFilter.setItems(groupService.findAll());
@@ -291,21 +304,32 @@ public class HomeView extends Div {
         groupFilter.addValueChangeListener(e -> updateDashboard());
         templateFilter.addValueChangeListener(e -> updateDashboard());
 
+        List<User> allUsers = userService.findAll();
         creatorFilter = new ComboBox<>("Criador");
-        creatorFilter.setItems(userService.findAll());
+        creatorFilter.setItems(allUsers);
         creatorFilter.setItemLabelGenerator(User::getName);
         creatorFilter.setPlaceholder("Todos os criadores");
         creatorFilter.setClearButtonVisible(true);
         creatorFilter.addValueChangeListener(e -> updateDashboard());
 
         finalizerFilter = new ComboBox<>("Concluidor (Delivery)");
-        finalizerFilter.setItems(userService.findAll());
+        finalizerFilter.setItems(allUsers);
         finalizerFilter.setItemLabelGenerator(User::getName);
         finalizerFilter.setPlaceholder("Todos os concluidores");
         finalizerFilter.setClearButtonVisible(true);
         finalizerFilter.addValueChangeListener(e -> updateDashboard());
 
-        filters.add(startDatePicker, endDatePicker, groupFilter, templateFilter, creatorFilter, finalizerFilter);
+        slaFilter = new ComboBox<>("Filtro SLA");
+        slaFilter.setPlaceholder("Todos os SLAs");
+        slaFilter.setClearButtonVisible(true);
+        slaFilter.addValueChangeListener(e -> updateDashboard());
+
+        justificationFilter = new ComboBox<>("Justificativa");
+        justificationFilter.setPlaceholder("Todas");
+        justificationFilter.setClearButtonVisible(true);
+        justificationFilter.addValueChangeListener(e -> updateDashboard());
+
+        filters.add(startDatePicker, endDatePicker, groupFilter, templateFilter, creatorFilter, finalizerFilter, slaFilter, justificationFilter);
         /*
          * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
          */
@@ -313,7 +337,7 @@ public class HomeView extends Div {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void createKpiSection() {
         kpiGrid = new Div();
@@ -334,83 +358,144 @@ public class HomeView extends Div {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void createChartsSection() {
-        Div chartsContainer = new Div();
-        chartsContainer.addClassNames("charts-container", "animate-in");
-        chartsContainer.getStyle()
+        // --- LINHA 2: Evolução Diária ---
+        Div evolutionRow = new Div();
+        evolutionRow.addClassNames("charts-container", "animate-in");
+        evolutionRow.getStyle().set("margin-top", "24px").set("width", "100%");
+
+        Div mixedCol = createChartCard("100%");
+        mixedCol.getStyle().set("height", "350px");
+        mixedChartDiv = new Div();
+        mixedChartDiv.setId("mixed-history-chart");
+        mixedChartDiv.getStyle().set("flex-grow", "1");
+        mixedCol.add(createChartHeader("Evolução Diária - Tarefas e SLA"), mixedChartDiv);
+        evolutionRow.add(mixedCol);
+        add(evolutionRow);
+
+        // --- LINHA 3: TMA Médio Total por Tipo ---
+        Div tmaRow = new Div();
+        tmaRow.addClassNames("charts-container", "animate-in");
+        tmaRow.getStyle().set("margin-top", "24px").set("width", "100%");
+
+        Div tmaCol = createChartCard("100%");
+        tmaStackedChartDiv = new Div();
+        tmaStackedChartDiv.setId("tma-stacked-chart");
+        tmaStackedChartDiv.getStyle().set("flex-grow", "1");
+        tmaCol.add(createChartHeader("TMA Médio Total por Tipo"), tmaStackedChartDiv);
+        tmaRow.add(tmaCol);
+        add(tmaRow);
+
+        // --- LINHA 4: Rankings (Criador e Concluidor) ---
+        Div rankingRow = new Div();
+        rankingRow.addClassNames("charts-container", "animate-in");
+        rankingRow.getStyle()
                 .set("display", "flex")
                 .set("gap", "24px")
-                .set("margin-top", "32px")
+                .set("margin-top", "24px")
                 .set("width", "100%")
-                .set("flex-wrap", "wrap"); 
+                .set("flex-wrap", "nowrap"); // Forçar mesma linha
 
-        // Coluna 1: Ranking Criadores
-        Div rankingCol = createChartCard("30%");
+        // Ranking Criadores
+        Div rankingCol = createChartCard("50%");
+        rankingCol.getStyle().set("flex", "1");
         userRankingChartDiv = new Div();
         userRankingChartDiv.setId("user-ranking-chart");
         userRankingChartDiv.getStyle().set("flex-grow", "1");
         rankingHeaderDiv = createChartHeader("Ranking Criadores de Tarefas");
         rankingCol.add(rankingHeaderDiv, userRankingChartDiv);
 
-        // Coluna 2: Ranking Concluidores
-        Div finalizerCol = createChartCard("30%");
+        // Ranking Concluidores
+        Div finalizerCol = createChartCard("50%");
+        finalizerCol.getStyle().set("flex", "1");
         finalizerRankingChartDiv = new Div();
         finalizerRankingChartDiv.setId("finalizer-ranking-chart");
         finalizerRankingChartDiv.getStyle().set("flex-grow", "1");
         finalizerRankingHeaderDiv = createChartHeader("Ranking Concluidores (Delivery)");
         finalizerCol.add(finalizerRankingHeaderDiv, finalizerRankingChartDiv);
 
-        // Coluna 3: TMA
-        Div tmaCol = createChartCard("30%");
-        tmaStackedChartDiv = new Div();
-        tmaStackedChartDiv.setId("tma-stacked-chart");
-        tmaStackedChartDiv.getStyle().set("flex-grow", "1");
-        tmaCol.add(createChartHeader("TMA Médio Total por Tipo"), tmaStackedChartDiv);
+        rankingRow.add(rankingCol, finalizerCol);
+        add(rankingRow);
 
-        chartsContainer.add(rankingCol, finalizerCol, tmaCol);
-        /*
-         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
-         */
-        add(chartsContainer);
+        // --- LINHA 5: Performance por SLA ---
+        Div slaPerformanceRow = new Div();
+        slaPerformanceRow.addClassNames("charts-container", "animate-in");
+        slaPerformanceRow.getStyle().set("margin-top", "24px").set("width", "100%");
 
-        Div bottomChartContainer = new Div();
-        bottomChartContainer.addClassNames("charts-container", "animate-in");
-        bottomChartContainer.getStyle()
-                .set("display", "flex")
+        Div slaPerformanceCol = createChartCard("100%");
+        slaPerformanceChartDiv = new Div();
+        slaPerformanceChartDiv.setId("sla-performance-chart");
+        slaPerformanceChartDiv.getStyle().set("flex-grow", "1");
+        slaPerformanceCol.add(createChartHeader("Performance por SLA"), slaPerformanceChartDiv);
+        slaPerformanceRow.add(slaPerformanceCol);
+        add(slaPerformanceRow);
+
+        // --- LINHA 6: Justificativas (Fim do Dashboard) ---
+        Div justificationsRow = new Div();
+        justificationsRow.addClassNames("charts-container", "animate-in");
+        justificationsRow.getStyle()
                 .set("margin-top", "24px")
                 .set("width", "100%");
 
-        Div mixedCol = new Div();
-        mixedCol.addClassNames("chart-card");
-        mixedCol.getStyle()
-                .set("animation-delay", "0.6s")
-                .set("flex", "1 1 100%")
-                .set("background", "var(--dash-card-bg, #ffffff)")
-                .set("border-radius", "16px")
-                .set("padding", "24px")
-                .set("box-shadow", "0 4px 6px -1px rgba(0,0,0,0.1)")
-                .set("border", "1px solid var(--dash-border, #e2e8f0)")
+        Div justificationCol = createChartCard("100%");
+        
+        HorizontalLayout justificationContent = new HorizontalLayout();
+        justificationContent.setSizeFull();
+        justificationContent.setSpacing(true);
+
+        justificationDonutChartDiv = new Div();
+        justificationDonutChartDiv.setId("justification-donut-chart");
+        justificationDonutChartDiv.getStyle().set("flex", "1");
+
+        Div textAnalysisDiv = new Div();
+        textAnalysisDiv.getStyle()
+                .set("flex", "1")
+                .set("min-width", "0")
                 .set("display", "flex")
                 .set("flex-direction", "column")
-                .set("height", "350px");
+                .set("overflow", "hidden");
 
-        mixedChartDiv = new Div();
-        mixedChartDiv.setId("mixed-history-chart");
-        mixedChartDiv.getStyle().set("flex-grow", "1");
+        Span textAnalysisTitle = new Span("Palavras Frequentes e Comentários");
+        textAnalysisTitle.getStyle()
+                .set("font-weight", "bold")
+                .set("font-size", "14px")
+                .set("margin-bottom", "8px")
+                .set("color", "var(--dash-text-sec)");
+
+        wordCloudDiv = new Div();
+        wordCloudDiv.setId("word-cloud-container");
+        wordCloudDiv.getStyle()
+                .set("flex", "1")
+                .set("margin-top", "10px")
+                .set("display", "flex")
+                .set("flex-wrap", "wrap")
+                .set("align-content", "start")
+                .set("justify-content", "center")
+                .set("gap", "8px")
+                .set("overflow-y", "auto");
         
-        mixedCol.add(createChartHeader("Evolução Diária - Tarefas e SLA"), mixedChartDiv);
+        recentCommentsDiv = new Div();
+        recentCommentsDiv.setId("recent-comments-container");
+        recentCommentsDiv.getStyle()
+                .set("flex", "1")
+                .set("margin-top", "10px")
+                .set("font-size", "12px")
+                .set("overflow-y", "auto")
+                .set("border-top", "1px solid #e2e8f0")
+                .set("padding-top", "10px");
 
-        bottomChartContainer.add(mixedCol);
-        /*
-         * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
-         */
-        add(bottomChartContainer);
+        textAnalysisDiv.add(textAnalysisTitle, wordCloudDiv, recentCommentsDiv);
+        justificationContent.add(justificationDonutChartDiv, textAnalysisDiv);
+        
+        justificationCol.add(createChartHeader("Justificativas de Atraso"), justificationContent);
+        justificationsRow.add(justificationCol);
+        add(justificationsRow);
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Div createChartCard(String flexBasis) {
         Div col = new Div();
@@ -418,6 +503,7 @@ public class HomeView extends Div {
         col.getStyle()
                 .set("flex", "1 1 " + flexBasis)
                 .set("background", "var(--dash-card-bg, #ffffff)")
+                .set("color", "#1e293b")
                 .set("border-radius", "16px")
                 .set("padding", "24px")
                 .set("box-shadow", "0 4px 6px -1px rgba(0,0,0,0.1)")
@@ -432,13 +518,17 @@ public class HomeView extends Div {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Div createChartHeader(String title) {
         Div header = new Div();
         header.addClassName("chart-title");
         header.setText(title);
-        header.getStyle().set("margin-bottom", "-20px").set("z-index", "10").set("position", "relative");
+        header.getStyle()
+                .set("margin-bottom", "-20px")
+                .set("z-index", "10")
+                .set("position", "relative")
+                .set("color", "#1e293b");
         /*
          * Retorna o componente renderizado ou o valor da operação atual.
          */
@@ -446,7 +536,7 @@ public class HomeView extends Div {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void updateDashboard() {
         /*
@@ -462,9 +552,19 @@ public class HomeView extends Div {
         String activeCreatorFilter = creator != null ? creator.getName() : null;
         User finalizer = finalizerFilter.getValue();
         String activeFinalizerFilter = finalizer != null ? finalizer.getName() : null;
+        String activeSlaFilter = slaFilter.getValue();
+        String activeJustFilter = justificationFilter.getValue();
 
-        DashboardService.DashboardData data = dashboardService.getDashboardData(start, end, group, type, activeCreatorFilter, activeFinalizerFilter, null);
+        DashboardService.DashboardData data = dashboardService.getDashboardData(start, end, group, type, activeCreatorFilter, activeFinalizerFilter, null, activeSlaFilter, activeJustFilter);
         this.lastDashboardData = data;
+
+        // Atualizar itens dos novos filtros se estiverem vazios
+        if (slaFilter.getGenericDataView().getItems().count() == 0) {
+            slaFilter.setItems(data.slaInsights().stream().map(d -> d.slaName()).sorted().collect(Collectors.toList()));
+        }
+        if (justificationFilter.getGenericDataView().getItems().count() == 0) {
+            justificationFilter.setItems(data.justificationRanking().stream().map(d -> d.justification()).sorted().collect(Collectors.toList()));
+        }
 
         /*
          * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
@@ -489,7 +589,7 @@ public class HomeView extends Div {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void renderKpiCards(DashboardService.DashboardStats stats) {
         kpiGrid.removeAll();
@@ -506,7 +606,7 @@ public class HomeView extends Div {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void addKpiToGrid(String label, String value, VaadinIcon icon, String theme, String sparkId, int index) {
         Div cardWrapper = createStatCard(label, value, icon, theme, sparkId);
@@ -516,7 +616,7 @@ public class HomeView extends Div {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Div createStatCard(String label, String value, VaadinIcon icon, String theme, String sparklineId) {
         String[] colors = TaskUIUtils.getThemeColors(theme);
@@ -577,8 +677,10 @@ public class HomeView extends Div {
             valueSpan.getStyle().set("color", "#ffffff");
             iconWrapper.getStyle().set("color", "#ffffff");
         } else {
+            // Forçar texto escuro — no dark mode do Vaadin, --dash-text é branco
+            // mas o fundo do card é pastel claro, tornando o texto ilegível.
             labelSpan.getStyle().set("color", "rgba(0, 0, 0, 0.6)");
-            valueSpan.getStyle().set("color", "var(--dash-text)");
+            valueSpan.getStyle().set("color", "#1e293b");
             iconWrapper.getStyle().set("color", borderColor);
         }
 
@@ -598,7 +700,7 @@ public class HomeView extends Div {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void renderCharts(DashboardService.DashboardData data) {
         /*
@@ -644,17 +746,16 @@ public class HomeView extends Div {
                             return;
                         }
                         
-                        const isDark = () => document.documentElement.getAttribute('theme') === 'dark';
-                        const getThemeColor = () => isDark() ? '#f8fafc' : '#1e293b';
-                        const getChartTheme = () => isDark() ? 'dark' : 'light';
+                        const isDark = () => (document.documentElement.getAttribute('theme') || '').includes('dark');
+                        const tc = '#1e293b';
 
                         const commonOptions = {
                             chart: {
                                 fontFamily: 'Inter, sans-serif',
                                 toolbar: { show: false },
-                                background: 'transparent'
-                            },
-                            theme: { mode: getChartTheme() }
+                                background: 'transparent',
+                                foreColor: tc
+                            }
                         };
 
                         const sparkOptions = {
@@ -669,7 +770,6 @@ public class HomeView extends Div {
                         const delayedData = %s;
                         const pctData = %s;
                         
-                        const theme = getChartTheme();
                         
                         const renderSpark = (id, data, color) => {
                             const el = document.querySelector("#" + id);
@@ -678,7 +778,7 @@ public class HomeView extends Div {
                              */
                             if (el) {
                                 el.innerHTML = "";
-                                new ApexCharts(el, { ...sparkOptions, series: [{ data }], colors: [color], theme: { mode: theme } }).render();
+                                new ApexCharts(el, { ...sparkOptions, series: [{ data }], colors: [color] }).render();
                             }
                         };
 
@@ -728,11 +828,10 @@ public class HomeView extends Div {
                             },
                             plotOptions: { bar: { horizontal: true, borderRadius: 6, barHeight: '50%%', distributed: true } },
                             colors: ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#6366f1', '#14b8a6', '#f43f5e', '#ec4899', '#84cc16'],
-                            xaxis: { categories: %s, labels: { style: { colors: getThemeColor() } } },
-                            yaxis: { labels: { style: { colors: getThemeColor() } } },
+                            xaxis: { categories: %s },
+                            yaxis: { },
                             legend: { show: false },
-                            dataLabels: { enabled: true },
-                            theme: { mode: theme }
+                            dataLabels: { enabled: true }
                         };
 
                         const finalizerRankingOptions = {
@@ -774,11 +873,10 @@ public class HomeView extends Div {
                             },
                             plotOptions: { bar: { horizontal: true, borderRadius: 6, barHeight: '50%%', distributed: true } },
                             colors: ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#6366f1', '#14b8a6', '#f43f5e', '#ec4899', '#84cc16'],
-                            xaxis: { categories: %s, labels: { style: { colors: getThemeColor() } } },
-                            yaxis: { labels: { style: { colors: getThemeColor() } } },
+                            xaxis: { categories: %s },
+                            yaxis: { },
                             legend: { show: false },
-                            dataLabels: { enabled: true },
-                            theme: { mode: theme }
+                            dataLabels: { enabled: true }
                         };
 
                         const detailedTma = %s;
@@ -821,10 +919,9 @@ public class HomeView extends Div {
                                 },
                                 plotOptions: { bar: { horizontal: false, borderRadius: 4, columnWidth: '40%%' } },
                                 colors: ['#3b82f6'],
-                                xaxis: { categories: %s, labels: { style: { colors: getThemeColor() } } },
+                                xaxis: { categories: %s },
                                 yaxis: { 
                                     labels: { 
-                                        style: { colors: getThemeColor() },
                                         formatter: function(val) {
                                             const h = Math.floor(val / 3600);
                                             const m = Math.floor((val %% 3600) / 60);
@@ -864,10 +961,9 @@ public class HomeView extends Div {
                                              */
                                             return s + "s";
                                         };
-                                        const isD = isDark();
-                                        const bgColor = isD ? '#1e293b' : '#ffffff';
-                                        const textColor = isD ? '#f8fafc' : '#1e293b';
-                                        const borderColor = isD ? '#334155' : '#e2e8f0';
+                                        const bgColor = '#ffffff';
+                                        const textColor = '#1e293b';
+                                        const borderColor = '#e2e8f0';
                                         let tHTML = '<div style="padding: 12px; background: ' + bgColor + '; color: ' + textColor + '; min-width: 220px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-radius: 6px; border: 1px solid ' + borderColor + ';">';
                                         tHTML += '<div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid ' + borderColor + '; padding-bottom: 6px;">' + category + '</div>';
                                         tHTML += '<div style="margin-bottom: 10px; font-weight: 600; color: #3b82f6;">Tempo Total: ' + formatTime(totalVal) + '</div>';
@@ -899,9 +995,8 @@ public class HomeView extends Div {
                                      * Retorna o componente renderizado ou o valor da operação atual.
                                      */
                                     return h > 0 ? h + "h " + m + "m" : m + "m";
-                                }, style: { colors: [isDark() ? '#fff' : '#000'] } },
-                                legend: { show: false },
-                                theme: { mode: theme }
+                                }, style: { colors: [tc] } },
+                                legend: { show: false }
                         };
 
                         const mixedChartOptions = {
@@ -915,14 +1010,22 @@ public class HomeView extends Div {
                                 stroke: { width: [0, 0, 4], curve: 'smooth' },
                                 plotOptions: { bar: { columnWidth: '50%%', borderRadius: 4 } },
                                 colors: ['#3b82f6', '#10b981', '#f59e0b'],
-                                xaxis: { categories: %s, labels: { style: { colors: getThemeColor() } } },
+                                xaxis: { categories: %s },
                                 yaxis: [
-                                    { seriesName: 'Total de Tarefas', labels: { style: { colors: getThemeColor() } } },
+                                    { seriesName: 'Total de Tarefas', labels: { formatter: (v) => Math.floor(v) } },
                                     { seriesName: 'Total de Tarefas', show: false },
-                                    { opposite: true, seriesName: '%% No Prazo', labels: { style: { colors: getThemeColor() }, formatter: (v) => v.toFixed(1) + '%%' }, min: 0, max: 100 }
+                                    { opposite: true, seriesName: '%% No Prazo', labels: { formatter: (v) => v.toFixed(0) + '%%' }, min: 0, max: 100 }
                                 ],
-                                dataLabels: { enabled: true, enabledOnSeries: [2], formatter: (v) => v.toFixed(1) + "%%", style: { colors: [getThemeColor()] }, background: { enabled: true, foreColor: isDark() ? '#000' : '#fff' } },
-                                legend: { position: 'bottom', labels: { colors: getThemeColor() } }
+                                dataLabels: { enabled: true, enabledOnSeries: [2], formatter: (v) => v.toFixed(0) + "%%", style: { colors: [tc] }, background: { enabled: true, foreColor: '#fff' } },
+                                tooltip: {
+                                    y: {
+                                        formatter: function(val, { seriesIndex }) {
+                                            if (seriesIndex === 2) return val.toFixed(0) + "%%";
+                                            return val;
+                                        }
+                                    }
+                                },
+                                legend: { position: 'bottom' }
                         };
 
                         // Renderização
@@ -957,7 +1060,223 @@ public class HomeView extends Div {
                 })();
                 """, mixedTotal, mixedOnTime, mixedDelayed, mixedPct, rankingSeries, rankingLabels, finalizerSeries, finalizerLabels, detailedTmaJson, stackedSeriesJson, stackedCategoriesJson, mixedTotal, mixedOnTime, mixedPct, mixedLabels);
 
+            // ====== SLA INSIGHTS CHARTS ======
+            // Performance por SLA (barras agrupadas)
+            List<String> slaNames = data.slaInsights().stream().map(d -> d.slaName()).toList();
+            List<Long> slaOnTimeData = data.slaInsights().stream().map(d -> d.onTime()).toList();
+            List<Long> slaDelayedData = data.slaInsights().stream().map(d -> d.delayed()).toList();
+            
+            String slaNamesJson = objectMapper.writeValueAsString(slaNames);
+            String slaOnTimeJson = objectMapper.writeValueAsString(slaOnTimeData);
+            String slaDelayedJson = objectMapper.writeValueAsString(slaDelayedData);
+
+            // Justificativas (donut)
+            List<String> justLabels = data.justificationRanking().stream().map(d -> d.justification()).toList();
+            List<Long> justValues = data.justificationRanking().stream().map(d -> d.count()).toList();
+            
+            String justLabelsJson = objectMapper.writeValueAsString(justLabels);
+            String justValuesJson = objectMapper.writeValueAsString(justValues);
+
+            String slaJs = String.format("""
+                (function() {
+                    const tryRender = () => {
+                        if (typeof ApexCharts === 'undefined') {
+                            setTimeout(tryRender, 100);
+                            return;
+                        }
+                        
+                        const isDark = () => (document.documentElement.getAttribute('theme') || '').includes('dark');
+                        const tc = '#1e293b';
+
+                        // Performance por SLA
+                        const slaPerformanceEl = document.querySelector("#sla-performance-chart");
+                        if (slaPerformanceEl) {
+                            slaPerformanceEl.innerHTML = "";
+                            const slaNames = %s;
+                            const slaOnTime = %s;
+                            const slaDelayed = %s;
+                            
+                            if (slaNames.length > 0) {
+                                new ApexCharts(slaPerformanceEl, {
+                                    chart: {
+                                        type: 'bar',
+                                        height: '100%%',
+                                        stacked: true,
+                                        toolbar: { show: false },
+                                        foreColor: tc,
+                                        events: {
+                                            click: function(event, chartContext, config) {
+                                                if (config && config.dataPointIndex !== undefined && config.dataPointIndex !== -1) {
+                                                    const category = chartContext.w.config.xaxis.categories[config.dataPointIndex];
+                                                    if (category) {
+                                                        const rootEl = document.getElementById('dashboard-home');
+                                                        if (rootEl) {
+                                                            rootEl.dispatchEvent(new CustomEvent('sla-clicked', { 
+                                                                detail: { category: String(category) }, bubbles: true, composed: true 
+                                                            }));
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    },
+                                    series: [
+                                        { name: 'No Prazo', data: slaOnTime },
+                                        { name: 'Atrasado', data: slaDelayed }
+                                    ],
+                                    colors: ['#10b981', '#ef4444'],
+                                    plotOptions: {
+                                        bar: { horizontal: false, borderRadius: 4, columnWidth: '50%%' }
+                                    },
+                                    xaxis: {
+                                        categories: slaNames,
+                                        labels: { trim: true, maxHeight: 80 }
+                                    },
+                                    yaxis: {
+                                    },
+                                    legend: {
+                                        position: 'top'
+                                    },
+                                    dataLabels: { 
+                                        enabled: true,
+                                        formatter: function(val, opts) {
+                                            const total = slaOnTime[opts.dataPointIndex] + slaDelayed[opts.dataPointIndex];
+                                            const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                                            return val + ' (' + pct + '%%)';
+                                        }
+                                    },
+                                    tooltip: {
+                                        y: {
+                                            formatter: function(val, opts) {
+                                                const total = slaOnTime[opts.dataPointIndex] + slaDelayed[opts.dataPointIndex];
+                                                const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                                                return val + ' (' + pct + '%%)';
+                                            }
+                                        }
+                                    }
+                                }).render();
+                            } else {
+                                slaPerformanceEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%%;color:var(--lumo-secondary-text-color);font-size:14px;">Nenhum dado de SLA disponível</div>';
+                            }
+                        }
+
+                        // Donut de Justificativas
+                        const justDonutEl = document.querySelector("#justification-donut-chart");
+                        if (justDonutEl) {
+                            justDonutEl.innerHTML = "";
+                            const justLabels = %s;
+                            const justValues = %s;
+                            
+                            if (justLabels.length > 0) {
+                                new ApexCharts(justDonutEl, {
+                                    chart: {
+                                        type: 'donut',
+                                        height: '100%%',
+                                        toolbar: { show: false },
+                                        foreColor: tc,
+                                        events: {
+                                            dataPointSelection: function(event, chartContext, config) {
+                                                const category = chartContext.w.config.labels[config.dataPointIndex];
+                                                if (category) {
+                                                    const rootEl = document.getElementById('dashboard-home');
+                                                    if (rootEl) {
+                                                        rootEl.dispatchEvent(new CustomEvent('justification-clicked', { 
+                                                            detail: { category: String(category) }, bubbles: true, composed: true 
+                                                        }));
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    },
+                                    series: justValues,
+                                    labels: justLabels,
+                                    colors: ['#ef4444', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#6366f1', '#84cc16', '#f43f5e', '#0ea5e9'],
+                                    plotOptions: {
+                                        pie: {
+                                            donut: {
+                                                size: '55%%',
+                                                labels: {
+                                                    show: true,
+                                                    total: {
+                                                        show: true,
+                                                        label: 'Total',
+                                                        color: tc
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    },
+                                    legend: {
+                                        position: 'bottom'
+                                    },
+                                    dataLabels: {
+                                        enabled: true,
+                                        formatter: function(val, opts) {
+                                            const raw = opts.w.globals.series[opts.seriesIndex];
+                                            return raw + ' (' + val.toFixed(0) + '%%)';
+                                        }
+                                    }
+                                }).render();
+                            } else {
+                                justDonutEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%%;color:var(--lumo-secondary-text-color);font-size:14px;">Nenhuma justificativa registrada</div>';
+                            }
+                        }
+
+                        // Nuvem de Palavras
+                        const wordCloudEl = document.querySelector("#word-cloud-container");
+                        if (wordCloudEl) {
+                            wordCloudEl.innerHTML = "";
+                            const words = %s; // [{justification: '...', count: 12}]
+                            if (words.length > 0) {
+                                const maxCount = Math.max(...words.map(w => w.count));
+                                words.forEach(w => {
+                                    const span = document.createElement('span');
+                                    span.innerText = w.justification;
+                                    const size = 12 + (w.count / maxCount) * 14;
+                                    const opacity = 0.6 + (w.count / maxCount) * 0.4;
+                                    span.style.fontSize = size + 'px';
+                                    span.style.opacity = opacity;
+                                    span.style.color = '#3b82f6';
+                                    span.style.fontWeight = w.count > maxCount * 0.5 ? 'bold' : 'normal';
+                                    span.style.padding = '2px 4px';
+                                    span.style.wordBreak = 'break-word';
+                                    span.style.overflowWrap = 'break-word';
+                                    wordCloudEl.appendChild(span);
+                                });
+                            } else {
+                                wordCloudEl.innerHTML = '<div style="color:var(--lumo-secondary-text-color);font-size:12px;">Sem dados</div>';
+                            }
+                        }
+
+                        // Comentários Recentes
+                        const commentsEl = document.querySelector("#recent-comments-container");
+                        if (commentsEl) {
+                            commentsEl.innerHTML = "";
+                            const comments = %s;
+                            if (comments.length > 0) {
+                                comments.forEach(c => {
+                                    const div = document.createElement('div');
+                                    div.style.marginBottom = '6px';
+                                    div.style.paddingLeft = '8px';
+                                    div.style.borderLeft = '2px solid #3b82f6';
+                                    div.style.fontStyle = 'italic';
+                                    div.style.wordBreak = 'break-word';
+                                    div.style.overflowWrap = 'break-word';
+                                    div.innerText = c;
+                                    commentsEl.appendChild(div);
+                                });
+                            } else {
+                                commentsEl.innerHTML = '<div style="color:var(--lumo-secondary-text-color);font-size:12px;">Nenhum comentário textual</div>';
+                            }
+                        }
+                    };
+                    tryRender();
+                    window.addEventListener('theme-changed', tryRender);
+                })();
+                """, slaNamesJson, slaOnTimeJson, slaDelayedJson, justLabelsJson, justValuesJson, objectMapper.writeValueAsString(data.wordCloud()), objectMapper.writeValueAsString(data.recentComments()));
+
             UI.getCurrent().getPage().executeJs(js);
+            UI.getCurrent().getPage().executeJs(slaJs);
         } catch (JsonProcessingException e) {
             e.printStackTrace();
         }

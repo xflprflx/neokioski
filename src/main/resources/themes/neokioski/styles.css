@@ -8,6 +8,16 @@
     opacity: 0;
 }
 
+/* Light mode defaults */
+:root {
+    --dash-bg: #f8fafc;
+    --dash-card-bg: #ffffff;
+    --dash-border: #e2e8f0;
+    --dash-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07);
+    --dash-text: #1e293b;
+    --dash-text-sec: #64748b;
+}
+
 [theme~="dark"] {
     --dash-bg: #0f172a;
     --dash-card-bg: #1e293b;
@@ -149,3 +159,12 @@
 }
 
 
+.deleted-row {
+    opacity: 0.5;
+    font-style: italic;
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+[theme~="dark"] .deleted-row {
+    background-color: rgba(255, 255, 255, 0.05);
+}

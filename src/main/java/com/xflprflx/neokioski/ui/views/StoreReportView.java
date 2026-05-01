@@ -17,6 +17,7 @@ import com.vaadin.flow.server.StreamResource;
 import com.xflprflx.neokioski.repositories.StoreReportConfigRepository;
 import com.xflprflx.neokioski.services.PdfService;
 import com.xflprflx.neokioski.services.TaskService;
+import com.xflprflx.neokioski.ui.utils.TaskUIUtils;
 import jakarta.annotation.security.PermitAll;
 
 import java.time.Instant;
@@ -24,6 +25,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 
 @PermitAll
 @Route(value = "relatorio-loja", layout = MainLayout.class)
@@ -39,6 +41,13 @@ public class StoreReportView extends VerticalLayout {
     private final Grid<TaskService.StoreReportEntry> grid = new Grid<>(TaskService.StoreReportEntry.class, false);
     private final DatePicker startDatePicker = new DatePicker("Data Inicial");
     private final DatePicker endDatePicker = new DatePicker("Data Final");
+
+    {
+        startDatePicker.setLocale(Locale.forLanguageTag("pt-BR"));
+        startDatePicker.setI18n(TaskUIUtils.getPtBrI18n());
+        endDatePicker.setLocale(Locale.forLanguageTag("pt-BR"));
+        endDatePicker.setI18n(TaskUIUtils.getPtBrI18n());
+    }
 
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
             .withZone(ZoneId.systemDefault());
@@ -78,7 +87,7 @@ public class StoreReportView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void configureGrid() {
         grid.setSizeFull();
@@ -94,7 +103,7 @@ public class StoreReportView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void updateGrid() {
         /*
@@ -110,7 +119,7 @@ public class StoreReportView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void downloadPdf() {
         /*

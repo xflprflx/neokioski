@@ -6,6 +6,9 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "tb_task_field_options")
+@Cacheable
+@org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
+@org.hibernate.annotations.BatchSize(size = 50)
 /**
  * Entidade que armazena opções disponíveis de seleção para campos do tipo 'Dropdown' ou similares em um template.
  */

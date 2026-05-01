@@ -53,7 +53,7 @@ public class UserListView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Component getContent() {
         HorizontalLayout content = new HorizontalLayout(grid, form);
@@ -68,7 +68,7 @@ public class UserListView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void configureForm() {
         form = new UserForm();
@@ -80,7 +80,7 @@ public class UserListView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void saveUser(UserForm.SaveEvent event) {
         service.save(event.getUser());
@@ -89,7 +89,7 @@ public class UserListView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void deleteUser(UserForm.DeleteEvent event) {
         service.delete(event.getUser());
@@ -98,7 +98,7 @@ public class UserListView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void resetPassword(UserForm.ResetPasswordEvent event) {
         String tempPass = service.generateTemporaryPassword(event.getUser().getId());
@@ -145,7 +145,7 @@ public class UserListView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void configureGrid() {
         grid.addClassNames("user-grid");
@@ -187,7 +187,7 @@ public class UserListView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private HorizontalLayout getToolbar() {
         filterText.setPlaceholder("Filtrar por nome...");
@@ -207,7 +207,7 @@ public class UserListView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void editUser(User user) {
         /*
@@ -223,7 +223,7 @@ public class UserListView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void closeEditor() {
         form.setUser(null);
@@ -232,7 +232,7 @@ public class UserListView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void addUser() {
         grid.asSingleSelect().clear();
@@ -240,7 +240,7 @@ public class UserListView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void updateList() {
         grid.setItems(service.findAll(filterText.getValue()));
@@ -248,7 +248,7 @@ public class UserListView extends VerticalLayout {
 
     @Override
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
         super.onAttach(attachEvent);
@@ -262,7 +262,7 @@ public class UserListView extends VerticalLayout {
 
     @Override
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     protected void onDetach(com.vaadin.flow.component.DetachEvent detachEvent) {
         super.onDetach(detachEvent);

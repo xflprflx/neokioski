@@ -10,9 +10,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.Objects;
+import java.util.LinkedHashSet;
 
 @Entity
 @Table(name = "tb_task_templates")
+@Cacheable
+@org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
+@org.hibernate.annotations.BatchSize(size = 50)
 /**
  * Entidade que define o modelo ou gabarito estrutural utilizado na criação de novas tarefas.
  */
@@ -39,36 +43,59 @@ public class TaskTemplate {
     private Role defaultResponsibleRole;
 
     @Column(nullable = false)
+    private boolean deleted = false;
+
+    @Column(nullable = false)
     private Integer sortOrder = 0;
 
-    @ElementCollection(fetch = FetchType.EAGER)
+    // #improve_n+1 - Remoção do EAGER forçado nas coleções administrativas que causavam queries em massa quando uma Task era listada
+    @ElementCollection(fetch = FetchType.LAZY)
     @Enumerated(EnumType.STRING)
     @CollectionTable(name = "tb_task_template_alert_roles", joinColumns = @JoinColumn(name = "task_template_id"))
     @Column(name = "role")
+    @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
+    @org.hibernate.annotations.BatchSize(size = 50)
     private Set<Role> alertRoles = new HashSet<>();
-    @ManyToMany(fetch = FetchType.EAGER)
+
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "tb_task_templates_groups",
             joinColumns = @JoinColumn(name = "task_template_id"),
             inverseJoinColumns = @JoinColumn(name = "group_id")
     )
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
-    private List<Group> groups = new ArrayList<>();
-    @OneToMany(mappedBy = "taskTemplate")
-    private List<TemplateStepRelation> templateStepRelation = new ArrayList<>();
-    @OneToMany(mappedBy = "taskTemplate")
-    private List<TemplateFieldRelation> templateFieldRelation = new ArrayList<>();
-    @OneToMany(mappedBy = "taskTemplate", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<TaskAlert> alerts = new ArrayList<>();
+    private Set<Group> groups = new LinkedHashSet<>();
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "taskTemplate", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("order ASC")
+    @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
+    @org.hibernate.annotations.BatchSize(size = 50)
+    private Set<TemplateStepRelation> templateStepRelation = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "taskTemplate", cascade = CascadeType.ALL, orphanRemoval = true)
+    @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
+    @org.hibernate.annotations.BatchSize(size = 50)
+    private Set<TemplateFieldRelation> templateFieldRelation = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "taskTemplate", cascade = CascadeType.ALL, orphanRemoval = true)
+    @org.hibernate.annotations.BatchSize(size = 50)
+    private Set<TaskAlert> alerts = new LinkedHashSet<>();
+
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "tb_task_templates_authorizer_users",
             joinColumns = @JoinColumn(name = "task_template_id"),
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
-    private List<User> authorizingUsers = new ArrayList<>();
+    @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
+    @org.hibernate.annotations.BatchSize(size = 50)
+    private Set<User> authorizingUsers = new HashSet<>();
+
+    @OneToMany(mappedBy = "taskTemplate", cascade = CascadeType.ALL, orphanRemoval = true)
+    @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
+    @org.hibernate.annotations.BatchSize(size = 50)
+    private Set<TaskTemplateMention> mentionsMappings = new HashSet<>();
 
     public TaskTemplate() {
     }
@@ -145,8 +172,12 @@ public class TaskTemplate {
         this.alertRoles = alertRoles;
     }
 
-    public List<Group> getGroups() {
+    public Set<Group> getGroups() {
         return groups;
+    }
+
+    public void setGroups(Set<Group> groups) {
+        this.groups = groups;
     }
 
     /**
@@ -161,23 +192,23 @@ public class TaskTemplate {
         this.groups.add(group);
     }
 
-    public List<TemplateStepRelation> getTemplateStepRelation() {
+    public Set<TemplateStepRelation> getTemplateStepRelation() {
         return templateStepRelation;
     }
 
-    public List<TemplateFieldRelation> getTemplateFieldRelation() {
+    public Set<TemplateFieldRelation> getTemplateFieldRelation() {
         return templateFieldRelation;
     }
 
-    public List<User> getAuthorizingUsers() {
+    public Set<User> getAuthorizingUsers() {
         return authorizingUsers;
     }
 
-    public void setAuthorizingUsers(List<User> authorizingUsers) {
+    public void setAuthorizingUsers(Set<User> authorizingUsers) {
         this.authorizingUsers = authorizingUsers;
     }
 
-    public List<TaskAlert> getAlerts() {
+    public Set<TaskAlert> getAlerts() {
         return alerts;
     }
 
@@ -189,8 +220,24 @@ public class TaskTemplate {
         this.sortOrder = sortOrder;
     }
 
-    public void setAlerts(List<TaskAlert> alerts) {
+    public boolean isDeleted() {
+        return deleted;
+    }
+
+    public void setDeleted(boolean deleted) {
+        this.deleted = deleted;
+    }
+
+    public void setAlerts(Set<TaskAlert> alerts) {
         this.alerts = alerts;
+    }
+
+    public Set<TaskTemplateMention> getMentionsMappings() {
+        return mentionsMappings;
+    }
+
+    public void setMentionsMappings(Set<TaskTemplateMention> mentionsMappings) {
+        this.mentionsMappings = mentionsMappings;
     }
 
     /**

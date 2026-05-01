@@ -4,11 +4,15 @@ spring:
     username: ${DATASOURCE_USERNAME_TEST}
     password: ${DATASOURCE_PASSWORD_TEST}
   jpa:
-    show-sql: true
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: validate
     properties:
       hibernate:
         format_sql: true
+    defer-datasource-initialization: false
+  sql:
+    init:
+      mode: never
   flyway:
-    enabled: false
+    enabled: true
+    clean-disabled: false

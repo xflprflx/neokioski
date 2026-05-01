@@ -42,7 +42,7 @@ public class PdfService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public ByteArrayInputStream generateStoreReportPdf(List<TaskService.StoreReportEntry> entries) {
         // 1. Agrupar por data de coleta (LocalDate) usando TreeMap para manter a ordem cronológica
@@ -53,19 +53,12 @@ public class PdfService {
                         Collectors.toList()
                 ));
 
-        Document document = new Document(PageSize.A4, 36, 36, 36, 36);
+        Document document = new Document(PageSize.A4, 36, 36, 120, 60); // Margens maiores para cabeçalho e rodapé
         
         // Definir orientação inicial baseada no primeiro grupo
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
         if (!entriesByDate.isEmpty()) {
             LocalDate firstDate = entriesByDate.keySet().iterator().next();
-            StoreReportConfig firstConfig = configRepository.findActiveConfig(firstDate)
-                    .orElse(null);
-            /*
-             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-             */
+            StoreReportConfig firstConfig = configRepository.findActiveConfig(firstDate).orElse(null);
             if (firstConfig != null && firstConfig.getOrientation() == ReportOrientation.LANDSCAPE) {
                 document.setPageSize(PageSize.A4.rotate());
             }
@@ -73,90 +66,45 @@ public class PdfService {
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
-        /*
-         * Inicia um bloco try-catch para tratar possíveis exceções.
-         */
         try {
-            PdfWriter.getInstance(document, out);
-            document.open();
-
+            PdfWriter writer = PdfWriter.getInstance(document, out);
+            
             // Fontes
             Font fontHeader = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
             Font fontTitle = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
             Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 8);
             Font fontSmall = FontFactory.getFont(FontFactory.HELVETICA, 7);
 
-            boolean firstPage = true;
-            int pageNumber = 1;
-            int totalPages = entriesByDate.size();
+            // Evento para Cabeçalho e Rodapé em cada página
+            StoreReportPageEvent event = new StoreReportPageEvent(fontSmall);
+            writer.setPageEvent(event);
 
-            /*
-             * Inicia um laço de repetição (for) para iterar sobre os elementos.
-             */
+            document.open();
+
+            int groupIndex = 1;
+            int totalGroups = entriesByDate.size();
+
             for (Map.Entry<LocalDate, List<TaskService.StoreReportEntry>> group : entriesByDate.entrySet()) {
                 LocalDate date = group.getKey();
                 List<TaskService.StoreReportEntry> dateEntries = group.getValue();
-                // Buscar configuração ativa para ESTA data específica
+                
                 StoreReportConfig config = configRepository.findActiveConfig(date)
                         .orElseThrow(() -> new RuntimeException("Não foi encontrada uma configuração de relatório ativa para a data: " + date));
+
+                // Atualizar o contexto do evento para a página atual
+                event.updateContext(config, groupIndex++, totalGroups);
 
                 // Mudar orientação se necessário
                 Rectangle pageSize = config.getOrientation() == ReportOrientation.LANDSCAPE ? 
                         PageSize.A4.rotate() : PageSize.A4;
                 document.setPageSize(pageSize);
 
-                /*
-                 * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                 */
-                if (firstPage) {
-                    // Na primeira página, o iText precisa do newPage após o open e setPageSize 
-                    // para aplicar a rotação se for diferente do padrão inicial (A4 Portrait).
-                    // No Lowagie, document.open() cria a primeira página. 
-                    // Se mudarmos o pageSize logo após o open, a primeira página assume o novo tamanho 
-                    // se nenhuma instrução de escrita tiver sido enviada ainda.
-                } else {
+                if (groupIndex > 2) { // Não é o primeiro grupo
                     document.newPage();
                 }
 
-                // --- CABEÇALHO ---
-                PdfPTable headerTable = new PdfPTable(2);
-                headerTable.setWidthPercentage(100);
-                headerTable.setWidths(new float[]{3, 1});
-
-                PdfPTable identTable = new PdfPTable(2);
-                identTable.setWidthPercentage(100);
-                identTable.setWidths(new float[]{1, 2});
-
-                identTable.addCell(createNoBorderCell("ID / Identificador:", fontSmall));
-                identTable.addCell(createNoBorderCell(config.getIdentifier(), fontSmall));
-                identTable.addCell(createNoBorderCell("Revisão / Revision:", fontSmall));
-                identTable.addCell(createNoBorderCell(config.getRevision(), fontSmall));
-                identTable.addCell(createNoBorderCell("Título / Title:", fontSmall));
-                identTable.addCell(createNoBorderCell(config.getTitle(), fontSmall));
-                identTable.addCell(createNoBorderCell("Responsável / Owner:", fontSmall));
-                identTable.addCell(createNoBorderCell(config.getOwner(), fontSmall));
-
-                PdfPCell leftCell = new PdfPCell();
-                leftCell.addElement(identTable);
-                leftCell.setBorder(Rectangle.NO_BORDER);
-
-                Paragraph langParagraph = new Paragraph("Este documento será escrito em / This document will be written in:", fontSmall);
-                langParagraph.setSpacingBefore(5);
-                leftCell.addElement(langParagraph);
-                leftCell.addElement(new Paragraph("[x] Português/Portuguese / [ ] Inglês/English / [ ] Português-Inglês/Portuguese-English", fontSmall));
-                
-                headerTable.addCell(leftCell);
-
-                PdfPCell rightCell = new PdfPCell(new Phrase("Template: " + config.getTemplateCode() + (config.getRevision() != null ? " rev. " + config.getRevision() : ""), fontSmall));
-                rightCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
-                rightCell.setBorder(Rectangle.NO_BORDER);
-                headerTable.addCell(rightCell);
-                
-                document.add(headerTable);
+                // Espaço para o cabeçalho (que é desenhado pelo evento)
                 document.add(new Paragraph("\n"));
-
-                // Definir limite de linhas para caber o rodapé na mesma página
-                int maxLines = (config.getOrientation() == ReportOrientation.LANDSCAPE) ? 18 : 28;
 
                 // --- TÍTULO ---
                 Paragraph title = new Paragraph("PEDIDOS RETIRA LOJA", fontHeader);
@@ -167,11 +115,9 @@ public class PdfService {
                 // --- TABELA DE DADOS ---
                 List<ReportColumnConfig> columns = config.getColumns();
                 PdfPTable table;
-                /*
-                 * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                 */
+                int maxLines = (config.getOrientation() == ReportOrientation.LANDSCAPE) ? 18 : 28;
+
                 if (columns.isEmpty()) {
-                    // Padrão antigo
                     table = new PdfPTable(4);
                     table.setWidthPercentage(100);
                     table.setWidths(new float[]{1, 2, 4, 4});
@@ -180,96 +126,42 @@ public class PdfService {
                     table.addCell(createHeaderCell("Data", fontTitle));
                     table.addCell(createHeaderCell("Número da Delivery", fontTitle));
                     table.addCell(createHeaderCell("Entregue para:", fontTitle));
+                    table.setHeaderRows(1); // Repetir header se quebrar página
 
                     int sq = 1;
-                    /*
-                     * Inicia um laço de repetição (for) para iterar sobre os elementos.
-                     */
                     for (TaskService.StoreReportEntry entry : dateEntries) {
                         table.addCell(createDataCell(String.valueOf(sq++), fontNormal));
                         table.addCell(createDataCell(dateFormatter.format(entry.collectedAt()), fontNormal));
                         table.addCell(createDataCell(entry.deliveryNumber(), fontNormal));
                         table.addCell(createDataCell(entry.collectorName(), fontNormal));
                     }
-
-                    /*
-                     * Inicia um laço de repetição (for) para iterar sobre os elementos.
-                     */
                     for (int i = dateEntries.size(); i < maxLines; i++) {
                         table.addCell(createDataCell(String.valueOf(sq++), fontNormal));
-                        table.addCell(createDataCell("", fontNormal));
-                        table.addCell(createDataCell("", fontNormal));
-                        table.addCell(createDataCell("", fontNormal));
+                        table.addCell(createDataCell("", fontNormal)); table.addCell(createDataCell("", fontNormal)); table.addCell(createDataCell("", fontNormal));
                     }
                 } else {
-                    // Customizado
-                    int numCols = columns.size() + 1; // +1 para SQ
+                    int numCols = columns.size() + 1;
                     table = new PdfPTable(numCols);
                     table.setWidthPercentage(100);
-                    
-                    // Header
                     table.addCell(createHeaderCell("SQ", fontTitle));
-                    /*
-                     * Inicia um laço de repetição (for) para iterar sobre os elementos.
-                     */
-                    for (ReportColumnConfig col : columns) {
-                        table.addCell(createHeaderCell(col.getLabel(), fontTitle));
-                    }
+                    for (ReportColumnConfig col : columns) table.addCell(createHeaderCell(col.getLabel(), fontTitle));
+                    table.setHeaderRows(1);
 
                     int sq = 1;
-                    /*
-                     * Inicia um laço de repetição (for) para iterar sobre os elementos.
-                     */
                     for (TaskService.StoreReportEntry entry : dateEntries) {
                         table.addCell(createDataCell(String.valueOf(sq++), fontNormal));
-                        /*
-                         * Inicia um laço de repetição (for) para iterar sobre os elementos.
-                         */
                         for (ReportColumnConfig col : columns) {
                             String value = taskService.getTaskAttributeValue(entry.task(), col.getAttributeKey());
                             table.addCell(createDataCell(value, fontNormal));
                         }
                     }
-
-                    /*
-                     * Inicia um laço de repetição (for) para iterar sobre os elementos.
-                     */
                     for (int i = dateEntries.size(); i < maxLines; i++) {
                         table.addCell(createDataCell(String.valueOf(sq++), fontNormal));
-                        /*
-                         * Inicia um laço de repetição (for) para iterar sobre os elementos.
-                         */
-                        for (int j = 0; j < columns.size(); j++) {
-                            table.addCell(createDataCell("", fontNormal));
-                        }
+                        for (int j = 0; j < columns.size(); j++) table.addCell(createDataCell("", fontNormal));
                     }
                 }
 
                 document.add(table);
-                document.add(new Paragraph("\n"));
-
-                // --- RODAPÉ ---
-                PdfPTable footerTable = new PdfPTable(3);
-                footerTable.setWidthPercentage(100);
-                footerTable.setWidths(new float[]{1, 1, 1});
-                
-                PdfPCell footerLeft = new PdfPCell(new Phrase("©JGGC Indústria e Comércio\nde Materiais Dentários S.A.", fontSmall));
-                footerLeft.setBorder(Rectangle.NO_BORDER);
-                footerTable.addCell(footerLeft);
-
-                PdfPCell footerCenter = new PdfPCell(new Phrase("Template: " + config.getIdentifier() + (config.getRevision() != null ? ", revision " + config.getRevision() : ""), fontSmall));
-                footerCenter.setBorder(Rectangle.NO_BORDER);
-                footerCenter.setHorizontalAlignment(Element.ALIGN_CENTER);
-                footerTable.addCell(footerCenter);
-
-                PdfPCell footerRight = new PdfPCell(new Phrase("Page " + (pageNumber++) + "/" + totalPages, fontSmall));
-                footerRight.setBorder(Rectangle.NO_BORDER);
-                footerRight.setHorizontalAlignment(Element.ALIGN_RIGHT);
-                footerTable.addCell(footerRight);
-
-                document.add(footerTable);
-
-                firstPage = false;
             }
 
             document.close();
@@ -278,13 +170,13 @@ public class PdfService {
         }
 
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return new ByteArrayInputStream(out.toByteArray());
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public ByteArrayInputStream generateGeneralTaskReportPdf(List<Task> tasks) {
         Document document = new Document(PageSize.A4.rotate(), 36, 36, 36, 36);
@@ -336,26 +228,26 @@ public class PdfService {
         }
 
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return new ByteArrayInputStream(out.toByteArray());
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private PdfPCell createCell(String text, Font font) {
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
         cell.setBorderWidth(0.5f);
         cell.setPadding(2);
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return cell;
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private PdfPCell createHeaderCell(String text, Font font) {
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
@@ -365,34 +257,114 @@ public class PdfService {
         cell.setPadding(5);
         cell.setBorderWidth(1f);
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return cell;
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private PdfPCell createDataCell(String text, Font font) {
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
         cell.setPadding(4);
         cell.setBorderWidth(0.5f);
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return cell;
     }
 
-    /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
-     */
+
     private PdfPCell createNoBorderCell(String text, Font font) {
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
         cell.setBorder(com.lowagie.text.Rectangle.NO_BORDER);
         cell.setPadding(2);
-        /*
-         * Retorna o resultado final processado pelo método.
-         */
         return cell;
+    }
+
+    /**
+     * Classe auxiliar para gerenciar cabeçalho e rodapé em todas as páginas do relatório.
+     */
+    private class StoreReportPageEvent extends com.lowagie.text.pdf.PdfPageEventHelper {
+        private StoreReportConfig config;
+        private int groupIndex;
+        private int totalGroups;
+        private final Font fontSmall;
+
+        public StoreReportPageEvent(Font fontSmall) {
+            this.fontSmall = fontSmall;
+        }
+
+        public void updateContext(StoreReportConfig config, int groupIndex, int totalGroups) {
+            this.config = config;
+            this.groupIndex = groupIndex;
+            this.totalGroups = totalGroups;
+        }
+
+        @Override
+        public void onEndPage(PdfWriter writer, Document document) {
+            if (config == null) return;
+
+            com.lowagie.text.pdf.PdfContentByte cb = writer.getDirectContent();
+
+            // --- DESENHAR CABEÇALHO ---
+            PdfPTable headerTable = new PdfPTable(2);
+            headerTable.setTotalWidth(document.right() - document.left());
+            try {
+                headerTable.setWidths(new float[]{3, 1});
+                
+                PdfPTable identTable = new PdfPTable(2);
+                identTable.setWidthPercentage(100);
+                identTable.setWidths(new float[]{1, 2});
+                identTable.addCell(createNoBorderCell("ID / Identificador:", fontSmall));
+                identTable.addCell(createNoBorderCell(config.getIdentifier(), fontSmall));
+                identTable.addCell(createNoBorderCell("Revisão / Revision:", fontSmall));
+                identTable.addCell(createNoBorderCell(config.getRevision(), fontSmall));
+                identTable.addCell(createNoBorderCell("Título / Title:", fontSmall));
+                identTable.addCell(createNoBorderCell(config.getTitle(), fontSmall));
+                identTable.addCell(createNoBorderCell("Responsável / Owner:", fontSmall));
+                identTable.addCell(createNoBorderCell(config.getOwner(), fontSmall));
+
+                PdfPCell leftCell = new PdfPCell();
+                leftCell.addElement(identTable);
+                leftCell.setBorder(Rectangle.NO_BORDER);
+                Paragraph langParagraph = new Paragraph("Este documento será escrito em / This document will be written in:", fontSmall);
+                langParagraph.setSpacingBefore(5);
+                leftCell.addElement(langParagraph);
+                leftCell.addElement(new Paragraph("[x] Português/Portuguese / [ ] Inglês/English / [ ] Português-Inglês/Portuguese-English", fontSmall));
+                headerTable.addCell(leftCell);
+
+                PdfPCell rightCell = new PdfPCell(new Phrase("Template: " + config.getTemplateCode() + (config.getRevision() != null ? " rev. " + config.getRevision() : ""), fontSmall));
+                rightCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                rightCell.setBorder(Rectangle.NO_BORDER);
+                headerTable.addCell(rightCell);
+
+                headerTable.writeSelectedRows(0, -1, document.left(), document.getPageSize().getTop() - 20, cb);
+
+            } catch (DocumentException e) { e.printStackTrace(); }
+
+            // --- DESENHAR RODAPÉ ---
+            PdfPTable footerTable = new PdfPTable(3);
+            footerTable.setTotalWidth(document.right() - document.left());
+            try {
+                footerTable.setWidths(new float[]{1, 1, 1});
+                PdfPCell footerLeft = new PdfPCell(new Phrase("©JGGC Indústria e Comércio\nde Materiais Dentários S.A.", fontSmall));
+                footerLeft.setBorder(Rectangle.NO_BORDER);
+                footerTable.addCell(footerLeft);
+
+                PdfPCell footerCenter = new PdfPCell(new Phrase("Template: " + config.getIdentifier() + (config.getRevision() != null ? ", revision " + config.getRevision() : ""), fontSmall));
+                footerCenter.setBorder(Rectangle.NO_BORDER);
+                footerCenter.setHorizontalAlignment(Element.ALIGN_CENTER);
+                footerTable.addCell(footerCenter);
+
+                PdfPCell footerRight = new PdfPCell(new Phrase("Page " + groupIndex + "/" + totalGroups, fontSmall));
+                footerRight.setBorder(Rectangle.NO_BORDER);
+                footerRight.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                footerTable.addCell(footerRight);
+
+                footerTable.writeSelectedRows(0, -1, document.left(), document.bottom() - 10, cb);
+            } catch (DocumentException e) { e.printStackTrace(); }
+        }
     }
 }

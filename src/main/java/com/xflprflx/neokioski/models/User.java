@@ -3,6 +3,7 @@ package com.xflprflx.neokioski.models;
 import com.xflprflx.neokioski.models.enums.Role;
 import jakarta.persistence.*;
 
+import org.hibernate.annotations.BatchSize;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Objects;
@@ -10,6 +11,8 @@ import java.util.Set;
 
 @Entity
 @Table(name = "tb_users")
+@org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
+@BatchSize(size = 100)
 /**
  * Entidade que representa um usuário do sistema, com credenciais e papéis de acesso.
  */
@@ -120,13 +123,14 @@ public class User {
 
     @Override
     public boolean equals(Object o) {
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o) return true;
+        if (!(o instanceof User)) return false;
         User user = (User) o;
-        return Objects.equals(id, user.id) && Objects.equals(username, user.username);
+        return id != null && id.equals(user.getId());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, username);
+        return Objects.hash(id);
     }
 }

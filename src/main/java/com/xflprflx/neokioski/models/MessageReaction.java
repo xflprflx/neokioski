@@ -18,11 +18,11 @@ public class MessageReaction {
     @Column(nullable = false)
     private String emoji;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "chat_message_id", nullable = false)
     private ChatMessage chatMessage;
 

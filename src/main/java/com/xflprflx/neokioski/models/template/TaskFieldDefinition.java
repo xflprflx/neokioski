@@ -2,12 +2,15 @@ package com.xflprflx.neokioski.models.template;
 
 import jakarta.persistence.*;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.Objects;
 
 @Entity
 @Table(name = "tb_task_field_definitions")
+@Cacheable
+@org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
+@org.hibernate.annotations.BatchSize(size = 50)
 /**
  * Entidade que representa a definição estrutural de um campo customizável pertencente a um template.
  */
@@ -21,9 +24,12 @@ public class TaskFieldDefinition {
     private String description;
     @Enumerated(EnumType.STRING)
     private InputType inputType;
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JoinColumn(name = "task_field_definition_id")
-    private List<TaskFieldOption> taskFieldOptions = new ArrayList<>();
+    @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
+    @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
+    @org.hibernate.annotations.BatchSize(size = 50)
+    private Set<TaskFieldOption> taskFieldOptions = new LinkedHashSet<>();
 
     public TaskFieldDefinition() {
     }
@@ -60,7 +66,7 @@ public class TaskFieldDefinition {
         this.inputType = inputType;
     }
 
-    public List<TaskFieldOption> getTaskFieldOptions() {
+    public Set<TaskFieldOption> getTaskFieldOptions() {
         return taskFieldOptions;
     }
 

@@ -14,7 +14,7 @@ import java.util.Optional;
 
 /**
  * Serviço responsável por gerenciar a segurança e o contexto de autenticação do usuário.
- * Oferece métodos para obter as credenciais do usuário logado e realizar logout.
+ * Oferece métodxs para obter as credenciais do usuário logado e realizar logout.
  */
 @Component
 public class SecurityService {
@@ -67,8 +67,21 @@ public class SecurityService {
          * Utiliza o detalhe do usuário autenticado e realiza uma busca no
          * repositório utilizando o username (nome de usuário).
          */
-        return getAuthenticatedUser()
-                .flatMap(userDetails -> userRepository.findByUsername(userDetails.getUsername()));
+    // #improve_n+1 ThreadLocal caching robusto para request scope do Vaadin/Websocket, evitando repetições de chamadas a tb_users
+        return getAuthenticatedUser().flatMap(userDetails -> {
+        // Tentativa 1: Servlet normal
+            VaadinServletRequest request = VaadinServletRequest.getCurrent();
+        if (request != null) {
+            if (request.getAttribute("cachedAuthUser") != null) {
+                return Optional.of((User) request.getAttribute("cachedAuthUser"));
+            }
+            Optional<User> userOpt = userRepository.findByUsername(userDetails.getUsername());
+            userOpt.ifPresent(user -> request.setAttribute("cachedAuthUser", user));
+            return userOpt;
+            }
+        // Fallback: Usa o Hibernate L2 que configuramos
+        return userRepository.findByUsername(userDetails.getUsername());
+        });
     }
 
     /**

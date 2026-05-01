@@ -6,6 +6,7 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "tb_task_field_values")
+@org.hibernate.annotations.BatchSize(size = 50)
 /**
  * Entidade que armazena o valor preenchido em um campo dinâmico de uma tarefa específica.
  */
@@ -18,9 +19,10 @@ public class TaskFieldValue {
     @Column(nullable = false)
     private String value;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "task_field_definition_id")
     private TaskFieldDefinition taskFieldDefinition;
+
 
     public TaskFieldValue() {
     }
@@ -48,6 +50,7 @@ public class TaskFieldValue {
     public void setTaskFieldDefinition(TaskFieldDefinition taskFieldDefinition) {
         this.taskFieldDefinition = taskFieldDefinition;
     }
+
 
     @Override
     public boolean equals(Object o) {

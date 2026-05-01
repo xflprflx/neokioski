@@ -9,6 +9,7 @@ import java.util.Set;
 
 @Entity
 @Table(name = "tb_task_template_alerts")
+@org.hibernate.annotations.BatchSize(size = 50)
 /**
  * Entidade que configura alertas automáticos associados às tarefas para avisar sobre vencimentos.
  */
@@ -18,15 +19,15 @@ public class TaskAlert {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "task_template_id", nullable = false)
     private TaskTemplate taskTemplate;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "target_step_id", nullable = false)
     private TaskStepDefinition targetStep;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "start_step_id")
     private TaskStepDefinition startStep;
 

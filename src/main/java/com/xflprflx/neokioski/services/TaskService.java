@@ -3,8 +3,11 @@ package com.xflprflx.neokioski.services;
 import com.xflprflx.neokioski.models.*;
 import com.xflprflx.neokioski.models.template.*;
 import com.xflprflx.neokioski.repositories.*;
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import org.springframework.data.jpa.domain.Specification;
 import jakarta.persistence.criteria.*;
@@ -15,6 +18,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional(readOnly = true)
 /**
  * Serviço principal para gerenciar o ciclo de vida completo de uma tarefa (criação, edição, atualização de passos e deleção).
  */
@@ -36,9 +40,9 @@ public class TaskService {
 
     public TaskService(TaskRepository taskRepository,
                        TemplateStepRelationRepository stepRelationRepository,
-                       ChatService chatService,
+                       @org.springframework.context.annotation.Lazy ChatService chatService,
                        ChatMessageRepository chatMessageRepository,
-                       TaskAlertService taskAlertService,
+                       @org.springframework.context.annotation.Lazy TaskAlertService taskAlertService,
                        TaskTemplateRepository taskTemplateRepository,
                        TaskFieldDefinitionRepository taskFieldDefinitionRepository,
                        TaskStepDefinitionRepository taskStepDefinitionRepository,
@@ -55,33 +59,31 @@ public class TaskService {
     }
 
     public Optional<com.xflprflx.neokioski.models.enums.Role> getResponsibleRole(Task task) {
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
         if (task.getCurrentStep() == null) {
-            /*
-             * Retorna o resultado final processado pelo método.
-             */
             return Optional.ofNullable(task.getTaskTemplate().getDefaultResponsibleRole());
         }
-        /*
-         * Retorna o resultado final processado pelo método.
-         */
-        return stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
-                task.getTaskTemplate().getId(), task.getCurrentStep().getId()
-        ).map(TemplateStepRelation::getResponsibleRole);
+        // #improve_n+1 - Usar coleção em memória se disponível para evitar query secundária
+        return task.getTaskTemplate().getTemplateStepRelation().stream()
+                .filter(r -> r.getTaskStepDefinition() != null && 
+                            r.getTaskStepDefinition().getId().equals(task.getCurrentStep().getId()))
+                .findFirst()
+                .map(TemplateStepRelation::getResponsibleRole);
     }
 
-    @Transactional
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
+    @Transactional
     public Task createTask(TaskTemplate template,
                            Map<TaskFieldDefinition, String> fieldValues,
                            User creator,
                            Group group) {
+        // #improve_n+1 - Recarregar o template com metadados completos para garantir que ele esteja atachado e pronto
+        TaskTemplate attachedTemplate = taskTemplateRepository.findByIdWithMetadata(template.getId())
+                .orElseThrow(() -> new RuntimeException("Template não encontrado: " + template.getId()));
+
         Task task = new Task();
-        task.setTaskTemplate(template);
+        task.setTaskTemplate(attachedTemplate);
         task.setCreator(creator);
         task.setGroup(group);
         task.setCreatedAt(Instant.now());
@@ -107,23 +109,26 @@ public class TaskService {
         TaskEvent event = new TaskEvent();
         event.setUser(creator);
         event.setTimestamp(Instant.now());
+        event.setTask(task);
         task.getTaskEvents().add(event);
 
         Task saved = taskRepository.save(task);
+        // #improve_n+1 - Deep touch para garantir que a task transmitida esteja 100% pronta para a UI
+        initializeTaskData(saved);
         taskAlertService.scheduleAlertsForTask(saved);
         broadcast(group.getId(), saved);
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return saved;
     }
 
     @Transactional
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public Task executeStep(Long taskId, TaskStepDefinition step, User user, String response) {
-        Task task = taskRepository.findById(taskId).orElseThrow(() -> new RuntimeException("Task não encontrada: " + taskId));
+        Task task = taskRepository.findByIdForExecution(taskId).orElseThrow(() -> new RuntimeException("Task não encontrada: " + taskId));
 
         /*
          * Avalia uma condição (if) para desvio de fluxo da lógica principal.
@@ -140,6 +145,7 @@ public class TaskService {
             event.setUser(user);
             event.setTimestamp(Instant.now());
             event.setResponse(response);
+            event.setTask(task);
             task.getTaskEvents().add(event);
 
             // Determinar se o step a ser salvo é finalizador *agora*:
@@ -172,36 +178,24 @@ public class TaskService {
 
             Task saved = taskRepository.save(task);
 
-            // Verificar se deve processar menções e disparar sons
-            stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
-                    task.getTaskTemplate().getId(), step.getId()
-            ).ifPresent(relation -> {
-                // Buscar a mensagem original do card da tarefa para dar "Reply"
-                List<ChatMessage> msgs = chatMessageRepository.findByTaskOrderByIdAsc(task);
-                ChatMessage originalMsg = msgs.isEmpty() ? null : msgs.get(0);
+            // Processar menções e disparar sons usando a relation já buscada
+            relationOpt.ifPresent(relation -> {
+                // Buscar a primeira mensagem do card da tarefa para dar "Reply"
+                ChatMessage originalMsg = chatMessageRepository.findFirstByTaskOrderByIdAsc(task).orElse(null);
                 
                 String stepSound = relation.getAlertSound();
 
-                /*
-                 * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                 */
                 if (relation.isSendNotification() && relation.getNotificationMessage() != null && !relation.getNotificationMessage().isEmpty()) {
                     String message = relation.getNotificationMessage();
 
                     // 1. Processar @criador
-                    /*
-                     * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                     */
                     if (task.getCreator() != null) {
                         String creatorMention = "@" + task.getCreator().getUsername();
                         message = message.replace("@criador", creatorMention);
                     }
 
                     // 2. Processar @autorizadores
-                    List<User> authorizers = task.getTaskTemplate().getAuthorizingUsers();
-                    /*
-                     * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                     */
+                    java.util.Collection<User> authorizers = task.getTaskTemplate().getAuthorizingUsers();
                     if (authorizers != null && !authorizers.isEmpty()) {
                         String authorizersMention = authorizers.stream()
                             .map(u -> "@" + u.getUsername())
@@ -210,9 +204,6 @@ public class TaskService {
                     }
 
                     // 3. Processar @usuario (quem está executando a ação agora)
-                    /*
-                     * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                     */
                     if (user != null) {
                         message = message.replace("@usuario", "@" + user.getUsername());
                     }
@@ -225,14 +216,8 @@ public class TaskService {
                             .sorted(java.util.Comparator.comparing(TaskEvent::getTimestamp))
                             .toList();
                             
-                    /*
-                     * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                     */
                     if (events.size() >= 2) {
                         User previousAuthor = events.get(events.size() - 2).getUser();
-                        /*
-                         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                         */
                         if (previousAuthor != null) {
                             message = message.replace("@autor_anterior", "@" + previousAuthor.getUsername());
                         }
@@ -240,101 +225,98 @@ public class TaskService {
                         // Se não há autor anterior, remove a tag para não ficar visível
                         message = message.replace("@autor_anterior", "");
                     }
+
+                    // 6. Processar Menções Customizadas (Mapeamento por Grupo)
+                    message = com.xflprflx.neokioski.utils.TaskMentionUtils.resolveCustomMentions(message, task);
                     
                     String rolesStr = relation.getAlertRoles() != null ? relation.getAlertRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.joining(",")) : null;
                     chatService.sendVolatileMessage(message, user, task.getGroup(), originalMsg, stepSound, rolesStr);
                 }
             });
+        // Inicializar dados da task ANTES dos serviços de alerta (para que usem dados em memória)
+        initializeTaskData(saved);
 
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
         if (isTaskFinalized(saved)) {
             taskAlertService.cancelAllAlertsForTask(saved);
         } else {
             taskAlertService.cancelAlertByTargetStep(saved, step);
             taskAlertService.scheduleAlertsForTask(saved);
         }
-
         broadcast(task.getGroup().getId(), saved);
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return saved;
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public Optional<Task> findById(Long id) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return taskRepository.findById(id);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<Task> getTasksByGroup(Group group) {
-        /*
-         * Retorna o resultado final processado pelo método.
-         */
-        return taskRepository.findByGroupWithCollections(group);
+        List<Task> tasks = taskRepository.findByGroupWithCollections(group);
+        tasks.forEach(this::initializeTaskData);
+        return tasks;
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<Task> getTasksByGroup(Group group, Instant start, Instant end) {
-        /*
-         * Retorna o resultado final processado pelo método.
-         */
-        return taskRepository.findByGroupAndCreatedAtBetweenOrderByCreatedAtDesc(group, start, end);
+        List<Task> tasks = taskRepository.findByGroupAndCreatedAtBetweenOrderByCreatedAtDesc(group, start, end);
+        tasks.forEach(this::initializeTaskData);
+        return tasks;
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<Task> getMyTasks(Group group, User user) {
-        /*
-         * Retorna o resultado final processado pelo método.
-         */
-        return taskRepository.findMyTasksByGroup(group, user);
+        List<Task> tasks = taskRepository.findMyTasksByGroup(group, user);
+        tasks.forEach(this::initializeTaskData);
+        return tasks;
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<Task> getPendingTasks(Group group) {
-        /*
-         * Retorna o resultado final processado pelo método.
-         */
-        return taskRepository.findPendingByGroup(group);
+        List<Task> tasks = taskRepository.findPendingByGroup(group);
+        tasks.forEach(this::initializeTaskData);
+        return tasks;
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public long countActiveTasks() {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return taskRepository.countAllPending();
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public long countActiveTasksByGroup(Group group) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return taskRepository.countPendingByGroup(group);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public long countActiveTasksByGroups(List<Group> groups) {
         /*
@@ -342,7 +324,7 @@ public class TaskService {
          */
         if (groups == null || groups.isEmpty()) return 0;
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return taskRepository.countPendingByGroups(groups);
     }
@@ -363,7 +345,7 @@ public class TaskService {
             results = taskRepository.countTasksByGroupIn(userGroups);
         }
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return results.stream().collect(Collectors.toMap(
                 r -> (String) r[0],
@@ -389,7 +371,7 @@ public class TaskService {
         }
         
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return results.stream().collect(Collectors.toMap(
                 r -> r[0].toString(),
@@ -400,7 +382,7 @@ public class TaskService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<TaskStepDefinition> getAllowedNextSteps(Task task) {
         /*
@@ -408,7 +390,13 @@ public class TaskService {
          */
         if (isTaskFinalized(task)) return Collections.emptyList();
 
-        List<TemplateStepRelation> allRels = stepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(task.getTaskTemplate().getId());
+        // Otimização: Tentar usar a coleção já carregada no template para evitar N+1 no broadcast
+        java.util.Collection<TemplateStepRelation> allRels;
+        if (task.getTaskTemplate() != null && Hibernate.isInitialized(task.getTaskTemplate().getTemplateStepRelation())) {
+            allRels = task.getTaskTemplate().getTemplateStepRelation();
+        } else {
+            allRels = stepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(task.getTaskTemplate().getId());
+        }
         
         List<TaskStepDefinition> globalSteps = allRels.stream()
                 .filter(TemplateStepRelation::isGlobal)
@@ -420,40 +408,20 @@ public class TaskService {
          * Avalia uma condição (if) para desvio de fluxo da lógica principal.
          */
         if (task.getTaskTemplate().isRequiresSignature()) {
-            /*
-             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-             */
             if (task.getCurrentStep() == null) {
                 // Se ainda não autorizado, apenas AUTORIZADO e REJEITADO são permitidos
-                /*
-                 * Retorna o resultado final processado pelo método.
-                 */
                 return allRels.stream()
                         .map(TemplateStepRelation::getTaskStepDefinition)
                         .filter(s -> s.getLabel().equalsIgnoreCase("AUTORIZADO") || s.getLabel().equalsIgnoreCase("REJEITADO"))
                         .collect(Collectors.toList());
-            } else if (task.getTaskStepDefinitions().size() == 1 && task.getCurrentStep().getLabel().equalsIgnoreCase("AUTORIZADO")) {
-                // Se acabou de autorizar (é o primeiro e único step executado), libera os passos reais iniciais
-                Set<Long> restrictedStepIds = allRels.stream()
-                        .flatMap(r -> r.getAllowedNextSteps().stream())
-                        .map(TaskStepDefinition::getId)
-                        .collect(Collectors.toSet());
-
-                /*
-                 * Retorna o resultado final processado pelo método.
-                 */
-                return allRels.stream()
-                        .filter(r -> !r.isGlobal() 
-                                     && !restrictedStepIds.contains(r.getTaskStepDefinition().getId())
-                                     && !r.getTaskStepDefinition().getLabel().equalsIgnoreCase("AUTORIZADO")
-                                     && !r.getTaskStepDefinition().getLabel().equalsIgnoreCase("REJEITADO"))
-                        .map(TemplateStepRelation::getTaskStepDefinition)
-                        .collect(Collectors.toList());
             }
+            // Se já foi autorizado ou rejeitado, o código segue o fluxo normal abaixo para encontrar os próximos passos do workflow
         }
 
         // Identificar passos que são destinos de alguma transição (restritos)
+        // #fix - Passos globais não devem restringir pontos de entrada
         Set<Long> restrictedStepIds = allRels.stream()
+                .filter(r -> !r.isGlobal())
                 .flatMap(r -> r.getAllowedNextSteps().stream())
                 .map(TaskStepDefinition::getId)
                 .collect(Collectors.toSet());
@@ -467,7 +435,7 @@ public class TaskService {
                     .filter(r -> !r.isGlobal() && !restrictedStepIds.contains(r.getTaskStepDefinition().getId()))
                     .map(TemplateStepRelation::getTaskStepDefinition)
                     .collect(Collectors.toList());
-            
+
             List<TaskStepDefinition> result = new ArrayList<>(entrySteps);
             /*
              * Inicia um laço de repetição (for) para iterar sobre os elementos.
@@ -479,7 +447,7 @@ public class TaskService {
                 if (!result.contains(gs)) result.add(gs);
             }
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
             return result;
         }
@@ -493,7 +461,7 @@ public class TaskService {
          */
         if (currentRelOpt.isPresent()) {
             TemplateStepRelation rel = currentRelOpt.get();
-            List<TaskStepDefinition> nextSteps = rel.getAllowedNextSteps();
+            java.util.Collection<TaskStepDefinition> nextSteps = rel.getAllowedNextSteps();
             
             List<TaskStepDefinition> result;
             /*
@@ -532,26 +500,26 @@ public class TaskService {
                 }
             }
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
             return result;
         }
 
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return globalSteps;
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void register(Long groupId, Consumer<Task> listener) {
         listeners.computeIfAbsent(groupId, k -> new CopyOnWriteArrayList<>()).add(listener);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void unregister(Long groupId, Consumer<Task> listener) {
         List<Consumer<Task>> groupListeners = listeners.get(groupId);
@@ -562,61 +530,36 @@ public class TaskService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void registerGlobal(Consumer<Task> listener) {
         globalListeners.add(listener);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void unregisterGlobal(Consumer<Task> listener) {
         globalListeners.remove(listener);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public boolean isTaskFinalized(Task task) {
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
         if (task.getFinalizedAt() != null) return true;
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
         if (task.getCurrentStep() == null) return false;
         
-        // Tentar encontrar a relação exata pelo ID do Step
-        Optional<TemplateStepRelation> relationOpt = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
-                task.getTaskTemplate().getId(), task.getCurrentStep().getId()
-        );
-
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
-        if (relationOpt.isPresent()) {
-            /*
-             * Retorna o resultado final processado pelo método.
-             */
-            return relationOpt.get().isFinalizer();
-        }
-
-        // Fallback: Se a relação exata não existe (ex: template atualizado), 
-        // buscar por Label no template atual
-        String currentLabel = task.getCurrentStep().getLabel();
-        /*
-         * Retorna o resultado final processado pelo método.
-         */
-        return stepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(task.getTaskTemplate().getId())
-                .stream()
-                .filter(r -> r.getTaskStepDefinition().getLabel().equals(currentLabel))
-                .anyMatch(TemplateStepRelation::isFinalizer);
+        // Usar a coleção já carregada do template para evitar query N+1
+        return task.getTaskTemplate().getTemplateStepRelation().stream()
+                .filter(r -> r.getTaskStepDefinition().getId().equals(task.getCurrentStep().getId()))
+                .findFirst()
+                .map(TemplateStepRelation::isFinalizer)
+                .orElse(false);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public Instant getFinalizedTimestamp(Task task) {
         /*
@@ -628,7 +571,7 @@ public class TaskService {
          */
         if (!isTaskFinalized(task)) return null;
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return task.getTaskEvents().stream()
                 .filter(ev -> ev.getTaskStepDefinition() != null)
@@ -638,51 +581,32 @@ public class TaskService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public boolean shouldTaskPulse(Task task) {
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
         if (task.getCurrentStep() == null) return false;
 
-        Optional<TemplateStepRelation> relationOpt = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
-                task.getTaskTemplate().getId(), task.getCurrentStep().getId()
-        );
-
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
-        if (relationOpt.isPresent()) {
-            /*
-             * Retorna o resultado final processado pelo método.
-             */
-            return relationOpt.get().isShouldPulse();
-        }
-
-        String currentLabel = task.getCurrentStep().getLabel();
-        /*
-         * Retorna o resultado final processado pelo método.
-         */
-        return stepRelationRepository.findByTaskTemplateIdOrderByOrderAsc(task.getTaskTemplate().getId())
-                .stream()
-                .filter(r -> r.getTaskStepDefinition().getLabel().equals(currentLabel))
-                .anyMatch(TemplateStepRelation::isShouldPulse);
+        // Usar a coleção já carregada do template para evitar query N+1
+        return task.getTaskTemplate().getTemplateStepRelation().stream()
+                .filter(r -> r.getTaskStepDefinition().getId().equals(task.getCurrentStep().getId()))
+                .findFirst()
+                .map(TemplateStepRelation::isShouldPulse)
+                .orElse(false);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public boolean isTaskPending(Task task) {
         // Uma tarefa é pendente se não tem step OU se o step atual não é finalizador
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return task.getCurrentStep() == null || !isTaskFinalized(task);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public boolean canUserViewTask(Task task, User user) {
         /*
@@ -700,18 +624,19 @@ public class TaskService {
          */
         if (template.isRequiresSignature() && task.getCurrentStep() == null) {
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
-            return template.getAuthorizingUsers().contains(user);
+            return template.getAuthorizingUsers().stream()
+                    .anyMatch(u -> u.getId().equals(user.getId()));
         }
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return true;
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public boolean canUserExecuteStep(Task task, User user) {
         /*
@@ -726,68 +651,69 @@ public class TaskService {
         if (template.isRequiresSignature() && task.getCurrentStep() == null) {
             // Na fase de autorização, apenas quem está na lista pode agir
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
-            return template.getAuthorizingUsers().contains(user);
+            return template.getAuthorizingUsers().stream()
+                    .anyMatch(u -> u.getId().equals(user.getId()));
         }
 
         // Caso padrão (já autorizado ou sem requerimento): No NeoKioski quem vê o grupo pode agir.
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return true;
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void broadcast(Long groupId, Task task) {
-        List<Consumer<Task>> groupListeners = listeners.get(groupId);
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
-        if (groupListeners != null) {
-            /*
-             * Inicia um laço de repetição (for) para iterar sobre os elementos.
-             */
-            for (Consumer<Task> l : groupListeners) {
-                /*
-                 * Inicia um bloco try-catch para tratar possíveis exceções.
-                 */
+        Runnable doBroadcast = () -> {
+            List<Consumer<Task>> groupListeners = listeners.get(groupId);
+            if (groupListeners != null) {
+                for (Consumer<Task> l : groupListeners) {
+                    try {
+                        l.accept(task);
+                    } catch (Exception e) {
+                        System.err.println("Erro ao notificar listener de Task no grupo " + groupId + ": " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                }
+            }
+            for (Consumer<Task> l : globalListeners) {
                 try {
                     l.accept(task);
                 } catch (Exception e) {
-                    System.err.println("Erro ao notificar listener de Task no grupo " + groupId + ": " + e.getMessage());
-                    e.printStackTrace();
+                    System.err.println("Erro ao notificar listener global de Task: " + e.getMessage());
                 }
             }
-        }
-        /*
-         * Inicia um laço de repetição (for) para iterar sobre os elementos.
-         */
-        for (Consumer<Task> l : globalListeners) {
-            /*
-             * Inicia um bloco try-catch para tratar possíveis exceções.
-             */
-            try {
-                l.accept(task);
-            } catch (Exception e) {
-                System.err.println("Erro ao notificar listener global de Task: " + e.getMessage());
-            }
+        };
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    doBroadcast.run();
+                }
+            });
+        } else {
+            doBroadcast.run();
         }
     }
 
+    @Transactional(readOnly = true)
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<StoreReportEntry> getStoreReportData(Instant start, Instant end) {
         List<Task> tasks = taskRepository.findAllByCreatedAtBetween(start, end);
+        tasks.forEach(this::initializeTaskData);
 
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return tasks.stream()
-                .filter(t -> t.getTaskTemplate().isRegistraNoRelatorioLoja())
+                .filter(t -> t.getTaskTemplate() != null && t.getTaskTemplate().isRegistraNoRelatorioLoja())
                 .filter(this::isTaskFinalized)
                 .filter(t -> t.getCurrentStep() != null && t.getCurrentStep().getLabel().equalsIgnoreCase("COLETADO"))
                 .map(this::mapToStoreReportEntry)
@@ -798,7 +724,7 @@ public class TaskService {
 
     @Transactional(readOnly = true)
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<String> getAvailableReportAttributes() {
         Set<String> attributes = new TreeSet<>();
@@ -812,7 +738,7 @@ public class TaskService {
         attributes.add("COLLECTOR");
 
         // Buscar templates que registram no relatório para sugerir seus campos e passos
-        List<TaskTemplate> templates = taskTemplateRepository.findAll().stream()
+        List<TaskTemplate> templates = taskTemplateRepository.findAllByDeletedFalse().stream()
                 .filter(TaskTemplate::isRegistraNoRelatorioLoja)
                 .collect(Collectors.toList());
 
@@ -850,13 +776,13 @@ public class TaskService {
         }
 
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return new ArrayList<>(attributes);
     }
     
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public String getTaskAttributeValue(Task task, String attributeKey) {
         /*
@@ -878,7 +804,7 @@ public class TaskService {
                 if (attributeKey.startsWith("FIELD:")) {
                     String label = attributeKey.substring(6);
                     /*
-                     * Retorna o resultado final processado pelo método.
+                     * Retorna o resultado final processado pelo métodx.
                      */
                     return task.getTaskFieldValues().stream()
                             .filter(fv -> fv.getTaskFieldDefinition() != null && 
@@ -888,7 +814,7 @@ public class TaskService {
                 } else if (attributeKey.startsWith("STEP:")) {
                     String label = attributeKey.substring(5);
                     /*
-                     * Retorna o resultado final processado pelo método.
+                     * Retorna o resultado final processado pelo métodx.
                      */
                     return task.getTaskEvents().stream()
                             .filter(e -> e.getTaskStepDefinition() != null && 
@@ -897,14 +823,14 @@ public class TaskService {
                             .findFirst().orElse("");
                 }
                 /*
-                 * Retorna o resultado final processado pelo método.
+                 * Retorna o resultado final processado pelo métodx.
                  */
                 return "";
         }
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private String formatInstant(Instant instant) {
         /*
@@ -912,7 +838,7 @@ public class TaskService {
          */
         if (instant == null) return "";
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
                 .withZone(java.time.ZoneId.systemDefault())
@@ -920,11 +846,11 @@ public class TaskService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private Instant getCollectedAt(Task task) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return task.getTaskEvents().stream()
                 .filter(e -> e.getTaskStepDefinition() != null && e.getTaskStepDefinition().getLabel().equalsIgnoreCase("COLETADO"))
@@ -933,11 +859,11 @@ public class TaskService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private String getCollectorName(Task task) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return task.getTaskEvents().stream()
                 .filter(e -> e.getTaskStepDefinition() != null && e.getTaskStepDefinition().getLabel().equalsIgnoreCase("COLETADO"))
@@ -946,7 +872,7 @@ public class TaskService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     private StoreReportEntry mapToStoreReportEntry(Task task) {
         String delivery = "";
@@ -972,9 +898,11 @@ public class TaskService {
                 }
 
                 // Tentar encontrar a "DELIVERY" nas respostas dos passos
-                Optional<TemplateStepRelation> rel = stepRelationRepository.findByTaskTemplateIdAndTaskStepDefinitionId(
-                        task.getTaskTemplate().getId(), event.getTaskStepDefinition().getId()
-                );
+                // Otimização N+1: Usar a coleção do template que já foi inicializada em lote
+                Optional<TemplateStepRelation> rel = task.getTaskTemplate().getTemplateStepRelation().stream()
+                        .filter(r -> r.getTaskStepDefinition() != null && 
+                                     r.getTaskStepDefinition().getId().equals(event.getTaskStepDefinition().getId()))
+                        .findFirst();
 
                 /*
                  * Avalia uma condição (if) para desvio de fluxo da lógica principal.
@@ -1017,7 +945,7 @@ public class TaskService {
         if (collector == null) return null;
 
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return new StoreReportEntry(
                 task.getId(),
@@ -1032,7 +960,7 @@ public class TaskService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<Task> findTasksWithFilters(Instant start, Instant end, User creator, TaskTemplate template, Group group, String search) {
         Specification<Task> spec = Specification.where((root, query, cb) -> cb.conjunction());
@@ -1082,20 +1010,25 @@ public class TaskService {
                 Predicate eventPredicate = cb.like(cb.lower(eventJoin.get("response")), searchPattern);
                 
                 /*
-                 * Retorna o resultado final processado pelo método.
+                 * Retorna o resultado final processado pelo métodx.
                  */
                 return cb.or(fieldPredicate, eventPredicate);
             });
         }
 
+        // #improve_n+1 - EntityGraph no findAll de Specification já adicionado no repository para trazer os Lazy ToOne principais.
+        // O subselect continuará lidando com ToMany collections.
+
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
-        return taskRepository.findAll(spec, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
+        List<Task> tasks = taskRepository.findAll(spec, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
+        tasks.forEach(this::initializeTaskData);
+        return tasks;
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public record StoreReportEntry(
             Long taskId,
@@ -1107,4 +1040,71 @@ public class TaskService {
             String deliveryNumber,
             Task task
     ) {}
+    /**
+     * Inicializa profundamente os dados de uma tarefa e seu template associado para uso seguro na interface (Vaadin).
+     * Este método deve ser chamado dentro de uma transação ativa.
+     */
+    @Transactional(readOnly = true)
+    public void initializeTaskData(Task task) {
+        if (task == null) return;
+
+        // #improve_n+1 - Removido o recarregamento manual individual (findByIdWithMetadata).
+        // Agora confiamos no @BatchSize anotado nos modelos, o que permite ao Hibernate carregar
+        // os metadados de TODOS os templates de uma só vez quando o primeiro 'Deep Touch' ocorrer abaixo.
+        
+        // Tocar profundamente no template associado para garantir que sub-coleções Lazy (como allowedNextSteps)
+        // também sejam inicializadas via Batch Loading.
+        if (task.getTaskTemplate() != null) {
+            task.getTaskTemplate().getTemplateStepRelation().forEach(rel -> {
+                // Tocar no passo e suas propriedades básicas
+                if (rel.getTaskStepDefinition() != null) {
+                    rel.getTaskStepDefinition().getLabel();
+                    rel.getTaskStepDefinition().getColorTheme();
+                }
+                
+                // Tocar nos passos permitidos seguintes (inicializa via BatchSize)
+                rel.getAllowedNextSteps().forEach(ans -> {
+                    if (ans != null) ans.getLabel();
+                });
+
+                // Tocar nas opções de resposta (inicializa via BatchSize)
+                rel.getResponseOptions().forEach(opt -> {
+                    if (opt != null) opt.getOptionLabel();
+                });
+                
+                // Tocar nos papéis de alerta do passo
+                rel.getAlertRoles().size();
+            });
+            task.getTaskTemplate().getAuthorizingUsers().size();
+            task.getTaskTemplate().getAlertRoles().size();
+        }
+        
+        // Inicializar resultados de SLA e configurações relacionadas
+        task.getSlaResults().forEach(sr -> {
+            if (sr.getSlaConfig() != null) sr.getSlaConfig().getName();
+        });
+        
+        // Inicializar histórico de eventos e autores
+        task.getTaskEvents().forEach(ev -> {
+            if (ev.getUser() != null) ev.getUser().getName();
+            if (ev.getTaskStepDefinition() != null) ev.getTaskStepDefinition().getLabel();
+        });
+        
+        // Inicializar valores de campos e definições (dispara Batch Loading de TaskFieldDefinition)
+        task.getTaskFieldValues().forEach(fv -> {
+            if (fv.getTaskFieldDefinition() != null) {
+                fv.getTaskFieldDefinition().getLabel();
+                fv.getTaskFieldDefinition().getInputType();
+            }
+        });
+        
+        // Inicializar definições de passos percorridos
+        if (task.getTaskStepDefinitions() != null) {
+            task.getTaskStepDefinitions().forEach(sd -> {
+                if (sd != null) sd.getLabel();
+            });
+        }
+        
+        // Inicializar o Template e todas as suas regras de transição (crucial para UI de botões)
+    }
 }

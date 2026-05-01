@@ -45,7 +45,7 @@ public class StoreReportConfigListView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Component getContent() {
         HorizontalLayout content = new HorizontalLayout(grid);
@@ -58,7 +58,7 @@ public class StoreReportConfigListView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void configureForm() {
         form = new StoreReportConfigForm(taskService);
@@ -74,7 +74,7 @@ public class StoreReportConfigListView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void saveConfig(StoreReportConfigForm.SaveEvent event) {
         /*
@@ -91,7 +91,7 @@ public class StoreReportConfigListView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void deleteConfig(StoreReportConfigForm.DeleteEvent event) {
         service.delete(event.getConfig());
@@ -100,7 +100,7 @@ public class StoreReportConfigListView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void configureGrid() {
         grid.addClassNames("config-grid");
@@ -113,7 +113,7 @@ public class StoreReportConfigListView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private HorizontalLayout getToolbar() {
         Button addConfigButton = new Button("Novo Modelo");
@@ -128,7 +128,7 @@ public class StoreReportConfigListView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void editConfig(StoreReportConfig config) {
         /*
@@ -144,7 +144,7 @@ public class StoreReportConfigListView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void closeEditor() {
         form.setConfig(null);
@@ -153,7 +153,7 @@ public class StoreReportConfigListView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void addConfig() {
         grid.asSingleSelect().clear();
@@ -161,7 +161,7 @@ public class StoreReportConfigListView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void updateList() {
         grid.setItems(service.findAll());

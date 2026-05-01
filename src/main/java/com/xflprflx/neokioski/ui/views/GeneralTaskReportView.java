@@ -32,6 +32,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 
 @PageTitle("Relatório Geral de Tarefas | NeoKioski")
 @Route(value = "relatorio-geral", layout = MainLayout.class)
@@ -84,7 +85,7 @@ public class GeneralTaskReportView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void createFilterLayout() {
         HorizontalLayout filterRow1 = new HorizontalLayout();
@@ -92,9 +93,13 @@ public class GeneralTaskReportView extends VerticalLayout {
         filterRow1.setAlignItems(Alignment.END);
 
         startDate = new DatePicker("De");
+        startDate.setLocale(Locale.forLanguageTag("pt-BR"));
+        startDate.setI18n(TaskUIUtils.getPtBrI18n());
         startDate.setValue(LocalDate.now());
         
         endDate = new DatePicker("Até");
+        endDate.setLocale(Locale.forLanguageTag("pt-BR"));
+        endDate.setI18n(TaskUIUtils.getPtBrI18n());
         endDate.setValue(LocalDate.now());
 
         creatorCombo = new ComboBox<>("Criador");
@@ -143,7 +148,7 @@ public class GeneralTaskReportView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void clearFilters() {
         startDate.setValue(LocalDate.now());
@@ -156,7 +161,7 @@ public class GeneralTaskReportView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void createGridLayout() {
         grid = new Grid<>(Task.class, false);
@@ -216,14 +221,14 @@ public class GeneralTaskReportView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void refreshGrid() {
         grid.setItems(getFilteredTasks());
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private List<Task> getFilteredTasks() {
         Instant start = startDate.getValue() != null ? 
@@ -245,7 +250,7 @@ public class GeneralTaskReportView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void downloadExcel() {
         List<Task> tasks = getFilteredTasks();
@@ -261,7 +266,7 @@ public class GeneralTaskReportView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void downloadPdf() {
         List<Task> tasks = getFilteredTasks();
@@ -277,7 +282,7 @@ public class GeneralTaskReportView extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void triggerDownload(StreamResource resource) {
         Anchor anchor = new Anchor(resource, "");

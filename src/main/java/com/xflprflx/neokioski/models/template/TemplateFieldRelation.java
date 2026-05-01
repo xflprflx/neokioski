@@ -6,6 +6,9 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "tb_template_field_relations")
+@Cacheable
+@org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
+@org.hibernate.annotations.BatchSize(size = 50)
 /**
  * Entidade que mapeia o relacionamento entre um template de tarefa e a definição de um campo de entrada.
  */
@@ -19,11 +22,11 @@ public class TemplateFieldRelation {
     @Column(nullable = false)
     private boolean isRequired;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "task_template_id")
     private TaskTemplate taskTemplate;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "task_field_definition_id")
     private TaskFieldDefinition taskFieldDefinition;
 

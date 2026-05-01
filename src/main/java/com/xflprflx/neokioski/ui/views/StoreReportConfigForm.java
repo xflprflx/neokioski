@@ -23,9 +23,11 @@ import com.xflprflx.neokioski.models.ReportColumnConfig;
 import com.xflprflx.neokioski.models.StoreReportConfig;
 import com.xflprflx.neokioski.models.enums.ReportOrientation;
 import com.xflprflx.neokioski.services.TaskService;
+import com.xflprflx.neokioski.ui.utils.TaskUIUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Formulário da interface para a configuração de regras e parâmetros dos relatórios específicos das lojas.
@@ -38,6 +40,13 @@ public class StoreReportConfigForm extends VerticalLayout {
     TextField templateCode = new TextField("Código do Template");
     DatePicker startDate = new DatePicker("Data de Início");
     DatePicker endDate = new DatePicker("Data de Fim");
+    
+    {
+        startDate.setLocale(Locale.forLanguageTag("pt-BR"));
+        startDate.setI18n(TaskUIUtils.getPtBrI18n());
+        endDate.setLocale(Locale.forLanguageTag("pt-BR"));
+        endDate.setI18n(TaskUIUtils.getPtBrI18n());
+    }
     Select<ReportOrientation> orientation = new Select<>("Orientação");
     
     Grid<ReportColumnConfig> columnsGrid = new Grid<>(ReportColumnConfig.class, false);
@@ -77,7 +86,7 @@ public class StoreReportConfigForm extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void configureColumnsGrid() {
         columnsGrid.addColumn(ReportColumnConfig::getLabel).setHeader("Rótulo (Label)");
@@ -98,7 +107,7 @@ public class StoreReportConfigForm extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Component createAddColumnLayout() {
         TextField labelField = new TextField("Rótulo");
@@ -129,7 +138,7 @@ public class StoreReportConfigForm extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Component createButtonsLayout() {
         save.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
@@ -152,7 +161,7 @@ public class StoreReportConfigForm extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void setConfig(StoreReportConfig config) {
         binder.setBean(config);
@@ -166,7 +175,7 @@ public class StoreReportConfigForm extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void validateAndSave() {
         /*
@@ -189,7 +198,7 @@ public class StoreReportConfigForm extends VerticalLayout {
         }
 
         /**
-         * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+         * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
          */
         public StoreReportConfig getConfig() {
             /*
@@ -218,7 +227,7 @@ public class StoreReportConfigForm extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public Registration addDeleteListener(ComponentEventListener<DeleteEvent> listener) {
         /*
@@ -228,7 +237,7 @@ public class StoreReportConfigForm extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public Registration addSaveListener(ComponentEventListener<SaveEvent> listener) {
         /*
@@ -238,7 +247,7 @@ public class StoreReportConfigForm extends VerticalLayout {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public Registration addCloseListener(ComponentEventListener<CloseEvent> listener) {
         /*

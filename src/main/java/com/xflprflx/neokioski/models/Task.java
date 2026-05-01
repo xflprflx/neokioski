@@ -8,6 +8,7 @@ import java.util.*;
 
 @Entity
 @Table(name = "tb_tasks")
+@org.hibernate.annotations.DynamicUpdate
 /**
  * Entidade que representa uma tarefa no sistema, associada a um template, passos e a um solicitante.
  */
@@ -19,43 +20,51 @@ public class Task {
 
     private Instant createdAt;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "task_template_id", nullable = false)
     private TaskTemplate taskTemplate;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "creator_id")
     private User creator;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "group_id")
     private Group group;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "current_step_id")
     private TaskStepDefinition currentStep;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @JoinColumn(name = "task_id")
+    // #improve_n+1 - Remoção do EAGER nativo de todas as coleções do Core da Task (Mitiga select gigante no start)
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("id ASC")
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
+    @org.hibernate.annotations.BatchSize(size = 50)
     private Set<TaskEvent> taskEvents = new LinkedHashSet<>();
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "tb_task_task_step_definitions",
             joinColumns = @JoinColumn(name = "task_id"),
             inverseJoinColumns = @JoinColumn(name = "task_step_definition_id")
     )
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
-    private List<TaskStepDefinition> taskStepDefinitions = new ArrayList<>();
+    @org.hibernate.annotations.BatchSize(size = 50)
+    private Set<TaskStepDefinition> taskStepDefinitions = new LinkedHashSet<>();
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "tb_tasks_task_field_values",
+            joinColumns = @JoinColumn(name = "task_id"),
+            inverseJoinColumns = @JoinColumn(name = "task_field_values_id")
+    )
     @OrderBy("id ASC")
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
+    @org.hibernate.annotations.BatchSize(size = 50)
     private Set<TaskFieldValue> taskFieldValues = new LinkedHashSet<>();
 
-    @ElementCollection(fetch = FetchType.EAGER)
+    @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "tb_task_triggered_alerts", joinColumns = @JoinColumn(name = "task_id"))
     @Column(name = "alert_id")
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
@@ -66,8 +75,9 @@ public class Task {
     @Column(name = "finalized_at")
     private Instant finalizedAt;
 
-    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
+    @org.hibernate.annotations.BatchSize(size = 50)
     private Set<TaskSlaResult> slaResults = new LinkedHashSet<>();
 
     public Task() {
@@ -131,11 +141,11 @@ public class Task {
         this.taskEvents = taskEvents;
     }
 
-    public List<TaskStepDefinition> getTaskStepDefinitions() {
+    public Set<TaskStepDefinition> getTaskStepDefinitions() {
         return taskStepDefinitions;
     }
 
-    public void setTaskStepDefinitions(List<TaskStepDefinition> taskStepDefinitions) {
+    public void setTaskStepDefinitions(Set<TaskStepDefinition> taskStepDefinitions) {
         this.taskStepDefinitions = taskStepDefinitions;
     }
 

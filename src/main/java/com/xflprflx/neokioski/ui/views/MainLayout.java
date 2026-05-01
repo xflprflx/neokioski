@@ -7,35 +7,23 @@ import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.sidenav.SideNav;
 import com.vaadin.flow.component.sidenav.SideNavItem;
-import com.vaadin.flow.router.AfterNavigationEvent;
-import com.vaadin.flow.router.AfterNavigationObserver;
-import com.vaadin.flow.router.BeforeEnterEvent;
-import com.vaadin.flow.router.BeforeEnterObserver;
-import com.vaadin.flow.router.RouteConfiguration;
-import com.vaadin.flow.spring.security.AuthenticationContext;
-import com.vaadin.flow.component.notification.Notification;
-import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.textfield.PasswordField;
-import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.router.*;
+import com.vaadin.flow.spring.security.AuthenticationContext;
 import com.vaadin.flow.theme.lumo.LumoUtility;
+import com.xflprflx.neokioski.models.ChatMessage;
 import com.xflprflx.neokioski.models.Group;
-import com.xflprflx.neokioski.models.Task;
 import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.security.SecurityService;
-import com.xflprflx.neokioski.services.GroupService;
-import com.xflprflx.neokioski.services.TaskService;
-import com.xflprflx.neokioski.services.UserService;
-import com.xflprflx.neokioski.services.SoundService;
-import com.xflprflx.neokioski.services.ChatService;
-import com.xflprflx.neokioski.models.ChatMessage;
-import com.xflprflx.neokioski.services.PresenceService;
-import jakarta.annotation.security.PermitAll;
+import com.xflprflx.neokioski.services.*;
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -47,7 +35,7 @@ import java.util.function.Consumer;
  * Layout principal da aplicação que define o cabeçalho (Header) e o menu lateral (Drawer).
  * Todas as outras vistas (@Route) são renderizadas dentro deste layout.
  */
-@PermitAll
+@com.vaadin.flow.server.auth.AnonymousAllowed
 public class MainLayout extends AppLayout implements AfterNavigationObserver, BeforeEnterObserver {
 
     private final transient AuthenticationContext authContext;
@@ -61,6 +49,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
     private User currentUser;
     private List<String> availableSounds = new ArrayList<>();
     private Consumer<ChatMessage> chatMessageListener;
+    private Long currentChatGroupId = null;
 
     public MainLayout(AuthenticationContext authContext, GroupService groupService,
                       SecurityService securityService, TaskService taskService, UserService userService, 
@@ -81,7 +70,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void createHeader() {
         H1 logo = new H1("NeoKioski");
@@ -105,7 +94,20 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
         logout.getStyle().set("cursor", "pointer");
         logout.getStyle().set("margin-right", "20px");
 
-        HorizontalLayout header = new HorizontalLayout(new DrawerToggle(), logo, changePasswordBtn, logout);
+        Button themeToggle = new Button(VaadinIcon.ADJUST.create(), e -> {
+            com.vaadin.flow.component.UI.getCurrent().getElement().executeJs(
+                "const theme = document.documentElement.getAttribute('theme') === 'dark' ? 'light' : 'dark';" +
+                "document.documentElement.setAttribute('theme', theme);" +
+                "localStorage.setItem('dashboard-theme', theme);" +
+                "window.dispatchEvent(new Event('theme-changed'));"
+            );
+        });
+        themeToggle.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        themeToggle.getStyle().set("cursor", "pointer");
+        // Use margin-left auto to push right-aligned items
+        themeToggle.getStyle().set("margin-left", "auto");
+
+        HorizontalLayout header = new HorizontalLayout(new DrawerToggle(), logo, themeToggle, changePasswordBtn, logout);
         header.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
         header.expand(logo);
         header.setWidthFull();
@@ -115,7 +117,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void createDrawer() {
         drawerContainer.setSizeFull();
@@ -130,7 +132,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void showPrimaryNav() {
         drawerContainer.removeAll();
@@ -158,7 +160,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void showChatNav(Group selectedGroup) {
         drawerContainer.removeAll();
@@ -190,7 +192,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
 
     @Override
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void beforeEnter(BeforeEnterEvent event) {
         securityService.getAuthenticatedInternalUser().ifPresent(u -> {
@@ -228,7 +230,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
 
     @Override
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void afterNavigation(AfterNavigationEvent event) {
         /*
@@ -249,15 +251,22 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
                  */
                 try {
                     long groupId = Long.parseLong(parts[parts.length - 1]);
+                    this.currentChatGroupId = groupId;
                     group = groupService.findById(groupId).orElse(null);
-                } catch (NumberFormatException ignored) {}
+                } catch (NumberFormatException ignored) {
+                    this.currentChatGroupId = null;
+                }
+            } else {
+                this.currentChatGroupId = null;
             }
             showChatNav(group);
+        } else {
+            this.currentChatGroupId = null;
         }
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private String loadAudioAsBase64(String resourcePath) {
         String path = resourcePath.startsWith("/") ? resourcePath : "/" + resourcePath;
@@ -281,7 +290,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
 
     @Override
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
         super.onAttach(attachEvent);
@@ -360,6 +369,23 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
                                      " | Pedidos: " + freshUser.isNotifyStoreOrder() + 
                                      " | Chat: " + freshUser.isNotifyChatSounds());
 
+                    // 1) Verificar se o chat aberto é o chat da mensagem
+                    boolean isCurrentChat = this.currentChatGroupId != null && 
+                                          message.getGroup() != null && 
+                                          message.getGroup().getId().equals(this.currentChatGroupId);
+
+                    if (!isCurrentChat) {
+                        System.out.println("[DEBUG-SOUND] Ignorando som: o usuário não está no chat do alerta.");
+                        return; // Só ouvir se estiver com o chat da conversa aberto
+                    }
+
+                    // 2) Só ouvir se não for o próprio autor
+                    boolean isAuthor = message.getUser() != null && message.getUser().getId().equals(freshUser.getId());
+                    if (isAuthor) {
+                        System.out.println("[DEBUG-SOUND] Ignorando som: o usuário é o próprio autor da mensagem.");
+                        return; // Quem mandou a mensagem/evento não ouve
+                    }
+
                     // Prioridade 1: Alertas operacionais (AlertSound preenchido)
                     /*
                      * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
@@ -414,40 +440,35 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
                      * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
                      */
                     if (freshUser.isNotifyChatSounds() && !isSystemMessageWithNoSound) {
-                        /*
-                         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                         */
-                        if (message.getUser() == null || !message.getUser().getId().equals(freshUser.getId())) {
-                            getUI().ifPresent(ui -> ui.access(() -> {
-                                String soundToPlay = null;
-                                
-                                boolean isReplyToMe = message.getReplyTo() != null && 
-                                                     message.getReplyTo().getUser() != null &&
-                                                     message.getReplyTo().getUser().getId().equals(freshUser.getId());
-                                
-                                boolean mentioned = message.getContent() != null && 
-                                                   message.getContent().contains("@" + freshUser.getUsername());
+                        getUI().ifPresent(ui -> ui.access(() -> {
+                            String soundToPlay = null;
+                            
+                            boolean isReplyToMe = message.getReplyTo() != null && 
+                                                 message.getReplyTo().getUser() != null &&
+                                                 message.getReplyTo().getUser().getId().equals(freshUser.getId());
+                            
+                            boolean mentioned = message.getContent() != null && 
+                                               message.getContent().contains("@" + freshUser.getUsername());
 
-                                /*
-                                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                                 */
-                                if (isReplyToMe) {
-                                    soundToPlay = "reply-to-me";
-                                } else if (mentioned) {
-                                    soundToPlay = "i-was-mentioned";
-                                } else if (message.getAlertSound() == null || message.getAlertSound().isEmpty()) {
-                                    soundToPlay = "new-message";
-                                }
-                                
-                                /*
-                                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                                 */
-                                if (soundToPlay != null) {
-                                    System.out.println("[DEBUG-SOUND] Tocar JS Chat: " + soundToPlay);
-                                    ui.getPage().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", soundToPlay);
-                                }
-                            }));
-                        }
+                            /*
+                             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                             */
+                            if (isReplyToMe) {
+                                soundToPlay = "reply-to-me";
+                            } else if (mentioned) {
+                                soundToPlay = "i-was-mentioned";
+                            } else if (message.getAlertSound() == null || message.getAlertSound().isEmpty()) {
+                                soundToPlay = "new-message";
+                            }
+                            
+                            /*
+                             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
+                             */
+                            if (soundToPlay != null) {
+                                System.out.println("[DEBUG-SOUND] Tocar JS Chat: " + soundToPlay);
+                                ui.getPage().executeJs("if(window.playAlertSound) { window.playAlertSound($0); }", soundToPlay);
+                            }
+                        }));
                     }
                 }, () -> {
                     System.out.println("[DEBUG-SOUND] ERRO: Usuário ID " + u.getId() + " não encontrado pelo userService!");
@@ -455,7 +476,10 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
             };
             
             // Registrar canais de áudio
-            java.util.List<com.xflprflx.neokioski.models.Group> groups = groupService.findActiveGroupsByUser(u);
+            // #improve_n+1 - Uso dos grupos já carregados no EntityGraph do SecurityService (Bloco C otimizado)
+            java.util.List<com.xflprflx.neokioski.models.Group> groups = u.getGroups().stream()
+                    .filter(com.xflprflx.neokioski.models.Group::isActive)
+                    .collect(java.util.stream.Collectors.toList());
             
             // FALLBACK PARA ADMIN: Registrar em todos os grupos ativos se a lista estiver vazia
             /*
@@ -480,7 +504,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void showPermissionDialog() {
         Dialog dialog = new Dialog();
@@ -508,7 +532,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
 
     @Override
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     protected void onDetach(com.vaadin.flow.component.DetachEvent detachEvent) {
         super.onDetach(detachEvent);
@@ -531,7 +555,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void showChangePasswordDialog() {
         Dialog dialog = new Dialog();

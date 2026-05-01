@@ -2,8 +2,7 @@ package com.xflprflx.neokioski.models;
 
 import jakarta.persistence.*;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Entity
 @Table(name = "tb_chat_messages")
@@ -21,30 +20,30 @@ public class ChatMessage {
 
     private Instant timestamp;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "group_id")
     private Group group;
 
-    @OneToMany(mappedBy = "chatMessage", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "chatMessage", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
-    private List<MessageReaction> reactions = new ArrayList<>();
+    private Set<MessageReaction> reactions = new LinkedHashSet<>();
 
-    @OneToMany(mappedBy = "chatMessage", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "chatMessage", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("editTimestamp DESC")
     @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
-    private List<MessageEdit> edits = new ArrayList<>();
+    private Set<MessageEdit> edits = new LinkedHashSet<>();
 
     private boolean isDeleted = false;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reply_to_id")
     private ChatMessage replyTo;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "task_id")
     private Task task;
 
@@ -107,11 +106,11 @@ public class ChatMessage {
         this.group = group;
     }
 
-    public List<MessageReaction> getReactions() {
+    public Set<MessageReaction> getReactions() {
         return reactions;
     }
 
-    public void setReactions(List<MessageReaction> reactions) {
+    public void setReactions(Set<MessageReaction> reactions) {
         this.reactions = reactions;
     }
 
@@ -123,11 +122,11 @@ public class ChatMessage {
         this.replyTo = replyTo;
     }
 
-    public List<MessageEdit> getEdits() {
+    public Set<MessageEdit> getEdits() {
         return edits;
     }
 
-    public void setEdits(List<MessageEdit> edits) {
+    public void setEdits(Set<MessageEdit> edits) {
         this.edits = edits;
     }
 

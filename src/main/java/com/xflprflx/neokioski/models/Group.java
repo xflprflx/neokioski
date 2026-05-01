@@ -7,6 +7,8 @@ import java.util.*;
 
 @Entity
 @Table(name = "tb_groups")
+@Cacheable
+@org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
 /**
  * Entidade que representa um grupo de usuários no sistema, utilizado para permissões e agrupar conversas.
  */
@@ -24,9 +26,12 @@ public class Group {
             joinColumns = @JoinColumn(name = "group_id"),
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
+    @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
+    @org.hibernate.annotations.BatchSize(size = 50)
     private Set<User> users = new HashSet<>();
 
     @ManyToMany(mappedBy = "groups")
+    @org.hibernate.annotations.BatchSize(size = 50)
     private List<TaskTemplate> taskTemplates = new ArrayList<>();
 
     public Group() {

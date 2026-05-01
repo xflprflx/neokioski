@@ -7,6 +7,7 @@ import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.contextmenu.ContextMenu;
 import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Span;
@@ -50,9 +51,11 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private final TaskTemplateService taskTemplateService;
     private final TaskService taskService;
     private final PresenceService presenceService;
+    private final TaskSlaService taskSlaService;
 
     private Group group;
     private User currentUser;
+    private List<TaskTemplate> groupTemplates = new ArrayList<>();
     
     private final VerticalLayout messageContainer = new VerticalLayout();
     private final Scroller scroller = new Scroller(messageContainer);
@@ -112,7 +115,9 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     private final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
             .withZone(ZoneId.systemDefault());
 
-    public ChatView(ChatService chatService, GroupService groupService, SecurityService securityService, UserService userService, TaskTemplateService taskTemplateService, TaskService taskService, PresenceService presenceService) {
+    private final Map<Long, HorizontalLayout> taskCardWrappersInSideList = new HashMap<>();
+
+    public ChatView(ChatService chatService, GroupService groupService, SecurityService securityService, UserService userService, TaskTemplateService taskTemplateService, TaskService taskService, PresenceService presenceService, TaskSlaService taskSlaService) {
         this.chatService = chatService;
         this.groupService = groupService;
         this.securityService = securityService;
@@ -120,6 +125,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         this.taskTemplateService = taskTemplateService;
         this.taskService = taskService;
         this.presenceService = presenceService;
+        this.taskSlaService = taskSlaService;
 
         setSizeFull();
         setPadding(false);
@@ -129,7 +135,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void configureUI() {
         setSizeFull();
@@ -218,7 +224,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private HorizontalLayout createTopHeader() {
         groupName.getStyle().set("margin", "0").set("font-size", "var(--lumo-font-size-l)");
@@ -242,7 +248,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         showTasksInChatCheckbox.getStyle().set("margin-left", "auto").set("margin-right", "var(--lumo-space-m)");
         showTasksInChatCheckbox.addValueChangeListener(e -> {
             showTasksInChat = e.getValue();
-            loadMessages(); // Recarregar mensagens para aplicar filtro
+            if (e.isFromClient()) loadMessages(); // Recarregar mensagens para aplicar filtro
         });
 
         // Controles de áudio
@@ -251,7 +257,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             /*
              * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
              */
-            if (currentUser != null) {
+            if (currentUser != null && e.isFromClient()) {
                 userService.updateNotifyStoreOrder(currentUser.getId(), e.getValue());
                 currentUser.setNotifyStoreOrder(e.getValue());
                 Notification.show("Alerta de pedidos " + (e.getValue() ? "ativado" : "desativado"), 2000, Notification.Position.BOTTOM_END);
@@ -263,7 +269,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             /*
              * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
              */
-            if (currentUser != null) {
+            if (currentUser != null && e.isFromClient()) {
                 userService.updateNotifyChatSounds(currentUser.getId(), e.getValue());
                 currentUser.setNotifyChatSounds(e.getValue());
                 Notification.show("Sons do chat " + (e.getValue() ? "ativados" : "desativados"), 2000, Notification.Position.BOTTOM_END);
@@ -277,14 +283,22 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
         // Filtros de Data
         startDatePicker = new com.vaadin.flow.component.datepicker.DatePicker("Início");
+        startDatePicker.setLocale(java.util.Locale.forLanguageTag("pt-BR"));
+        startDatePicker.setI18n(TaskUIUtils.getPtBrI18n());
         startDatePicker.setValue(java.time.LocalDate.now());
         startDatePicker.setWidth("140px");
-        startDatePicker.addValueChangeListener(e -> refreshAllComponents());
+        startDatePicker.addValueChangeListener(e -> {
+            if (e.isFromClient()) refreshAllComponents();
+        });
 
         endDatePicker = new com.vaadin.flow.component.datepicker.DatePicker("Fim");
+        endDatePicker.setLocale(java.util.Locale.forLanguageTag("pt-BR"));
+        endDatePicker.setI18n(TaskUIUtils.getPtBrI18n());
         endDatePicker.setValue(java.time.LocalDate.now());
         endDatePicker.setWidth("140px");
-        endDatePicker.addValueChangeListener(e -> refreshAllComponents());
+        endDatePicker.addValueChangeListener(e -> {
+            if (e.isFromClient()) refreshAllComponents();
+        });
 
         HorizontalLayout dateFilters = new HorizontalLayout(startDatePicker, endDatePicker);
         dateFilters.setSpacing(true);
@@ -339,7 +353,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void configureTaskArea() {
         taskArea.setSizeFull();
@@ -357,10 +371,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         ownerFilter.setWidthFull();
         ownerFilter.setClearButtonVisible(true);
         ownerFilter.addValueChangeListener(e -> {
+            if (!e.isFromClient()) return;
             String val = e.getValue();
-            /*
-             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-             */
             if (val == null || val.equals("Todas")) filterOwner = "todas";
             else if (val.equals("Minhas")) filterOwner = "minhas";
             else filterOwner = val;
@@ -371,6 +383,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         statusFilter.setWidthFull();
         statusFilter.setClearButtonVisible(true);
         statusFilter.addValueChangeListener(e -> {
+            if (!e.isFromClient()) return;
             String val = e.getValue();
             filterStatus = (val == null || val.equals("Todos")) ? "todos" : val;
             refreshTaskList();
@@ -380,6 +393,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         sectorFilter.setWidthFull();
         sectorFilter.setClearButtonVisible(true);
         sectorFilter.addValueChangeListener(e -> {
+            if (!e.isFromClient()) return;
             String val = e.getValue();
             filterSector = (val == null || val.equals("Todos")) ? "todos" : val;
             refreshTaskList();
@@ -405,7 +419,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void refreshAllComponents() {
         loadMessages();
@@ -413,94 +427,101 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void refreshTaskList() {
-        /*
-         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-         */
         if (group == null || startDatePicker == null || endDatePicker == null || startDatePicker.getValue() == null || endDatePicker.getValue() == null) return;
-        taskListArea.removeAll();
-
+        
         // Converter LocalDate para Instant (Início e Fim do dia)
         java.time.Instant start = startDatePicker.getValue().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant();
         java.time.Instant end = endDatePicker.getValue().atTime(23, 59, 59, 999_000_000).atZone(java.time.ZoneId.systemDefault()).toInstant();
 
         List<Task> tasks = taskService.getTasksByGroup(group, start, end);
         
-        // Filtro de Autorização
-        tasks = tasks.stream()
+        // Aplicar filtros e atualizar a UI de forma granular
+        Set<Long> tasksThatShouldBeVisible = tasks.stream()
                 .filter(t -> taskService.canUserViewTask(t, currentUser))
-                .collect(Collectors.toList());
+                .filter(this::matchesFilters)
+                .map(Task::getId)
+                .collect(Collectors.toSet());
 
-        // Filtrar por responsável
-        tasks = tasks.stream().filter(t -> {
-            /*
-             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-             */
-            if (filterOwner.equals("todas")) return true;
-            /*
-             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-             */
+        // Remover cards que não devem mais estar visíveis
+        List<Long> toRemove = taskCardWrappersInSideList.keySet().stream()
+                .filter(id -> !tasksThatShouldBeVisible.contains(id))
+                .toList();
+        toRemove.forEach(id -> {
+            HorizontalLayout wrapper = taskCardWrappersInSideList.remove(id);
+            if (wrapper != null) taskListArea.remove(wrapper);
+        });
+
+        // Adicionar ou Atualizar cards
+        tasks.stream()
+                .filter(t -> tasksThatShouldBeVisible.contains(t.getId()))
+                .sorted(java.util.Comparator.comparing(Task::getCreatedAt))
+                .forEach(this::addOrUpdateTaskInSideList);
+
+        updateEmptyState();
+    }
+
+    private boolean matchesFilters(Task t) {
+        // Filtro de Responsável
+        if (!filterOwner.equals("todas")) {
             if (filterOwner.equals("minhas")) {
-                /*
-                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                 */
                 if (currentUser == null) return true;
                 boolean isCreator = t.getCreator() != null && t.getCreator().getId().equals(currentUser.getId());
                 boolean participated = t.getTaskEvents().stream()
                         .anyMatch(ev -> ev.getUser() != null && ev.getUser().getId().equals(currentUser.getId()));
-                /*
-                 * Retorna o componente renderizado ou o valor da operação atual.
-                 */
-                return isCreator || participated;
+                if (!isCreator && !participated) return false;
+            } else {
+                if (t.getCreator() == null || !t.getCreator().getUsername().equals(filterOwner)) return false;
             }
-            /*
-             * Retorna o componente renderizado ou o valor da operação atual.
-             */
-            return t.getCreator() != null && t.getCreator().getUsername().equals(filterOwner);
-        }).collect(Collectors.toList());
+        }
 
-        // Filtrar por status
-        /*
-         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-         */
+        // Filtro de Status
         if (!filterStatus.equals("todos")) {
-            tasks = tasks.stream()
-                    .filter(t -> {
-                        /*
-                         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                         */
-                        if (filterStatus.equals("Pendentes")) return !taskService.isTaskFinalized(t);
-                        /*
-                         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                         */
-                        if (filterStatus.equals("Finalizadas")) return taskService.isTaskFinalized(t);
-                        /*
-                         * Retorna o componente renderizado ou o valor da operação atual.
-                         */
-                        return t.getCurrentStep() != null && t.getCurrentStep().getLabel().equals(filterStatus);
-                    })
-                    .collect(Collectors.toList());
+            if (filterStatus.equals("Pendentes")) {
+                if (taskService.isTaskFinalized(t)) return false;
+            } else if (filterStatus.equals("Finalizadas")) {
+                if (!taskService.isTaskFinalized(t)) return false;
+            } else {
+                if (t.getCurrentStep() == null || !t.getCurrentStep().getLabel().equals(filterStatus)) return false;
+            }
         }
 
-        // Filtrar por setor (Apenas se não for "Todos" e se a tarefa estiver pendente)
-        /*
-         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-         */
+        // Filtro de Setor
         if (!filterSector.equals("todos")) {
-            tasks = tasks.stream()
-                    .filter(t -> !taskService.isTaskFinalized(t))
-                    .filter(t -> taskService.getResponsibleRole(t)
-                            .map(r -> r.getDescription().equals(filterSector))
-                            .orElse(false))
-                    .collect(Collectors.toList());
+            if (taskService.isTaskFinalized(t)) return false;
+            if (!taskService.getResponsibleRole(t)
+                    .map(r -> r.getDescription().equals(filterSector))
+                    .orElse(false)) return false;
         }
 
-        /*
-         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-         */
-        if (tasks.isEmpty()) {
+        return true;
+    }
+
+    private void addOrUpdateTaskInSideList(Task task) {
+        HorizontalLayout existing = taskCardWrappersInSideList.get(task.getId());
+        HorizontalLayout newCard = createTaskCardLayout(task, null);
+        newCard.setWidth("auto");
+        newCard.setId("side-task-" + task.getId());
+
+        if (existing != null) {
+            taskListArea.replace(existing, newCard);
+        } else {
+            // Tentar manter a ordem cronológica na inserção
+            taskListArea.add(newCard);
+        }
+        taskCardWrappersInSideList.put(task.getId(), newCard);
+    }
+
+    private void updateEmptyState() {
+        // Remover estado vazio se existir
+        taskListArea.getChildren()
+                .filter(c -> c instanceof VerticalLayout && c.getElement().getChildCount() > 0 && c.getElement().getChild(1).getText().equals("Painel Zerado!"))
+                .findFirst()
+                .ifPresent(taskListArea::remove);
+
+        if (taskCardWrappersInSideList.isEmpty()) {
             VerticalLayout emptyState = new VerticalLayout();
             emptyState.setWidthFull();
             emptyState.setDefaultHorizontalComponentAlignment(FlexComponent.Alignment.CENTER);
@@ -524,23 +545,21 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     .set("color", "var(--lumo-secondary-text-color)")
                     .set("font-size", "var(--lumo-font-size-m)");
             
-            emptyState.add(img, title, subtitle);
+            Anchor attribution = new Anchor("https://www.magnific.com/br/vetores-gratis/ilustracao-de-espirito-comunitario-desenhada-a-mao_38477296.htm#fromView=search&page=1&position=23&uuid=80b0c183-c50f-4f46-b405-1b5aef5a98f7&query=equipe", "Imagem de freepik");
+            attribution.setTarget("_blank");
+            attribution.getStyle()
+                       .set("font-size", "var(--lumo-font-size-xxs)")
+                       .set("color", "var(--lumo-tertiary-text-color)")
+                       .set("margin-top", "var(--lumo-space-s)")
+                       .set("text-decoration", "none");
+            
+            emptyState.add(img, title, subtitle, attribution);
             taskListArea.add(emptyState);
-        } else {
-            tasks.sort(java.util.Comparator.comparing(Task::getCreatedAt));
-            /*
-             * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
-             */
-            for (Task task : tasks) {
-                HorizontalLayout cardWrapper = createTaskCardLayout(task, null);
-                cardWrapper.setWidth("auto");
-                taskListArea.add(cardWrapper);
-            }
         }
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void updateFilterOptions() {
         /*
@@ -565,18 +584,20 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         ownerFilter.setItems(ownerOptions);
         ownerFilter.setValue("Todas");
 
-        // Status
+        // Status (Baseado nos passos possíveis dos templates do grupo para ser performático)
         List<String> stepOptions = new ArrayList<>();
         stepOptions.add("Todos");
         stepOptions.add("Pendentes");
         stepOptions.add("Finalizadas");
         
-        taskService.getTasksByGroup(group).stream()
-                .filter(t -> t.getCurrentStep() != null)
-                .map(t -> t.getCurrentStep().getLabel())
+        groupTemplates.stream()
+                .flatMap(template -> template.getTemplateStepRelation().stream())
+                .filter(rel -> rel.getTaskStepDefinition() != null)
+                .map(rel -> rel.getTaskStepDefinition().getLabel())
                 .distinct()
                 .sorted()
                 .forEach(stepOptions::add);
+        
         statusFilter.setItems(stepOptions);
         statusFilter.setValue("Todos");
 
@@ -594,7 +615,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void configureTemplateBar() {
         templateBar.setWidthFull();
@@ -611,15 +632,13 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void loadTemplates() {
         templateBar.removeAll();
-        List<TaskTemplate> templates = taskTemplateService.getTemplatesByGroupId(group.getId());
-        /*
-         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-         */
-        if (templates.isEmpty()) {
+        this.groupTemplates = taskTemplateService.getTemplatesByGroupId(group.getId());
+        
+        if (groupTemplates.isEmpty()) {
             templateScroller.setVisible(false);
             return;
         }
@@ -627,7 +646,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         /*
          * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
          */
-        for (TaskTemplate t : templates) {
+        for (TaskTemplate t : groupTemplates) {
             templateBar.add(createTemplateFormCard(t));
         }
         templateScroller.setVisible(true);
@@ -649,7 +668,11 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         title.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-s)");
         card.add(title);
 
-        List<TemplateFieldRelation> fields = taskTemplateService.getFieldRelationsByTemplateId(template.getId());
+        // #improve_n+1 - Usar coleção já carregada no EntityGraph em vez de chamar o serviço
+        List<TemplateFieldRelation> fields = template.getTemplateFieldRelation().stream()
+                .sorted(Comparator.comparingInt(TemplateFieldRelation::getOrder))
+                .collect(Collectors.toList());
+                
         java.util.LinkedHashMap<com.xflprflx.neokioski.models.template.TaskFieldDefinition, com.vaadin.flow.component.Component> fieldComponents = new java.util.LinkedHashMap<>();
 
         /*
@@ -659,7 +682,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             InputType type = rel.getTaskFieldDefinition().getInputType();
             String label = rel.getTaskFieldDefinition().getLabel();
             String desc = rel.getTaskFieldDefinition().getDescription();
-            List<TaskFieldOption> options = rel.getTaskFieldDefinition().getTaskFieldOptions();
+            java.util.Set<TaskFieldOption> options = rel.getTaskFieldDefinition().getTaskFieldOptions();
             
             com.vaadin.flow.component.Component fieldComponent = createInputComponent(type, label, desc, rel.isRequired(), options, "", true);
 
@@ -767,7 +790,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void configureSuggestions() {
         suggestionList = new ListBox<>();
@@ -814,7 +837,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void configureSuggestionList(ListBox<User> list) {
         list.setRenderer(new com.vaadin.flow.data.renderer.ComponentRenderer<>(user -> {
@@ -856,7 +879,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
     @com.vaadin.flow.component.ClientCallable
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void showSuggestions(String query) {
         /*
@@ -935,7 +958,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
     @com.vaadin.flow.component.ClientCallable
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void hideSuggestions() {
         /*
@@ -948,7 +971,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
     @com.vaadin.flow.component.ClientCallable
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void setActiveTargetById(String mentionId) {
         /*
@@ -972,7 +995,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void applyMention(User user) {
         String mention = "@" + user.getUsername() + " ";
@@ -1008,7 +1031,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void setupMentionLogic(Element element, String mentionId) {
         element.executeJs(
@@ -1046,7 +1069,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void configureReplyBar() {
         replyBar.setWidthFull();
@@ -1059,7 +1082,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void setReplyTo(ChatMessage message) {
         this.replyTo = message;
@@ -1099,19 +1122,20 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void cancelReply() {
         this.replyTo = null;
         replyBar.setVisible(false);
     }
 
+    private Long lastLoadedGroupId;
+
     @Override
-    /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
-     */
     public void setParameter(BeforeEvent event, Long groupId) {
-        Optional<Group> groupOpt = groupService.findById(groupId);
+        if (groupId != null && !groupId.equals(lastLoadedGroupId)) {
+            this.lastLoadedGroupId = groupId;
+            Optional<Group> groupOpt = groupService.findById(groupId);
         /*
          * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
          */
@@ -1163,10 +1187,11 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         updateFilterOptions();
         refreshTaskList();
         setupRealTimeUpdate();
+        }
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void loadMessages() {
         /*
@@ -1195,7 +1220,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void addOrUpdateMessageInUI(ChatMessage msg) {
         /*
@@ -1268,7 +1293,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private HorizontalLayout createMessageLayout(ChatMessage msg) {
         boolean isSystemMessage = msg.getUser() == null;
@@ -1692,8 +1717,17 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             card.getStyle().set("--lumo-contrast-10pct", "rgba(255, 255, 255, 0.2)");
             card.getStyle().set("--lumo-contrast-20pct", "rgba(255, 255, 255, 0.3)");
         } else {
-            // Para cards claros, garantir que o texto secundário tenha contraste suficiente
+            // Cards com fundo pastel claro precisam forçar texto escuro,
+            // pois no dark mode do Vaadin o texto global é claro e fica ilegível.
+            card.getStyle().set("color", "#1e293b");
+            card.getStyle().set("--lumo-body-text-color", "#1e293b");
             card.getStyle().set("--lumo-secondary-text-color", "rgba(0, 0, 0, 0.65)");
+            card.getStyle().set("--lumo-contrast-5pct", "rgba(0, 0, 0, 0.05)");
+            card.getStyle().set("--lumo-contrast-10pct", "rgba(0, 0, 0, 0.1)");
+            card.getStyle().set("--lumo-contrast-20pct", "rgba(0, 0, 0, 0.2)");
+            card.getStyle().set("--lumo-primary-text-color", "#1565c0");
+            card.getStyle().set("--lumo-error-text-color", "#c62828");
+            card.getStyle().set("--lumo-success-text-color", "#2e7d32");
         }
 
         /*
@@ -1932,12 +1966,13 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             card.add(fieldsDiv);
         }
 
-        List<TemplateStepRelation> allRelations = taskTemplateService.getStepRelationsByTemplateId(task.getTaskTemplate().getId());
+        java.util.Collection<TemplateStepRelation> allRelations = task.getTaskTemplate().getTemplateStepRelation();
         List<TaskStepDefinition> allowedSteps = taskService.getAllowedNextSteps(task);
         
         // Mapear os steps permitidos de volta para suas relações para ter acesso aos metadados (cores, campos de resposta, etc)
         List<TemplateStepRelation> visibleRelations = allRelations.stream()
-                .filter(r -> allowedSteps.contains(r.getTaskStepDefinition()))
+                .filter(r -> r.getTaskStepDefinition() != null && allowedSteps.stream()
+                        .anyMatch(as -> as.getId().equals(r.getTaskStepDefinition().getId())))
                 .collect(Collectors.toList());
 
         // Mapeamento de StepId -> Campo de Resposta
@@ -2028,7 +2063,16 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     copyToClipboard(responseForClipboard);
                 }
 
-                taskService.executeStep(task.getId(), step, currentUser, response);
+                Task updatedTask = taskService.executeStep(task.getId(), step, currentUser, response);
+
+                // Verificar SLAs atrasados pendentes de justificativa
+                java.util.List<com.xflprflx.neokioski.models.TaskSlaResult> pendingJustifications = 
+                        taskSlaService.getPendingJustifications(updatedTask);
+                if (!pendingJustifications.isEmpty()) {
+                    new com.xflprflx.neokioski.ui.components.SlaJustificationDialog(
+                            taskSlaService, pendingJustifications, null
+                    ).open();
+                }
             });
             stepBtn.setEnabled(!taskService.isTaskFinalized(task));
             stepBtn.addThemeVariants(ButtonVariant.LUMO_SMALL);
@@ -2064,7 +2108,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         return wrapper;
     }
 
-    private com.vaadin.flow.component.Component createInputComponent(InputType type, String label, String desc, boolean required, List<TaskFieldOption> optionsObj, String placeholder, boolean isCompact) {
+    private com.vaadin.flow.component.Component createInputComponent(InputType type, String label, String desc, boolean required, java.util.Collection<TaskFieldOption> optionsObj, String placeholder, boolean isCompact) {
         List<String> options = optionsObj != null ? optionsObj.stream().map(TaskFieldOption::getOptionLabel).toList() : new ArrayList<>();
         com.vaadin.flow.component.Component fieldComponent = null;
 
@@ -2103,6 +2147,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                 break;
             case DATE:
                 com.vaadin.flow.component.datepicker.DatePicker dp = new com.vaadin.flow.component.datepicker.DatePicker(label);
+                dp.setLocale(Locale.forLanguageTag("pt-BR"));
+                dp.setI18n(TaskUIUtils.getPtBrI18n());
                 /*
                  * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
                  */
@@ -2242,7 +2288,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private String extractFieldValue(com.vaadin.flow.component.Component comp) {
         /*
@@ -2252,7 +2298,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private String extractFieldValue(com.vaadin.flow.component.Component comp, String separator) {
         /*
@@ -2307,7 +2353,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void copyToClipboard(String text) {
         /*
@@ -2333,7 +2379,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Div renderMessageContent(String content) {
         Div container = new Div();
@@ -2387,7 +2433,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private boolean isUserMentioned(String content, String username) {
         /*
@@ -2402,7 +2448,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void setupRealTimeUpdate() {
         /*
@@ -2489,14 +2535,22 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                         /*
                          * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
                          */
-                        if (messageId != null) {
-                            chatService.getMessagesByGroup(group).stream()
-                                .filter(m -> m.getId().equals(messageId))
-                                .findFirst()
-                                .ifPresent(this::addOrUpdateMessageInUI);
+                        if (messageId != null && messageWrappers.containsKey(messageId)) {
+                            // Atualizar o card no chat usando a task já inicializada (sem re-fetch)
+                            HorizontalLayout oldWrapper = messageWrappers.get(messageId);
+                            HorizontalLayout newWrapper = createTaskCardLayout(task, null);
+                            newWrapper.setId("msg-" + messageId);
+                            messageContainer.replace(oldWrapper, newWrapper);
+                            messageWrappers.put(messageId, newWrapper);
                         }
-                        // Atualizar a lista de tarefas lateral sempre
-                        refreshTaskList();
+                        // Atualizar a lista de tarefas lateral de forma granular
+                        if (taskService.canUserViewTask(task, currentUser) && matchesFilters(task)) {
+                            addOrUpdateTaskInSideList(task);
+                        } else {
+                            HorizontalLayout existing = taskCardWrappersInSideList.remove(task.getId());
+                            if (existing != null) taskListArea.remove(existing);
+                        }
+                        updateEmptyState();
                     } catch (Exception e) {
                         System.err.println("Erro no taskListener do ChatView: " + e.getMessage());
                     }
@@ -2514,7 +2568,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openEditDialog(ChatMessage msg) {
         Dialog dialog = new Dialog();
@@ -2592,7 +2646,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openDeleteDialog(ChatMessage msg) {
         Dialog dialog = new Dialog();
@@ -2612,7 +2666,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openHistoryDialog(ChatMessage msg) {
         Dialog dialog = new Dialog();
@@ -2679,7 +2733,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void scrollToBottom() {
         scroller.getElement().executeJs("this.scrollTo(0, this.scrollHeight)");
@@ -2687,15 +2741,14 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
     @Override
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
         super.onAttach(attachEvent);
+
         presenceListener = event -> {
             getUI().ifPresent(ui -> ui.access(() -> {
-                // Ao mudar status, recarregar mensagens para atualizar indicadores visuais
-                loadMessages();
-                // E atualizar a lista de avatares
+                // Apenas atualizar avatares visuais, sem recarregar mensagens do banco
                 updateOnlineUserAvatars();
             }));
         };
@@ -2705,7 +2758,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
 
     @Override
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     protected void onDetach(com.vaadin.flow.component.DetachEvent detachEvent) {
         /*
@@ -2731,7 +2784,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openSearchDialog(String query) {
         this.lastSearchQuery = query;
@@ -2768,7 +2821,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void performSearch(String query, boolean append) {
         /*
@@ -2902,7 +2955,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void navigateToMessage(ChatMessage msg) {
         java.time.LocalDate msgDate = msg.getTimestamp().atZone(java.time.ZoneId.systemDefault()).toLocalDate();
@@ -2953,36 +3006,31 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void updateOnlineUserAvatars() {
         getUI().ifPresent(ui -> ui.access(() -> {
             onlineUsersAvatars.removeAll();
+            if (group == null) return;
             Set<Long> onlineIds = presenceService.getOnlineUserIds();
             
-            /*
-             * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
-             */
-            for (Long userId : onlineIds) {
-                userService.findById(userId).ifPresent(user -> {
-                    com.vaadin.flow.component.avatar.Avatar avatar = new com.vaadin.flow.component.avatar.Avatar(user.getName());
-                    avatar.getStyle()
-                        .set("width", "24px")
-                        .set("height", "24px")
-                        .set("border", "2px solid var(--lumo-success-color)")
-                        .set("border-radius", "50%")
-                        .set("margin-left", "-8px"); // Sobreposição para visual Google Docs
-                    
-                    /*
-                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                     */
-                    if (onlineUsersAvatars.getComponentCount() == 0) {
-                        avatar.getStyle().set("margin-left", "0");
-                    }
-                    
-                    avatar.getElement().setAttribute("title", user.getName() + " (Online)");
-                    onlineUsersAvatars.add(avatar);
-                });
+            // Usar os usuários do grupo já em memória, sem ir ao banco
+            for (User user : group.getUsers()) {
+                if (!onlineIds.contains(user.getId())) continue;
+                com.vaadin.flow.component.avatar.Avatar avatar = new com.vaadin.flow.component.avatar.Avatar(user.getName());
+                avatar.getStyle()
+                    .set("width", "24px")
+                    .set("height", "24px")
+                    .set("border", "2px solid var(--lumo-success-color)")
+                    .set("border-radius", "50%")
+                    .set("margin-left", "-8px"); // Sobreposição para visual Google Docs
+
+                if (onlineUsersAvatars.getComponentCount() == 0) {
+                    avatar.getStyle().set("margin-left", "0");
+                }
+
+                avatar.getElement().setAttribute("title", user.getName() + " (Online)");
+                onlineUsersAvatars.add(avatar);
             }
         }));
     }

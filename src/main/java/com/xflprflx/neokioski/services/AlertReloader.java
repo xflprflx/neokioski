@@ -37,7 +37,7 @@ public class AlertReloader {
     }
 
     /**
-     * Método acionado automaticamente logo após a aplicação do Spring Boot estar pronta
+     * métodx acionado automaticamente logo após a aplicação do Spring Boot estar pronta
      * (ApplicationReadyEvent). Busca todas as tarefas pendentes e agenda os gatilhos de alerta.
      */
     @EventListener(ApplicationReadyEvent.class)

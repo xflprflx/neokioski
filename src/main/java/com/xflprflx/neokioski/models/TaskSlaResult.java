@@ -4,11 +4,13 @@ import com.xflprflx.neokioski.models.enums.SlaStatus;
 import com.xflprflx.neokioski.models.enums.TaskSlaUnit;
 import com.xflprflx.neokioski.models.template.TaskSlaConfig;
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 import java.time.Instant;
 import java.util.Objects;
 
 @Entity
 @Table(name = "tb_task_sla_results")
+@BatchSize(size = 100)
 /**
  * Entidade que consolida o resultado do tempo de nível de serviço (SLA) para uma determinada tarefa.
  */
@@ -18,11 +20,11 @@ public class TaskSlaResult {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "task_id", nullable = false)
     private Task task;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "sla_config_id", nullable = false)
     private TaskSlaConfig slaConfig;
 
@@ -42,6 +44,12 @@ public class TaskSlaResult {
 
     @Column(nullable = false)
     private Instant completedAt;
+
+    @Column(length = 500)
+    private String justification;
+
+    @Column(columnDefinition = "TEXT")
+    private String justificationComments;
 
     public TaskSlaResult() {
     }
@@ -108,6 +116,22 @@ public class TaskSlaResult {
 
     public void setCompletedAt(Instant completedAt) {
         this.completedAt = completedAt;
+    }
+
+    public String getJustification() {
+        return justification;
+    }
+
+    public void setJustification(String justification) {
+        this.justification = justification;
+    }
+
+    public String getJustificationComments() {
+        return justificationComments;
+    }
+
+    public void setJustificationComments(String justificationComments) {
+        this.justificationComments = justificationComments;
     }
 
     @Override

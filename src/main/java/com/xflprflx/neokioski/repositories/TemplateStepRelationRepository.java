@@ -11,7 +11,19 @@ import java.util.List;
  * Repositório para gerenciamento da ordenação e vínculo dos passos em relação aos templates de tarefas (TemplateStepRelation).
  */
 public interface TemplateStepRelationRepository extends JpaRepository<TemplateStepRelation, Long> {
+
+    // #improve_n+1 - Evitar EntityGraph largo que causa MultipleBagFetchException. Usaremos fetch pontual de to-ones.
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskStepDefinition", "responseOptions", "allowedNextSteps"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     List<TemplateStepRelation> findByTaskTemplateIdOrderByOrderAsc(Long taskTemplateId);
+
+    // #improve_n+1 - EntityGraph pontual.
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskStepDefinition", "responseOptions", "allowedNextSteps"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     java.util.Optional<TemplateStepRelation> findByTaskTemplateIdAndTaskStepDefinitionId(Long taskTemplateId, Long taskStepDefinitionId);
+
+    // #improve_n+1 - métodx para pre-cachear as relations de forma em lote, evitando consultas pontuais em Loop
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"taskStepDefinition", "responseOptions", "allowedNextSteps"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
+    @org.springframework.data.jpa.repository.Query("SELECT r FROM TemplateStepRelation r WHERE r.taskTemplate.id IN :templateIds")
+    List<TemplateStepRelation> findByTaskTemplateIdIn(@org.springframework.data.repository.query.Param("templateIds") java.util.Collection<Long> templateIds);
+
     void deleteByTaskTemplateId(Long taskTemplateId);
 }

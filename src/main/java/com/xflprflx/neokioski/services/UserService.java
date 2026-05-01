@@ -23,17 +23,17 @@ public class UserService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<User> findAll() {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return repository.findAll();
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<User> findAll(String filter) {
         /*
@@ -41,29 +41,37 @@ public class UserService {
          */
         if (filter == null || filter.isEmpty()) {
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
             return repository.findAll();
         } else {
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
             return repository.findByNameContainingIgnoreCaseOrUsernameContainingIgnoreCase(filter, filter);
         }
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public Optional<User> findById(Long id) {
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return repository.findById(id);
     }
 
+    // #improve_n+1
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx otimizado para buscar múltiplos usuários em uma única query.
+     */
+    public List<User> findAllById(Iterable<Long> ids) {
+        return repository.findAllById(ids);
+    }
+
+    /**
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void save(User user) {
         /*
@@ -95,35 +103,35 @@ public class UserService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void delete(User user) {
         repository.delete(user);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void updateNotifyStoreOrder(Long id, boolean value) {
         repository.updateNotifyStoreOrder(id, value);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void updateNotifyChatSounds(Long id, boolean value) {
         repository.updateNotifyChatSounds(id, value);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void updateLastSeen(Long id, java.time.LocalDateTime lastSeen) {
         repository.updateLastSeen(id, lastSeen);
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public boolean isPasswordValid(User user, String password) {
         /*
@@ -131,18 +139,18 @@ public class UserService {
          */
         if (user == null || password == null || password.isEmpty()) {
             /*
-             * Retorna o resultado final processado pelo método.
+             * Retorna o resultado final processado pelo métodx.
              */
             return false;
         }
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return passwordEncoder.matches(password, user.getPassword());
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public void changePassword(Long userId, String newPassword) {
         repository.findById(userId).ifPresent(user -> {
@@ -152,7 +160,7 @@ public class UserService {
     }
 
     /**
-     * Método ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public String generateTemporaryPassword(Long userId) {
         String upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -193,7 +201,7 @@ public class UserService {
         String tempPass = new String(passwordArray);
         changePassword(userId, tempPass);
         /*
-         * Retorna o resultado final processado pelo método.
+         * Retorna o resultado final processado pelo métodx.
          */
         return tempPass;
     }

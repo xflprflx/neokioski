@@ -46,12 +46,7 @@ import com.xflprflx.neokioski.models.enums.Role;
 import com.xflprflx.neokioski.ui.utils.TaskUIUtils;
 import jakarta.annotation.security.RolesAllowed;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RolesAllowed("ADMIN")
@@ -84,6 +79,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     private Tab workflowTab = new Tab("Fluxo de Trabalho");
     private Tab alertsTab = new Tab("Alertas");
     private Tab slasTab = new Tab("SLA (Metas)");
+    private Tab mentionsTab = new Tab("Menções Dinâmicas");
     private VerticalLayout tabContent = new VerticalLayout();
     private VerticalLayout workflowPreview = new VerticalLayout();
     private VerticalLayout chatLayout = new VerticalLayout();
@@ -105,6 +101,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     // DTOs para Grid dinâmico antes de Salvar no BD
     public static class FieldDTO {
         public Long id;
+        public Long relationId;
         public String label;
         public InputType inputType;
         public boolean isRequired;
@@ -114,6 +111,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
 
     public static class StepDTO {
         public Long id;
+        public Long relationId;
         public String label;
         public String colorTheme;
         public boolean isFinalizer;
@@ -151,17 +149,20 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         public int targetValue;
         public TaskSlaUnit unit = TaskSlaUnit.MINUTES;
         public java.time.Instant validFrom = java.time.Instant.now();
+        public String justificationOptions;
     }
     private List<FieldDTO> fields = new ArrayList<>();
     private List<StepDTO> steps = new ArrayList<>();
     private List<AlertDTO> alerts = new ArrayList<>();
     private List<SlaDTO> slas = new ArrayList<>();
+    private List<TaskTemplateMention> mentionMappings = new ArrayList<>();
 
 
     private Grid<FieldDTO> fieldsGrid = new Grid<>(FieldDTO.class, false);
     private Grid<StepDTO> stepsGrid = new Grid<>(StepDTO.class, false);
     private Grid<AlertDTO> alertsGrid = new Grid<>(AlertDTO.class, false);
     private Grid<SlaDTO> slasGrid = new Grid<>(SlaDTO.class, false);
+    private Grid<Group> mentionsGrid = new Grid<>(Group.class, false);
 
     private FieldDTO draggedField;
     private StepDTO draggedStep;
@@ -208,7 +209,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void configureSuggestions() {
         suggestionList = new ListBox<>();
@@ -257,7 +258,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
 
     @com.vaadin.flow.component.ClientCallable
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void showSuggestions(String query) {
         List<User> suggestions = userService.findAll().stream()
@@ -326,7 +327,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
 
     @com.vaadin.flow.component.ClientCallable
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void hideSuggestions() {
         suggestionWrapper.setVisible(false);
@@ -334,14 +335,14 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
 
     @com.vaadin.flow.component.ClientCallable
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void setActiveTargetById(String mentionId) {
         this.activeMentionId = mentionId;
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void applyMention(User user) {
         String mention = "@" + user.getUsername() + " ";
@@ -376,7 +377,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void setupMentionLogic(com.vaadin.flow.dom.Element element, String mentionId) {
         element.executeJs(
@@ -414,7 +415,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Component createTopConfiguration() {
         HorizontalLayout firstRow = new HorizontalLayout();
@@ -509,10 +510,10 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Component createTabs() {
-        tabs.add(formFieldsTab, workflowTab, alertsTab, slasTab);
+        tabs.add(formFieldsTab, workflowTab, alertsTab, slasTab, mentionsTab);
         tabs.setWidthFull();
         tabs.addSelectedChangeListener(event -> {
             /*
@@ -524,6 +525,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 showWorkflowTab();
             } else if (event.getSelectedTab().equals(alertsTab)) {
                 showAlertsTab();
+            } else if (event.getSelectedTab().equals(mentionsTab)) {
+                showMentionsTab();
             } else {
                 showSlaTab();
             }
@@ -535,7 +538,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void showSlaTab() {
         tabContent.removeAll();
@@ -575,14 +578,14 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openSlaDialog() {
         openSlaDialog(null);
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openSlaDialog(SlaDTO existingDto) {
         Dialog dialog = new Dialog();
@@ -615,6 +618,11 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         HorizontalLayout timeLayout = new HorizontalLayout(timeoutField, unitCombo);
         timeLayout.setWidthFull();
 
+        com.vaadin.flow.component.textfield.TextArea justificationOptionsField = new com.vaadin.flow.component.textfield.TextArea("Opções de Justificativa (separadas por vírgula)");
+        justificationOptionsField.setWidthFull();
+        justificationOptionsField.setHelperText("Ex: Falta de Pessoal, Problema Técnico, Alta Demanda. Se preenchido, o sistema exigirá justificativa quando este SLA for descumprido.");
+        justificationOptionsField.setPlaceholder("Deixe vazio para não exigir justificativa");
+
         /*
          * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
          */
@@ -624,9 +632,12 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             targetStepCombo.setValue(existingDto.targetStepLabel);
             timeoutField.setValue(String.valueOf(existingDto.targetValue));
             unitCombo.setValue(existingDto.unit);
+            if (existingDto.justificationOptions != null) {
+                justificationOptionsField.setValue(existingDto.justificationOptions);
+            }
         }
 
-        VerticalLayout layout = new VerticalLayout(nameField, startStepCombo, targetStepCombo, timeLayout);
+        VerticalLayout layout = new VerticalLayout(nameField, startStepCombo, targetStepCombo, timeLayout, justificationOptionsField);
         dialog.add(layout);
 
         Button saveBtn = new Button("Salvar", e -> {
@@ -648,6 +659,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 dto.targetStepLabel = targetStepCombo.getValue();
                 dto.targetValue = timeout;
                 dto.unit = unitCombo.getValue();
+                dto.justificationOptions = justificationOptionsField.getValue();
                 
                 /*
                  * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
@@ -670,7 +682,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void showAlertsTab() {
         tabContent.removeAll();
@@ -709,14 +721,14 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openAlertDialog() {
         openAlertDialog(null);
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openAlertDialog(AlertDTO existingDto) {
         Dialog dialog = new Dialog();
@@ -828,7 +840,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void showFormFieldsTab() {
         tabContent.removeAll();
@@ -915,14 +927,14 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openFieldDialog() {
         openFieldDialog(null);
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openFieldDialog(FieldDTO existingDto) {
         Dialog dialog = new Dialog();
@@ -1005,7 +1017,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void showWorkflowTab() {
         tabContent.removeAll();
@@ -1092,14 +1104,14 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openStepDialog() {
         openStepDialog(null);
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void openStepDialog(StepDTO existingDto) {
         Dialog dialog = new Dialog();
@@ -1330,7 +1342,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void setupWorkflowPreviewLayout() {
         workflowPreview.setWidth("450px");
@@ -1376,7 +1388,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void updateCardsPreview() {
         chatLayout.removeAll();
@@ -1406,7 +1418,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Component createChatBubble(String user, String content) {
         Div container = new Div();
@@ -1459,7 +1471,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Component createRequestCardPreview() {
         requestFields.clear();
@@ -1577,7 +1589,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Component createRequestCardSnapshot() {
         VerticalLayout card = new VerticalLayout();
@@ -1613,7 +1625,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Component createStepCardPreview(String label) {
         StepDTO currentStep = label != null ? steps.stream().filter(s -> s.label.equals(label)).findFirst().orElse(null) : null;
@@ -1823,7 +1835,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Button createSimulatedStepButton(StepDTO targetStep) {
         Button btn = new Button(targetStep.label, e -> {
@@ -1886,7 +1898,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private Component createInputComponentPreview(InputType type, String label, String desc, boolean required, List<?> optionsList, String placeholder) {
         List<String> options = new ArrayList<>();
@@ -1925,6 +1937,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 break;
             case DATE:
                 com.vaadin.flow.component.datepicker.DatePicker dp = new com.vaadin.flow.component.datepicker.DatePicker(label);
+                dp.setLocale(Locale.forLanguageTag("pt-BR"));
+                dp.setI18n(TaskUIUtils.getPtBrI18n());
                 /*
                  * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
                  */
@@ -1998,7 +2012,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private String extractFieldValue(Component comp) {
         /*
@@ -2053,7 +2067,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private HorizontalLayout createFooter() {
         HorizontalLayout footer = new HorizontalLayout();
@@ -2076,7 +2090,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     }
 
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void saveTemplate() {
         TaskTemplate t;
@@ -2202,6 +2216,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             }
 
             TemplateFieldRelation rel = new TemplateFieldRelation();
+            rel.setId(dto.relationId); // <--- PRESERVA O ID DA RELAÇÃO
             rel.setTaskFieldDefinition(def);
             rel.setRequired(dto.isRequired);
             rel.setOrder(fOrder++);
@@ -2236,6 +2251,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         for (StepDTO dto : steps) {
             TaskStepDefinition def = defMap.get(dto.label);
             TemplateStepRelation rel = new TemplateStepRelation();
+            rel.setId(dto.relationId); // <--- PRESERVA O ID DA RELAÇÃO
             rel.setTaskStepDefinition(def);
             rel.setOrder(sOrder++);
             rel.setFinalizer(dto.isFinalizer);
@@ -2327,6 +2343,9 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
          */
         for (SlaDTO dto : slas) {
             TaskSlaConfig config = new TaskSlaConfig();
+            if (dto.id != null) {
+                config.setId(dto.id);
+            }
             config.setName(dto.name);
             /*
              * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
@@ -2343,17 +2362,44 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             config.setTargetValue(dto.targetValue);
             config.setUnit(dto.unit);
             config.setValidFrom(dto.validFrom);
+            config.setJustificationOptions(dto.justificationOptions);
             taskSlas.add(config);
         }
 
-        templateService.saveTemplate(t, fieldRelations, stepRelations, taskAlerts, taskSlas);
+        // Validação de Menções Dinâmicas (Obrigatório por requisito do usuário)
+        Set<String> placeholders = extractPlaceholders();
+        Set<Group> selectedGroups = groupComboBox.getValue();
+        
+        for (String p : placeholders) {
+            for (Group g : selectedGroups) {
+                boolean isMapped = mentionMappings.stream()
+                        .anyMatch(m -> m.getPlaceholder().equalsIgnoreCase(p) && 
+                                       m.getGroup().getId().equals(g.getId()) && 
+                                       m.getUsers() != null && 
+                                       !m.getUsers().isEmpty());
+                
+                if (!isMapped) {
+                    Notification.show("A menção '" + p + "' deve ser mapeada para o grupo '" + g.getName() + "' antes de salvar.", 5000, Notification.Position.MIDDLE)
+                            .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                    tabs.setSelectedTab(mentionsTab);
+                    showMentionsTab();
+                    return;
+                }
+            }
+        }
+
+        // Limpar mapeamentos órfãos (de grupos ou placeholders que foram removidos)
+        mentionMappings.removeIf(m -> selectedGroups.stream().noneMatch(sg -> sg.getId().equals(m.getGroup().getId())) || 
+                                      placeholders.stream().noneMatch(p -> p.equalsIgnoreCase(m.getPlaceholder())));
+
+        templateService.saveTemplate(t, fieldRelations, stepRelations, taskAlerts, taskSlas, mentionMappings);
         Notification.show("Template Salvo com Sucesso!");
         getUI().ifPresent(ui -> ui.navigate(TaskTemplateListView.class));
     }
 
     @Override
     /**
-     * Método ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
+     * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     public void setParameter(BeforeEvent event, @OptionalParameter Long parameter) {
         /*
@@ -2383,23 +2429,19 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 groupComboBox.setValue(t.getGroups());
 
                 fields.clear();
-                /*
-                 * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
-                 */
-                for (TemplateFieldRelation fr : templateService.getFieldRelationsByTemplateId(parameter)) {
+                // Usar as relações já carregadas no objeto t para evitar LazyInitializationException
+                List<TemplateFieldRelation> sortedFieldRels = t.getTemplateFieldRelation().stream()
+                        .sorted(Comparator.comparingInt(TemplateFieldRelation::getOrder))
+                        .collect(Collectors.toList());
+                for (TemplateFieldRelation fr : sortedFieldRels) {
                     FieldDTO dto = new FieldDTO();
                     dto.id = fr.getTaskFieldDefinition().getId();
+                    dto.relationId = fr.getId(); // <--- IMPORTANTE
                     dto.label = fr.getTaskFieldDefinition().getLabel();
                     dto.inputType = fr.getTaskFieldDefinition().getInputType();
                     dto.description = fr.getTaskFieldDefinition().getDescription();
                     dto.isRequired = fr.isRequired();
-                    /*
-                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                     */
                     if (fr.getTaskFieldDefinition().getTaskFieldOptions() != null) {
-                        /*
-                         * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
-                         */
                         for (TaskFieldOption opt : fr.getTaskFieldDefinition().getTaskFieldOptions()) {
                             dto.options.add(opt.getOptionLabel());
                         }
@@ -2409,12 +2451,14 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 fieldsGrid.getDataProvider().refreshAll();
 
                 steps.clear();
-                /*
-                 * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
-                 */
-                for (TemplateStepRelation sr : templateService.getStepRelationsByTemplateId(parameter)) {
+                // Usar as relações já carregadas no objeto t para evitar LazyInitializationException
+                List<TemplateStepRelation> sortedStepRels = t.getTemplateStepRelation().stream()
+                        .sorted(Comparator.comparingInt(TemplateStepRelation::getOrder))
+                        .collect(Collectors.toList());
+                for (TemplateStepRelation sr : sortedStepRels) {
                     StepDTO dto = new StepDTO();
                     dto.id = sr.getTaskStepDefinition().getId();
+                    dto.relationId = sr.getId(); // <--- IMPORTANTE
                     dto.label = sr.getTaskStepDefinition().getLabel();
                     dto.colorTheme = sr.getTaskStepDefinition().getColorTheme();
                     dto.isFinalizer = sr.isFinalizer();
@@ -2430,9 +2474,6 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     dto.alertSound = sr.getAlertSound();
                     dto.alertRoles = new HashSet<>(sr.getAlertRoles());
                     dto.responsibleRole = sr.getResponsibleRole();
-                    /*
-                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                     */
                     if (sr.getResponseOptions() != null) {
                         dto.responseOptions = sr.getResponseOptions().stream()
                                 .map(TaskFieldOption::getOptionLabel)
@@ -2473,6 +2514,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                  */
                 for (TaskSlaConfig sla : templateService.getSlaConfigsByTemplateId(parameter)) {
                     SlaDTO dto = new SlaDTO();
+                    dto.id = sla.getId();
                     dto.name = sla.getName();
                     /*
                      * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
@@ -2485,12 +2527,110 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     dto.targetValue = sla.getTargetValue();
                     dto.unit = sla.getUnit();
                     dto.validFrom = sla.getValidFrom();
+                    dto.justificationOptions = sla.getJustificationOptions();
                     slas.add(dto);
                 }
                 slasGrid.getDataProvider().refreshAll();
                 
+                mentionMappings.clear();
+                mentionMappings.addAll(t.getMentionsMappings());
+
                 updateCardsPreview();
             }
         }
+    }
+
+    private Set<String> extractPlaceholders() {
+        Set<String> placeholders = new HashSet<>();
+        Set<String> reserved = Set.of("@criador", "@autorizadores", "@usuario", "@autor_anterior", "@resposta");
+
+        // Buscar usernames reais para não confundi-los com menções dinâmicas
+        Set<String> realUsernames = userService.findAll().stream()
+                .map(u -> "@" + u.getUsername().toLowerCase())
+                .collect(Collectors.toSet());
+
+        for (AlertDTO alert : alerts) {
+            if (alert.alertMessage != null) {
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("@\\w+").matcher(alert.alertMessage);
+                while (m.find()) {
+                    String p = m.group();
+                    if (!reserved.contains(p.toLowerCase()) && !realUsernames.contains(p.toLowerCase())) {
+                        placeholders.add(p);
+                    }
+                }
+            }
+        }
+
+        for (StepDTO step : steps) {
+            if (step.notificationMessage != null) {
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("@\\w+").matcher(step.notificationMessage);
+                while (m.find()) {
+                    String p = m.group();
+                    if (!reserved.contains(p.toLowerCase()) && !realUsernames.contains(p.toLowerCase())) {
+                        placeholders.add(p);
+                    }
+                }
+            }
+        }
+        return placeholders;
+    }
+
+    private void showMentionsTab() {
+        tabContent.removeAll();
+        Set<String> placeholders = extractPlaceholders();
+
+        if (placeholders.isEmpty()) {
+            tabContent.add(new Span("Nenhuma menção customizada encontrada nos textos de alerta ou workflow. Use @ seguido de um nome (ex: @mencao1) para criar menções dinâmicas."));
+            return;
+        }
+
+        H3 title = new H3("Mapeamento de Menções por Grupo");
+        Span help = new Span("Para cada grupo que utiliza este template, defina quais usuários serão notificados para cada etiqueta.");
+        help.getStyle().set("font-size", "var(--lumo-font-size-s)").set("color", "var(--lumo-secondary-text-color)");
+
+        mentionsGrid.removeAllColumns();
+        mentionsGrid.addColumn(Group::getName).setHeader("Grupo").setFrozen(true).setWidth("200px").setFlexGrow(0);
+
+        for (String p : placeholders) {
+            mentionsGrid.addComponentColumn(group -> {
+                MultiSelectComboBox<User> userCombo = new MultiSelectComboBox<>();
+                userCombo.setItems(group.getUsers());
+                userCombo.setItemLabelGenerator(User::getName);
+                userCombo.setWidthFull();
+
+                // Buscar valor existente
+                TaskTemplateMention mapping = mentionMappings.stream()
+                        .filter(m -> m.getGroup().getId().equals(group.getId()) && m.getPlaceholder().equalsIgnoreCase(p))
+                        .findFirst().orElse(null);
+
+                if (mapping != null) {
+                    userCombo.setValue(mapping.getUsers());
+                }
+
+                userCombo.addValueChangeListener(e -> {
+                    TaskTemplateMention m = mentionMappings.stream()
+                            .filter(map -> map.getGroup().getId().equals(group.getId()) && map.getPlaceholder().equalsIgnoreCase(p))
+                            .findFirst().orElse(null);
+                    
+                    if (m == null) {
+                        m = new TaskTemplateMention();
+                        m.setGroup(group);
+                        m.setPlaceholder(p);
+                        mentionMappings.add(m);
+                    }
+                    m.setUsers(new HashSet<>(e.getValue()));
+                });
+
+                return userCombo;
+            }).setHeader(p);
+        }
+
+        // Recarregar os grupos selecionados com os usuários para evitar LazyInitializationException no Grid
+        List<Group> selectedGroups = groupComboBox.getValue().stream()
+                .map(g -> groupService.findById(g.getId()).orElse(g))
+                .collect(Collectors.toList());
+        mentionsGrid.setItems(selectedGroups);
+
+        tabContent.add(title, help, mentionsGrid);
     }
 }

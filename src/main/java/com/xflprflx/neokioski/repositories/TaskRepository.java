@@ -3,6 +3,7 @@ package com.xflprflx.neokioski.repositories;
 import com.xflprflx.neokioski.models.Group;
 import com.xflprflx.neokioski.models.Task;
 import com.xflprflx.neokioski.models.User;
+import com.xflprflx.neokioski.models.template.TaskTemplate;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -136,6 +137,9 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
 
     @Query("SELECT CAST(t.createdAt AS date) as day, COUNT(t) FROM Task t WHERE t.createdAt >= :start GROUP BY day ORDER BY day")
     List<Object[]> countTasksByDay(@Param("start") java.time.Instant start);
+
+    @Query("SELECT t FROM Task t WHERE t.group = :group AND t.taskTemplate = :template ORDER BY t.createdAt DESC")
+    List<Task> findByGroupAndTemplate(@Param("group") Group group, @Param("template") TaskTemplate template);
 
     @Query("SELECT CAST(t.createdAt AS date) as day, COUNT(t) FROM Task t WHERE t.createdAt >= :start AND t.group IN :groups GROUP BY day ORDER BY day")
     List<Object[]> countTasksByDayAndGroups(@Param("start") java.time.Instant start, @Param("groups") List<Group> groups);

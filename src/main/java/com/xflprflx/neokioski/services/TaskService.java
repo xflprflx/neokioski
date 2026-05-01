@@ -250,6 +250,38 @@ public class TaskService {
     }
 
     /**
+     * Busca uma tarefa similar (mesmo template e mesmos valores de campos) no grupo.
+     * Independente de status (mesmo se finalizada).
+     */
+    public Optional<Task> findSimilarTask(TaskTemplate template, Group group, Map<TaskFieldDefinition, String> fieldValues) {
+        List<Task> tasks = taskRepository.findByGroupAndTemplate(group, template);
+        for (Task task : tasks) {
+            if (isTaskSimilar(task, fieldValues)) {
+                return Optional.of(task);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private boolean isTaskSimilar(Task task, Map<TaskFieldDefinition, String> fieldValues) {
+        // Se a quantidade de campos preenchidos for diferente, já não é igual
+        // (Nota: No NeoKioski, os campos são fixos pelo template, mas verificamos por segurança)
+        if (task.getTaskFieldValues().size() != fieldValues.size()) return false;
+
+        for (TaskFieldValue tfv : task.getTaskFieldValues()) {
+            String submittedValue = fieldValues.get(tfv.getTaskFieldDefinition());
+            if (submittedValue == null || !submittedValue.equals(tfv.getValue())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public Optional<ChatMessage> findFirstMessageForTask(Task task) {
+        return chatMessageRepository.findFirstByTaskOrderByIdAsc(task);
+    }
+
+    /**
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public Optional<Task> findById(Long id) {

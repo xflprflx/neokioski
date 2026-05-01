@@ -76,6 +76,7 @@ public class TaskTemplateService {
             managedTemplate.setAlertSound(template.getAlertSound());
             managedTemplate.setDefaultResponsibleRole(template.getDefaultResponsibleRole());
             managedTemplate.setSortOrder(template.getSortOrder());
+            managedTemplate.setRequiresUniqueness(template.isRequiresUniqueness());
             managedTemplate.setDeleted(template.isDeleted());
 
             // Reconcilia coleções básicas mantendo o tracking do Hibernate (evita delete-all / reinsert)

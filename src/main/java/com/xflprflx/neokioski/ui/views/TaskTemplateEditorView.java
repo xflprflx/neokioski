@@ -71,6 +71,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
     private MultiSelectComboBox<Role> globalAlertRolesCombo = new MultiSelectComboBox<>("Perfis que ouvem (vazio = todos)");
     private ComboBox<Role> defaultResponsibleRoleCombo = new ComboBox<>("Setor Responsável Inicial");
     private Checkbox registraNoRelatorioLojaUI = new Checkbox();
+    private Checkbox requiresUniquenessUI = new Checkbox();
     private IntegerField sortOrderField = new IntegerField("Ordem de Exibição");
 
     // Tabs
@@ -489,12 +490,17 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         Span registraRelatorioText = new Span("Registra no relatório de loja?");
         registraRelatorioLayout.add(registraNoRelatorioLojaUI, registraRelatorioText);
 
+        HorizontalLayout uniquenessLayout = new HorizontalLayout();
+        uniquenessLayout.setAlignItems(FlexComponent.Alignment.CENTER);
+        Span uniquenessText = new Span("Validar unicidade (evitar duplicados)?");
+        uniquenessLayout.add(requiresUniquenessUI, uniquenessText);
+
         defaultResponsibleRoleCombo.setItems(Role.values());
         defaultResponsibleRoleCombo.setItemLabelGenerator(Role::getDescription);
         defaultResponsibleRoleCombo.setClearButtonVisible(true);
         defaultResponsibleRoleCombo.setWidthFull();
 
-        secondRow.add(showSendBtnLayout, reqSignatureLayout, authorizingUsersCombo, playAlertSoundLayout, registraRelatorioLayout, defaultResponsibleRoleCombo);
+        secondRow.add(showSendBtnLayout, reqSignatureLayout, authorizingUsersCombo, playAlertSoundLayout, registraRelatorioLayout, uniquenessLayout, defaultResponsibleRoleCombo);
 
         // Listeners para atualizar o preview
         nameField.addValueChangeListener(e -> updateCardsPreview());
@@ -2175,6 +2181,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         t.getAlertRoles().addAll(globalAlertRolesCombo.getValue());
         t.setDefaultResponsibleRole(defaultResponsibleRoleCombo.getValue());
         t.setRegistraNoRelatorioLoja(registraNoRelatorioLojaUI.getValue());
+        t.setRequiresUniqueness(requiresUniquenessUI.getValue());
         t.getGroups().clear();
         /*
          * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
@@ -2425,6 +2432,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 playGlobalSoundBtn.setVisible(t.isPlayAlertSound());
                 defaultResponsibleRoleCombo.setValue(t.getDefaultResponsibleRole());
                 registraNoRelatorioLojaUI.setValue(t.isRegistraNoRelatorioLoja());
+                requiresUniquenessUI.setValue(t.isRequiresUniqueness());
                 sortOrderField.setValue(t.getSortOrder());
                 groupComboBox.setValue(t.getGroups());
 

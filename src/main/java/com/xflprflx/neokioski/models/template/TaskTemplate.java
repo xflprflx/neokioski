@@ -48,6 +48,9 @@ public class TaskTemplate {
     @Column(nullable = false)
     private Integer sortOrder = 0;
 
+    @Column(nullable = false)
+    private boolean requiresUniqueness = false;
+
     // #improve_n+1 - Remoção do EAGER forçado nas coleções administrativas que causavam queries em massa quando uma Task era listada
     @ElementCollection(fetch = FetchType.LAZY)
     @Enumerated(EnumType.STRING)
@@ -218,6 +221,14 @@ public class TaskTemplate {
 
     public void setSortOrder(Integer sortOrder) {
         this.sortOrder = sortOrder;
+    }
+
+    public boolean isRequiresUniqueness() {
+        return requiresUniqueness;
+    }
+
+    public void setRequiresUniqueness(boolean requiresUniqueness) {
+        this.requiresUniqueness = requiresUniqueness;
     }
 
     public boolean isDeleted() {

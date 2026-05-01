@@ -752,25 +752,22 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                 }
                 
                 // Limpar campo após envio
-                /*
-                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                 */
                 if (entry.getValue() instanceof com.vaadin.flow.component.HasValue<?, ?> hv) {
                     hv.clear();
                 }
             }
 
-            Task task = taskService.createTask(template, fieldValues, currentUser, group);
-            
-            String alertSound = template.isPlayAlertSound() ? template.getAlertSound() : null;
-            String alertRoles = (template.getAlertRoles() != null && !template.getAlertRoles().isEmpty())
-                    ? template.getAlertRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.joining(","))
-                    : null;
-            
-            chatService.sendMessageWithTask("📋 Tarefa: " + template.getName(), currentUser, group, task, alertSound, alertRoles);
-            
-            Notification.show("Tarefa '" + template.getName() + "' criada!", 2000, Notification.Position.BOTTOM_END)
-                    .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            if (template.isRequiresUniqueness()) {
+                Optional<Task> similarTask = taskService.findSimilarTask(template, group, fieldValues);
+                if (similarTask.isPresent()) {
+                    openDuplicateWarningDialog(similarTask.get(), () -> {
+                        createTaskAndSendMessage(template, fieldValues);
+                    });
+                    return;
+                }
+            }
+
+            createTaskAndSendMessage(template, fieldValues);
         });
         
         submitBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
@@ -2614,6 +2611,56 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
         
         dialog.getFooter().add(cancelBtn, deleteBtn);
         dialog.open();
+    }
+
+    private void openDuplicateWarningDialog(Task similarTask, Runnable onConfirm) {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Solicitação Duplicada?");
+        dialog.setWidth("450px");
+
+        String timeStr = dateTimeFormatter.format(similarTask.getCreatedAt());
+        Span message = new Span("Esta solicitação já foi realizada em " + timeStr + ". ");
+        
+        Button viewPreviousBtn = new Button("Ver solicitação anterior", e -> {
+            taskService.findFirstMessageForTask(similarTask).ifPresent(this::navigateToMessage);
+            dialog.close();
+        });
+        viewPreviousBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
+        viewPreviousBtn.getStyle().set("font-weight", "bold");
+
+        Span question = new Span(" Deseja continuar e criar uma nova mesmo assim?");
+        question.getStyle().set("display", "block").set("margin-top", "var(--lumo-space-s)");
+
+        VerticalLayout content = new VerticalLayout(new Div(message, viewPreviousBtn), question);
+        content.setPadding(false);
+        content.setSpacing(false);
+        dialog.add(content);
+
+        Button confirmBtn = new Button("Continuar", e -> {
+            onConfirm.run();
+            dialog.close();
+        });
+        confirmBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        Button cancelBtn = new Button("Cancelar", e -> dialog.close());
+        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        dialog.getFooter().add(cancelBtn, confirmBtn);
+        dialog.open();
+    }
+
+    private void createTaskAndSendMessage(TaskTemplate template, Map<TaskFieldDefinition, String> fieldValues) {
+        Task task = taskService.createTask(template, fieldValues, currentUser, group);
+        
+        String alertSound = template.isPlayAlertSound() ? template.getAlertSound() : null;
+        String alertRoles = (template.getAlertRoles() != null && !template.getAlertRoles().isEmpty())
+                ? template.getAlertRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.joining(","))
+                : null;
+        
+        chatService.sendMessageWithTask("📋 Tarefa: " + template.getName(), currentUser, group, task, alertSound, alertRoles);
+        
+        Notification.show("Tarefa '" + template.getName() + "' criada!", 2000, Notification.Position.BOTTOM_END)
+                .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
     }
 
     /**

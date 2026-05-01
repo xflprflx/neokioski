@@ -3,14 +3,19 @@ package com.xflprflx.neokioski.ui.views;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.dependency.JavaScript;
+import com.vaadin.flow.component.dependency.StyleSheet;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
@@ -66,8 +71,8 @@ public class HomeView extends Div {
     private String activeKeyword;
 
     private Div kpiGrid;
-    private Div rankingHeaderDiv;
-    private Div finalizerRankingHeaderDiv;
+    private HorizontalLayout rankingHeaderDiv;
+    private HorizontalLayout finalizerRankingHeaderDiv;
     private Div userRankingChartDiv;
     private Div finalizerRankingChartDiv;
     private Div tmaStackedChartDiv;
@@ -76,6 +81,11 @@ public class HomeView extends Div {
     private Div justificationDonutChartDiv;
     private Div wordCloudDiv;
     private Div recentCommentsDiv;
+    
+    private Button clearSlaHeaderBtn;
+    private Button clearJustHeaderBtn;
+    private Button floatingClearAllBtn;
+    private Button clearFiltersTopBtn;
     
     private DashboardService.DashboardData lastDashboardData;
 
@@ -239,6 +249,7 @@ public class HomeView extends Div {
             } catch (Exception ex) { ex.printStackTrace(); }
         }).addEventData("event.detail.taskId");
 
+        createFloatingActionButton();
         updateDashboard();
     }
 
@@ -265,6 +276,81 @@ public class HomeView extends Div {
             taskService.unregisterGlobal(taskListener);
         }
         super.onDetach(detachEvent);
+    }
+
+    private void createFloatingActionButton() {
+        floatingClearAllBtn = new Button("Limpar Tudo", VaadinIcon.ERASER.create(), e -> clearAllFilters());
+        floatingClearAllBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR);
+        floatingClearAllBtn.setId("fab-clear-all");
+        floatingClearAllBtn.getStyle()
+                .set("position", "fixed")
+                .set("bottom", "40px")
+                .set("right", "40px")
+                .set("z-index", "1000")
+                .set("box-shadow", "0 10px 15px -3px rgba(0, 0, 0, 0.3)")
+                .set("border-radius", "30px")
+                .set("padding", "0 25px")
+                .set("height", "50px")
+                .set("cursor", "move")
+                .set("transition", "transform 0.2s ease, box-shadow 0.2s ease");
+        
+        floatingClearAllBtn.getElement().addEventListener("mouseenter", e -> floatingClearAllBtn.getStyle().set("transform", "scale(1.05)"));
+        floatingClearAllBtn.getElement().addEventListener("mouseleave", e -> floatingClearAllBtn.getStyle().set("transform", "scale(1)"));
+        
+        // JS para tornar o FAB arrastável
+        floatingClearAllBtn.getElement().executeJs(
+            "const el = this;" +
+            "let isDragging = false;" +
+            "let startX, startY, startRight, startBottom;" +
+            "let moved = false;" +
+            
+            "el.addEventListener('mousedown', e => {" +
+            "  isDragging = true;" +
+            "  moved = false;" +
+            "  startX = e.clientX;" +
+            "  startY = e.clientY;" +
+            "  const style = window.getComputedStyle(el);" +
+            "  startRight = parseInt(style.right);" +
+            "  startBottom = parseInt(style.bottom);" +
+            "  el.style.transition = 'none';" + // Desativa transição durante o drag
+            "  e.preventDefault();" +
+            "});" +
+            
+            "document.addEventListener('mousemove', e => {" +
+            "  if (!isDragging) return;" +
+            "  const dx = e.clientX - startX;" +
+            "  const dy = e.clientY - startY;" +
+            "  if (Math.abs(dx) > 5 || Math.abs(dy) > 5) moved = true;" +
+            "  el.style.right = (startRight - dx) + 'px';" +
+            "  el.style.bottom = (startBottom - dy) + 'px';" +
+            "});" +
+            
+            "document.addEventListener('mouseup', e => {" +
+            "  if (!isDragging) return;" +
+            "  isDragging = false;" +
+            "  el.style.transition = 'transform 0.2s ease, box-shadow 0.2s ease';" +
+            "  if (moved) {" +
+            "    el.addEventListener('click', e => e.stopPropagation(), { once: true, capture: true });" +
+            "  }" +
+            "});"
+        );
+
+        floatingClearAllBtn.setVisible(false);
+        add(floatingClearAllBtn);
+    }
+
+    private void clearAllFilters() {
+        startDatePicker.setValue(LocalDate.now().minusDays(30));
+        endDatePicker.setValue(LocalDate.now());
+        groupFilter.clear();
+        templateFilter.clear();
+        creatorFilter.clear();
+        finalizerFilter.clear();
+        slaFilter.clear();
+        justificationFilter.clear();
+        activeKeyword = null;
+        keywordFilter.clear();
+        updateDashboard();
     }
 
     /**
@@ -368,7 +454,14 @@ public class HomeView extends Div {
         justificationFilter.addValueChangeListener(e -> updateDashboard());
         keywordFilter.addValueChangeListener(e -> updateDashboard());
 
-        filtersRow.add(startDatePicker, endDatePicker, groupFilter, templateFilter, creatorFilter, finalizerFilter, slaFilter, justificationFilter);
+        clearFiltersTopBtn = new Button("Limpar Filtros", VaadinIcon.ERASER.create(), e -> clearAllFilters());
+        clearFiltersTopBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        clearFiltersTopBtn.getStyle()
+                .set("margin-top", "auto")
+                .set("color", "var(--lumo-error-text-color)");
+        clearFiltersTopBtn.setVisible(false);
+
+        filtersRow.add(startDatePicker, endDatePicker, groupFilter, templateFilter, creatorFilter, finalizerFilter, slaFilter, justificationFilter, clearFiltersTopBtn);
         
         topLayout.add(title, filtersRow);
         add(topLayout);
@@ -466,7 +559,14 @@ public class HomeView extends Div {
         slaPerformanceChartDiv = new Div();
         slaPerformanceChartDiv.setId("sla-performance-chart");
         slaPerformanceChartDiv.getStyle().set("flex-grow", "1");
-        slaPerformanceCol.add(createChartHeader("Performance por SLA"), slaPerformanceChartDiv);
+        
+        Button clearSlaBtn = new Button(VaadinIcon.CLOSE_SMALL.create(), e -> { slaFilter.clear(); updateDashboard(); });
+        clearSlaBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE, ButtonVariant.LUMO_ERROR);
+        clearSlaBtn.setTooltipText("Limpar filtro de SLA");
+        clearSlaBtn.setVisible(false); // Visível via updateDashboard
+        this.clearSlaHeaderBtn = clearSlaBtn;
+
+        slaPerformanceCol.add(createChartHeader("Performance por SLA", clearSlaBtn), slaPerformanceChartDiv);
         slaPerformanceRow.add(slaPerformanceCol);
         add(slaPerformanceRow);
 
@@ -507,7 +607,13 @@ public class HomeView extends Div {
 
         justificationContent.add(justificationDonutChartDiv, cloudCol, commentsCol);
         
-        justificationCol.add(createChartHeader("Justificativas de Atraso"), justificationContent);
+        Button clearJustBtn = new Button(VaadinIcon.CLOSE_SMALL.create(), e -> { justificationFilter.clear(); activeKeyword = null; keywordFilter.clear(); updateDashboard(); });
+        clearJustBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE, ButtonVariant.LUMO_ERROR);
+        clearJustBtn.setTooltipText("Limpar filtros de justificativa e nuvem");
+        clearJustBtn.setVisible(false);
+        this.clearJustHeaderBtn = clearJustBtn;
+
+        justificationCol.add(createChartHeader("Justificativas de Atraso", clearJustBtn), justificationContent);
         justificationsRow.add(justificationCol);
         add(justificationsRow);
     }
@@ -538,19 +644,40 @@ public class HomeView extends Div {
     /**
      * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
-    private Div createChartHeader(String title) {
-        Div header = new Div();
-        header.addClassName("chart-title");
-        header.setText(title);
+    private HorizontalLayout createChartHeader(String title, Component... extra) {
+        HorizontalLayout header = new HorizontalLayout();
+        header.addClassName("chart-title-row");
+        header.setWidthFull();
+        header.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
+        header.setAlignItems(FlexComponent.Alignment.CENTER);
         header.getStyle()
                 .set("margin-bottom", "-20px")
                 .set("z-index", "10")
-                .set("position", "relative")
+                .set("position", "relative");
+
+        Span titleSpan = new Span(title);
+        titleSpan.getStyle()
+                .set("font-weight", "bold")
+                .set("font-size", "var(--lumo-font-size-m)")
                 .set("color", "#1e293b");
-        /*
-         * Retorna o componente renderizado ou o valor da operação atual.
-         */
+
+        header.add(titleSpan);
+        if (extra.length > 0) {
+            HorizontalLayout actionArea = new HorizontalLayout(extra);
+            actionArea.setSpacing(false);
+            header.add(actionArea);
+        }
+
         return header;
+    }
+
+    private void updateHeaderText(HorizontalLayout header, String text) {
+        if (header != null) {
+            header.getChildren()
+                .filter(c -> c instanceof Span)
+                .findFirst()
+                .ifPresent(c -> ((Span) c).setText(text));
+        }
     }
 
     /**
@@ -576,6 +703,13 @@ public class HomeView extends Div {
         DashboardService.DashboardData data = dashboardService.getDashboardData(start, end, group, type, activeCreatorFilter, activeFinalizerFilter, null, activeSlaFilter, activeJustFilter, keywordFilter.getValue());
         this.lastDashboardData = data;
 
+        // Atualizar visibilidade dos botões de limpeza
+        boolean hasFilter = group != null || type != null || creator != null || finalizer != null || activeSlaFilter != null || activeJustFilter != null || activeKeyword != null;
+        if (clearFiltersTopBtn != null) clearFiltersTopBtn.setVisible(hasFilter);
+        if (floatingClearAllBtn != null) floatingClearAllBtn.setVisible(hasFilter);
+        if (clearSlaHeaderBtn != null) clearSlaHeaderBtn.setVisible(activeSlaFilter != null);
+        if (clearJustHeaderBtn != null) clearJustHeaderBtn.setVisible(activeJustFilter != null || activeKeyword != null);
+
         // Atualizar itens dos novos filtros se estiverem vazios
         if (slaFilter.getGenericDataView().getItems().count() == 0) {
             slaFilter.setItems(data.slaInsights().stream().map(d -> d.slaName()).sorted().collect(Collectors.toList()));
@@ -588,18 +722,18 @@ public class HomeView extends Div {
          * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
          */
         if (activeCreatorFilter != null) {
-             rankingHeaderDiv.setText("Ranking (Filtro: " + activeCreatorFilter + ")");
+             updateHeaderText(rankingHeaderDiv, "Ranking (Filtro: " + activeCreatorFilter + ")");
         } else {
-             rankingHeaderDiv.setText("Ranking Criadores de Tarefas");
+             updateHeaderText(rankingHeaderDiv, "Ranking Criadores de Tarefas");
         }
 
         /*
          * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
          */
         if (activeFinalizerFilter != null) {
-             finalizerRankingHeaderDiv.setText("Ranking (Filtro: " + activeFinalizerFilter + ")");
+             updateHeaderText(finalizerRankingHeaderDiv, "Ranking (Filtro: " + activeFinalizerFilter + ")");
         } else {
-             finalizerRankingHeaderDiv.setText("Ranking Concluidores");
+             updateHeaderText(finalizerRankingHeaderDiv, "Ranking Concluidores");
         }
 
         renderKpiCards(data.stats());

@@ -87,6 +87,10 @@ public class DashboardService {
                 .filter(t -> type == null || type.equals(t.getTaskTemplate()))
                 .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t, relCache), finalizerNameFilter))
                 .filter(t -> dateFilterStr == null || formatDate(t.getCreatedAt()).equals(dateFilterStr))
+                .filter(t -> slaNameFilter == null || t.getSlaResults().stream().anyMatch(r -> r.getSlaConfig() != null && Objects.equals(r.getSlaConfig().getName(), slaNameFilter)))
+                .filter(t -> justificationFilter == null || t.getSlaResults().stream().anyMatch(r -> Objects.equals(r.getJustification(), justificationFilter)))
+                .filter(t -> keywordFilter == null || keywordFilter.isBlank() || t.getSlaResults().stream().anyMatch(r -> 
+                        r.getJustificationComments() != null && r.getJustificationComments().toLowerCase().contains(keywordFilter.toLowerCase())))
                 .collect(Collectors.toList());
 
         List<ChartDataPoint> userRanking = rankingBaseTasks.stream()
@@ -103,6 +107,10 @@ public class DashboardService {
                 .filter(t -> type == null || type.equals(t.getTaskTemplate()))
                 .filter(t -> creatorNameFilter == null || (t.getCreator() != null && t.getCreator().getName().equals(creatorNameFilter)))
                 .filter(t -> dateFilterStr == null || formatDate(t.getCreatedAt()).equals(dateFilterStr))
+                .filter(t -> slaNameFilter == null || t.getSlaResults().stream().anyMatch(r -> r.getSlaConfig() != null && Objects.equals(r.getSlaConfig().getName(), slaNameFilter)))
+                .filter(t -> justificationFilter == null || t.getSlaResults().stream().anyMatch(r -> Objects.equals(r.getJustification(), justificationFilter)))
+                .filter(t -> keywordFilter == null || keywordFilter.isBlank() || t.getSlaResults().stream().anyMatch(r -> 
+                        r.getJustificationComments() != null && r.getJustificationComments().toLowerCase().contains(keywordFilter.toLowerCase())))
                 .collect(Collectors.toList());
 
         List<ChartDataPoint> finalizerRanking = finalizerBaseTasks.stream()
@@ -120,6 +128,10 @@ public class DashboardService {
                 .filter(t -> creatorNameFilter == null || (t.getCreator() != null && t.getCreator().getName().equals(creatorNameFilter)))
                 .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t, relCache), finalizerNameFilter))
                 .filter(t -> dateFilterStr == null || formatDate(t.getCreatedAt()).equals(dateFilterStr))
+                .filter(t -> slaNameFilter == null || t.getSlaResults().stream().anyMatch(r -> r.getSlaConfig() != null && Objects.equals(r.getSlaConfig().getName(), slaNameFilter)))
+                .filter(t -> justificationFilter == null || t.getSlaResults().stream().anyMatch(r -> Objects.equals(r.getJustification(), justificationFilter)))
+                .filter(t -> keywordFilter == null || keywordFilter.isBlank() || t.getSlaResults().stream().anyMatch(r -> 
+                        r.getJustificationComments() != null && r.getJustificationComments().toLowerCase().contains(keywordFilter.toLowerCase())))
                 .collect(Collectors.toList());
 
         // 4. Historico Base (Menu de Datas) -> Afetado por Tipo, Criador e Concluidor Clique. Ignora clique em Data.
@@ -127,6 +139,10 @@ public class DashboardService {
                 .filter(t -> type == null || type.equals(t.getTaskTemplate()))
                 .filter(t -> creatorNameFilter == null || (t.getCreator() != null && t.getCreator().getName().equals(creatorNameFilter)))
                 .filter(t -> finalizerNameFilter == null || Objects.equals(getTaskFinalizerName(t, relCache), finalizerNameFilter))
+                .filter(t -> slaNameFilter == null || t.getSlaResults().stream().anyMatch(r -> r.getSlaConfig() != null && Objects.equals(r.getSlaConfig().getName(), slaNameFilter)))
+                .filter(t -> justificationFilter == null || t.getSlaResults().stream().anyMatch(r -> Objects.equals(r.getJustification(), justificationFilter)))
+                .filter(t -> keywordFilter == null || keywordFilter.isBlank() || t.getSlaResults().stream().anyMatch(r -> 
+                        r.getJustificationComments() != null && r.getJustificationComments().toLowerCase().contains(keywordFilter.toLowerCase())))
                 .collect(Collectors.toList());
 
         // 5. Strict Base (Variáveis centrais da tela KPIs, afetado por TODOS OS SELETORES EM CADEIA)
@@ -137,7 +153,7 @@ public class DashboardService {
                 .filter(t -> dateFilterStr == null || formatDate(t.getCreatedAt()).equals(dateFilterStr))
                 .filter(t -> slaNameFilter == null || t.getSlaResults().stream().anyMatch(r -> r.getSlaConfig() != null && Objects.equals(r.getSlaConfig().getName(), slaNameFilter)))
                 .filter(t -> justificationFilter == null || t.getSlaResults().stream().anyMatch(r -> Objects.equals(r.getJustification(), justificationFilter)))
-                .filter(t -> keywordFilter == null || t.getSlaResults().stream().anyMatch(r -> 
+                .filter(t -> keywordFilter == null || keywordFilter.isBlank() || t.getSlaResults().stream().anyMatch(r -> 
                         r.getJustificationComments() != null && r.getJustificationComments().toLowerCase().contains(keywordFilter.toLowerCase())))
                 .collect(Collectors.toList());
 

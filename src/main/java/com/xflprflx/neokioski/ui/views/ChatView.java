@@ -894,55 +894,14 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             if (activeSuggestionWrapper == null) return;
         }
 
-        List<User> suggestions = userService.findAll().stream()
+        Collection<User> baseUsers = (group != null) ? group.getUsers() : userService.findAll();
+        List<User> suggestions = baseUsers.stream()
                 .filter(u -> !u.equals(currentUser))
+                .filter(User::isActive)
                 .filter(u -> u.getUsername().toLowerCase().contains(query.toLowerCase()) || 
                              u.getName().toLowerCase().contains(query.toLowerCase()))
                 .collect(Collectors.toList());
 
-        // Adicionar sugestão virtual para o Criador da Tarefa
-        /*
-         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-         */
-        if ("criador".contains(query.toLowerCase()) || "@criador".contains(query.toLowerCase())) {
-            User virtualCreator = new User();
-            virtualCreator.setName("Criador da Tarefa (Original)");
-            virtualCreator.setUsername("criador");
-            suggestions.add(0, virtualCreator);
-        }
-
-        // Adicionar sugestão virtual para os Autorizadores
-        /*
-         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-         */
-        if ("autorizadores".contains(query.toLowerCase()) || "@autorizadores".contains(query.toLowerCase())) {
-            User virtualAuts = new User();
-            virtualAuts.setName("Usuários Autorizadores");
-            virtualAuts.setUsername("autorizadores");
-            suggestions.add(0, virtualAuts);
-        }
-
-        // Adicionar sugestão virtual para o Usuário Atual (Executante)
-        /*
-         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-         */
-        if ("usuario".contains(query.toLowerCase()) || "@usuario".contains(query.toLowerCase())) {
-            User virtualUser = new User();
-            virtualUser.setName("Usuário Atual (Executante)");
-            virtualUser.setUsername("usuario");
-            suggestions.add(0, virtualUser);
-        }
-
-        // Adicionar sugestão virtual para o Autor Anterior
-        /*
-         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-         */
-        if ("autor_anterior".contains(query.toLowerCase()) || "@autor_anterior".contains(query.toLowerCase())) {
-            User virtualPrev = new User();
-            virtualPrev.setName("Autor Anterior");
-            virtualPrev.setUsername("autor_anterior");
-            suggestions.add(suggestions.size() > 1 ? 2 : suggestions.size(), virtualPrev);
-        }
 
         /*
          * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
@@ -1522,7 +1481,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             content.add(badgeWrapper);
         }
 
-        Div messageText = renderMessageContent(msg.getContent());
+            Div messageText = renderMessageContent(msg.getContent(), isMine);
         /*
          * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
          */
@@ -1929,36 +1888,27 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
                     .set("background", "var(--lumo-contrast-5pct)")
                     .set("border-radius", "8px")
                     .set("padding", "var(--lumo-space-s)")
-                    .set("margin-bottom", "var(--lumo-space-s)")
-                    .set("font-size", "var(--lumo-font-size-s)");
-            /*
-             * Inicia um laço de repetição (for) para iterar sobre os elementos visuais ou coleções de dados.
-             */
+                    .set("margin-bottom", "var(--lumo-space-s)");
+
             for (TaskFieldValue fv : task.getTaskFieldValues()) {
                 String fieldLabel = fv.getTaskFieldDefinition() != null ? fv.getTaskFieldDefinition().getLabel() : "Campo";
                 String valStr = fv.getValue();
                 
-                Div row = new Div();
-                row.getStyle().set("display", "flex").set("align-items", "center").set("gap", "4px");
+                HorizontalLayout row = new HorizontalLayout();
+                row.setAlignItems(FlexComponent.Alignment.BASELINE);
+                row.setSpacing(true);
                 
                 Span lbl = new Span(fieldLabel + ": ");
-                lbl.getStyle().set("font-weight", "bold");
+                lbl.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-m)");
                 
                 Span val = new Span(valStr);
+                val.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-xl)").set("color", "var(--lumo-primary-text-color)");
                 
-                // Botão de cópia discreto
                 Button copyBtn = new Button(VaadinIcon.COPY.create(), e -> {
-                    // Para cópia manual, também respeitamos o formato SAP se for lista
-                    // Como fv.getValue() já é uma string consolidada, se for uma lista separada por vírgula no DB,
-                    // talvez precisemos re-formatar. Mas geralmente o usuário quer o que está ali.
-                    // Se o valor contiver vírgulas e for suspeito de lista, poderíamos trocar por \n.
-                    // No entanto, para ser preciso, deveríamos usar o valor original se disponível.
-                    // Aqui fv.getValue() é a string salva.
                     copyToClipboard(valStr.replace(", ", "\n"));
                 });
                 copyBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE, ButtonVariant.LUMO_SMALL);
-                copyBtn.getStyle().set("padding", "0").set("height", "auto").set("min-width", "auto");
-                copyBtn.setTooltipText("Copiar valor");
+                copyBtn.getStyle().set("opacity", "0.5");
 
                 row.add(lbl, val, copyBtn);
                 fieldsDiv.add(row);
@@ -2381,7 +2331,7 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
     /**
      * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
-    private Div renderMessageContent(String content) {
+    private Div renderMessageContent(String content, boolean isMine) {
         Div container = new Div();
         /*
          * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
@@ -2406,13 +2356,14 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
             Span mention = new Span("@" + username);
             mention.getStyle()
                     .set("font-weight", "bold")
-                    .set("color", "var(--lumo-primary-text-color)")
-                    .set("background", "var(--lumo-primary-color-10pct)")
-                    .set("padding", "0 4px")
-                    .set("border-radius", "4px")
+                    .set("color", isMine ? "white" : "var(--lumo-primary-text-color)")
+                    .set("background", isMine ? "rgba(255, 255, 255, 0.25)" : "var(--lumo-primary-color-10pct)")
+                    .set("padding", "2px 6px")
+                    .set("border-radius", "6px")
                     .set("white-space", "nowrap")
                     .set("display", "inline-block")
-                    .set("vertical-align", "middle");
+                    .set("vertical-align", "middle")
+                    .set("text-shadow", isMine ? "0 1px 2px rgba(0,0,0,0.2)" : "none");
             container.add(mention);
 
             lastEnd = matcher.end();

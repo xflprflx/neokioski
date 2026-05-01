@@ -937,25 +937,14 @@ public class HomeView extends Div {
                                         const category = w.globals.labels[dataPointIndex];
                                         const totalVal = series[seriesIndex][dataPointIndex];
                                         const formatTime = (val) => {
-                                            /*
-                                             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                                             */
                                             if (!val || val === 0) return "0s";
-                                            const h = Math.floor(val / 3600);
-                                            const m = Math.floor((val %% 3600) / 60);
-                                            const s = Math.floor(val %% 60);
-                                            /*
-                                             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                                             */
+                                            if (val < 60) return val.toFixed(1) + "s";
+                                            const totalSecs = Math.round(val);
+                                            const h = Math.floor(totalSecs / 3600);
+                                            const m = Math.floor((totalSecs %% 3600) / 60);
+                                            const s = totalSecs %% 60;
                                             if (h > 0) return h + "h " + m + "m " + s + "s";
-                                            /*
-                                             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                                             */
-                                            if (m > 0) return m + "m " + s + "s";
-                                            /*
-                                             * Retorna o componente renderizado ou o valor da operação atual.
-                                             */
-                                            return s + "s";
+                                            return m + "m " + s + "s";
                                         };
                                         const bgColor = '#ffffff';
                                         const textColor = '#1e293b';

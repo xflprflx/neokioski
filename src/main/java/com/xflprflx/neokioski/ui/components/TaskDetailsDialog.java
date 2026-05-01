@@ -293,8 +293,8 @@ public class TaskDetailsDialog extends Dialog {
                     "           enabled: true, " +
                     "           style: { fontSize: '9px', fontWeight: 'bold' }, " +
                     "           formatter: function(val) { " +
-                    "               if (val < 0.1) return ''; " +
-                    "               if (val < 1) return Math.round(val * 60) + 's'; " +
+                    "               if (val < 0.01) return ''; " +
+                    "               if (val < 1) return (val * 60).toFixed(1) + 's'; " +
                     "               return val.toFixed(1) + 'm'; " +
                     "           } " +
                     "        }," +

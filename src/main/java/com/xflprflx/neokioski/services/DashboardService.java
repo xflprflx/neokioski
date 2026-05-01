@@ -191,8 +191,8 @@ public class DashboardService {
             String templateName = entry.getKey();
             List<Task> templateTasks = entry.getValue();
 
-            Map<String, Long> stepTotalSeconds = new LinkedHashMap<>();
-            Map<String, Integer> stepCounts = new LinkedHashMap<>();
+                Map<String, Double> stepTotalSeconds = new LinkedHashMap<>();
+                Map<String, Integer> stepCounts = new LinkedHashMap<>();
 
             /*
              * Inicia um laço de repetição (for) para iterar sobre os elementos.
@@ -231,9 +231,9 @@ public class DashboardService {
                      * Avalia uma condição (if) para desvio de fluxo da lógica principal.
                      */
                     if (endTime != null && startTime != null && !endTime.isBefore(startTime)) {
-                        long durationSeconds = Duration.between(startTime, endTime).getSeconds();
+                        double durationSeconds = Duration.between(startTime, endTime).toMillis() / 1000.0;
                         
-                        stepTotalSeconds.merge(stepName, durationSeconds, Long::sum);
+                        stepTotalSeconds.merge(stepName, durationSeconds, Double::sum);
                         stepCounts.merge(stepName, 1, Integer::sum);
                     }
                 }
@@ -241,16 +241,16 @@ public class DashboardService {
 
             double trueTemplateAvg = templateTasks.stream()
                     .filter(t -> t.getFinalizedAt() != null)
-                    .mapToLong(t -> Duration.between(t.getCreatedAt(), t.getFinalizedAt()).toSeconds())
+                    .mapToDouble(t -> Duration.between(t.getCreatedAt(), t.getFinalizedAt()).toMillis() / 1000.0)
                     .average().orElse(0);
 
             Map<String, Double> seriesValues = new LinkedHashMap<>();
             /*
              * Inicia um laço de repetição (for) para iterar sobre os elementos.
              */
-            for (Map.Entry<String, Long> stepEntry : stepTotalSeconds.entrySet()) {
+            for (Map.Entry<String, Double> stepEntry : stepTotalSeconds.entrySet()) {
                 String step = stepEntry.getKey();
-                long totalTime = stepEntry.getValue();
+                double totalTime = stepEntry.getValue();
                 int count = stepCounts.getOrDefault(step, 1);
                 double tma = (double) totalTime / count;
                 seriesValues.put(step, tma);

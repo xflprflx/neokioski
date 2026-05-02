@@ -132,7 +132,7 @@ public class DashboardServiceTest {
 
         // --- 2. ACT (Ação/Execução) ---
         // Chamamos o métodx que queremos testar. Ele usará nossos Mocks internamente.
-        DashboardService.DashboardData data = dashboardService.getDashboardData(start, end, groupA, null, null, null, null, null, null);
+        DashboardService.DashboardData data = dashboardService.getDashboardData(start, end, groupA, null, null, null, null, null, null, null);
 
         // --- 3. ASSERT (Afirmação/Validação) ---
         // Aqui verificamos se a matemática do DashboardService bate com os dados que "injetamos" nos mocks
@@ -165,7 +165,7 @@ public class DashboardServiceTest {
         when(taskRepository.findAllByCreatedAtBetween(any(), any())).thenReturn(Arrays.asList(t1, t2, t3));
         
         // --- 2. ACT ---
-        DashboardService.DashboardData data = dashboardService.getDashboardData(start, end, groupA, null, null, null, null, null, null);
+        DashboardService.DashboardData data = dashboardService.getDashboardData(start, end, groupA, null, null, null, null, null, null, null);
 
         // --- 3. ASSERT ---
         // O ranking deve conter apenas os 2 usuários envolvidos
@@ -211,7 +211,7 @@ public class DashboardServiceTest {
         when(stepRelationRepository.findByTaskTemplateIdIn(any())).thenReturn(Collections.singletonList(rel));
 
         // --- 2. ACT ---
-        DashboardService.DashboardData data = dashboardService.getDashboardData(start, end, groupA, null, null, null, null, null, null);
+        DashboardService.DashboardData data = dashboardService.getDashboardData(start, end, groupA, null, null, null, null, null, null, null);
 
         // --- 3. ASSERT ---
         // Mesmo t1 tendo sido criada pelo User 1, quem deve aparecer no ranking de FINALIZADORES é o User 2

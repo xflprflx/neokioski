@@ -138,22 +138,38 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
         drawerContainer.removeAll();
         SideNav nav = new SideNav();
 
-        nav.addItem(new SideNavItem("Início", HomeView.class, VaadinIcon.DASHBOARD.create()));
+        SideNavItem homeItem = new SideNavItem("Início", HomeView.class);
+        homeItem.setPrefixComponent(VaadinIcon.DASHBOARD.create());
+        nav.addItem(homeItem);
 
         SideNavItem chatsItem = new SideNavItem("Chats", (String) null, VaadinIcon.CHAT.create());
         chatsItem.getElement().addEventListener("click", e -> showChatNav(null));
         nav.addItem(chatsItem);
-        nav.addItem(new SideNavItem("Relatório Loja", StoreReportView.class, VaadinIcon.CHART.create()));
-        nav.addItem(new SideNavItem("Relatório Geral", GeneralTaskReportView.class, VaadinIcon.LIST_OL.create()));
 
-        /*
-         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-         */
+        SideNavItem storeReportItem = new SideNavItem("Relatório Loja", StoreReportView.class);
+        storeReportItem.setPrefixComponent(VaadinIcon.CHART.create());
+        nav.addItem(storeReportItem);
+
+        SideNavItem generalReportItem = new SideNavItem("Relatório Geral", GeneralTaskReportView.class);
+        generalReportItem.setPrefixComponent(VaadinIcon.LIST_OL.create());
+        nav.addItem(generalReportItem);
+
         if (authContext.hasAnyRole("ADMIN")) {
-            nav.addItem(new SideNavItem("Grupos", GroupListView.class, VaadinIcon.USERS.create()));
-            nav.addItem(new SideNavItem("Usuários", UserListView.class, VaadinIcon.USER_CARD.create()));
-            nav.addItem(new SideNavItem("Templates", TaskTemplateListView.class, VaadinIcon.FILE_TEXT.create()));
-            nav.addItem(new SideNavItem("Modelos de Relatório", StoreReportConfigListView.class, VaadinIcon.EDIT.create()));
+            SideNavItem groupsItem = new SideNavItem("Grupos", GroupListView.class);
+            groupsItem.setPrefixComponent(VaadinIcon.USERS.create());
+            nav.addItem(groupsItem);
+
+            SideNavItem usersItem = new SideNavItem("Usuários", UserListView.class);
+            usersItem.setPrefixComponent(VaadinIcon.USER_CARD.create());
+            nav.addItem(usersItem);
+
+            SideNavItem templatesItem = new SideNavItem("Templates", TaskTemplateListView.class);
+            templatesItem.setPrefixComponent(VaadinIcon.FILE_TEXT.create());
+            nav.addItem(templatesItem);
+
+            SideNavItem configItem = new SideNavItem("Modelos de Relatório", StoreReportConfigListView.class);
+            configItem.setPrefixComponent(VaadinIcon.EDIT.create());
+            nav.addItem(configItem);
         }
 
         drawerContainer.add(nav);

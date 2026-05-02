@@ -2,6 +2,8 @@ package com.xflprflx.neokioski.services;
 
 import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.repositories.UserRepository;
+import jakarta.persistence.EntityManager;
+import org.hibernate.Session;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -16,39 +18,47 @@ public class UserService {
 
     private final UserRepository repository;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+    private final EntityManager entityManager;
 
-    public UserService(UserRepository repository, org.springframework.security.crypto.password.PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository repository, org.springframework.security.crypto.password.PasswordEncoder passwordEncoder, EntityManager entityManager) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
+        this.entityManager = entityManager;
     }
 
     /**
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<User> findAll() {
-        /*
-         * Retorna o resultado final processado pelo métodx.
-         */
-        return repository.findAll();
+        return findAll(null, false);
     }
 
     /**
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
      */
     public List<User> findAll(String filter) {
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
-        if (filter == null || filter.isEmpty()) {
-            /*
-             * Retorna o resultado final processado pelo métodx.
-             */
-            return repository.findAll();
+        return findAll(filter, false);
+    }
+
+    /**
+     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     */
+    public List<User> findAll(String filter, boolean showDeleted) {
+        Session session = entityManager.unwrap(Session.class);
+        if (!showDeleted) {
+            session.enableFilter("deletedUserFilter").setParameter("isDeleted", false);
         } else {
-            /*
-             * Retorna o resultado final processado pelo métodx.
-             */
-            return repository.findByNameContainingIgnoreCaseOrUsernameContainingIgnoreCase(filter, filter);
+            session.disableFilter("deletedUserFilter");
+        }
+        
+        try {
+            if (filter == null || filter.isEmpty()) {
+                return repository.findAll();
+            } else {
+                return repository.findByNameContainingIgnoreCaseOrUsernameContainingIgnoreCase(filter, filter);
+            }
+        } finally {
+            session.disableFilter("deletedUserFilter");
         }
     }
 
@@ -107,6 +117,31 @@ public class UserService {
      */
     public void delete(User user) {
         repository.delete(user);
+    }
+
+    /**
+     * Realiza a anonimização do usuário (LGPD), removendo dados pessoais e vínculos,
+     * mas mantendo o registro físico para integridade das tabelas fato.
+     */
+    public void anonymizeUser(User user) {
+        /*
+         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
+         */
+        if (user == null || user.getId() == null) return;
+        
+        // 1. Remover o usuário de todos os grupos (tabela tb_users_groups)
+        entityManager.createNativeQuery("DELETE FROM tb_users_groups WHERE user_id = :userId")
+                .setParameter("userId", user.getId())
+                .executeUpdate();
+        
+        // 2. Sobrescrever dados sensíveis
+        user.setName("USUÁRIO ANONIMIZADO");
+        user.setUsername("removido_" + user.getId());
+        user.setPassword("N/A");
+        user.setActive(false);
+        user.setDeleted(true);
+        
+        repository.save(user);
     }
 
     /**

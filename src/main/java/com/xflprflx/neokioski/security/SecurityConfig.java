@@ -80,17 +80,18 @@ public class SecurityConfig {
         /*
          * Retorna uma função lambda que pesquisa o usuário pelo nome de login.
          * Mapeia a entidade do domínio para o objeto de User do Spring Security.
-         * Define a role e o status (desabilitado se isActive for falso).
+         * Define a role e o status (desabilitado se isActive for falso ou se estiver deletado).
          * Caso contrário, lança UsernameNotFoundException sinalizando falha.
          */
         return username -> userRepository.findByUsername(username)
+                .filter(u -> !u.isDeleted()) // <--- Adicionado: Ignora o usuário se estiver marcado como deletado
                 .map(u -> User.builder()
                         .username(u.getUsername())
                         .password(u.getPassword())
                         .roles(u.getRole().name())
                         .disabled(!u.isActive())
                         .build())
-                .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado."));
+                .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado ou desativado."));
     }
 
     /**

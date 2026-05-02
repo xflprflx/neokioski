@@ -159,12 +159,12 @@
 }
 
 
-.deleted-row {
+.deleted-row, vaadin-grid::part(deleted-row) {
     opacity: 0.5;
     font-style: italic;
     background-color: rgba(0, 0, 0, 0.05);
 }
 
-[theme~="dark"] .deleted-row {
+[theme~="dark"] .deleted-row, [theme~="dark"] vaadin-grid::part(deleted-row) {
     background-color: rgba(255, 255, 255, 0.05);
 }

@@ -4,18 +4,27 @@ import com.xflprflx.neokioski.models.enums.Role;
 import jakarta.persistence.*;
 
 import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
+
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 
-@Entity
-@Table(name = "tb_users")
-@org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
-@BatchSize(size = 100)
 /**
  * Entidade que representa um usuário do sistema, com credenciais e papéis de acesso.
  */
+@Entity
+@Table(name = "tb_users")
+@Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
+@BatchSize(size = 100)
+@SQLDelete(sql = "UPDATE tb_users SET deleted = true WHERE id = ?")
+@FilterDef(name = "deletedUserFilter", parameters = @ParamDef(name = "isDeleted", type = Boolean.class))
+@Filter(name = "deletedUserFilter", condition = "deleted = :isDeleted")
 public class User {
 
     @Id
@@ -34,6 +43,7 @@ public class User {
     private boolean notifyStoreOrder;
     private boolean notifyChatSounds = true;
     private LocalDateTime lastSeen;
+    private boolean deleted = false;
 
     @ManyToMany(mappedBy = "users")
     private Set<Group> groups = new HashSet<>();
@@ -119,6 +129,14 @@ public class User {
 
     public void setLastSeen(LocalDateTime lastSeen) {
         this.lastSeen = lastSeen;
+    }
+
+    public boolean isDeleted() {
+        return deleted;
+    }
+
+    public void setDeleted(boolean deleted) {
+        this.deleted = deleted;
     }
 
     @Override

@@ -2,16 +2,19 @@ package com.xflprflx.neokioski.models;
 
 import com.xflprflx.neokioski.models.template.TaskTemplate;
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 
 import java.util.*;
 
-@Entity
-@Table(name = "tb_groups")
-@Cacheable
-@org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
 /**
  * Entidade que representa um grupo de usuários no sistema, utilizado para permissões e agrupar conversas.
  */
+@Entity
+@Table(name = "tb_groups")
+@Cacheable
+@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 public class Group {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -26,12 +29,12 @@ public class Group {
             joinColumns = @JoinColumn(name = "group_id"),
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
-    @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
-    @org.hibernate.annotations.BatchSize(size = 50)
+    @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
+    @BatchSize(size = 50)
     private Set<User> users = new HashSet<>();
 
     @ManyToMany(mappedBy = "groups")
-    @org.hibernate.annotations.BatchSize(size = 50)
+    @BatchSize(size = 50)
     private List<TaskTemplate> taskTemplates = new ArrayList<>();
 
     public Group() {

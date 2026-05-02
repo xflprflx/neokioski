@@ -4,6 +4,7 @@ import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
+import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
@@ -15,10 +16,10 @@ import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
-import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.services.UserService;
 import com.xflprflx.neokioski.services.PresenceService;
+import com.xflprflx.neokioski.security.SecurityService;
 import jakarta.annotation.security.RolesAllowed;
 
 @RolesAllowed("ADMIN")
@@ -30,15 +31,18 @@ import jakarta.annotation.security.RolesAllowed;
 public class UserListView extends VerticalLayout {
     Grid<User> grid = new Grid<>(User.class);
     TextField filterText = new TextField();
+    Checkbox showDeleted = new Checkbox("Mostrar excluídos");
     UserForm form;
     UserService service;
     PresenceService presenceService;
+    SecurityService securityService;
     private PresenceService.PresenceEvent lastEvent;
     private java.util.function.Consumer<PresenceService.PresenceEvent> presenceListener;
 
-    public UserListView(UserService service, PresenceService presenceService) {
+    public UserListView(UserService service, PresenceService presenceService, SecurityService securityService) {
         this.service = service;
         this.presenceService = presenceService;
+        this.securityService = securityService;
         addClassName("user-list-view");
         setSizeFull();
         configureGrid();
@@ -75,6 +79,7 @@ public class UserListView extends VerticalLayout {
         form.setWidth("25em");
         form.addSaveListener(this::saveUser);
         form.addDeleteListener(this::deleteUser);
+        form.addAnonymizeListener(this::anonymizeUser);
         form.addResetPasswordListener(this::resetPassword);
         form.addCloseListener(e -> closeEditor());
     }
@@ -93,6 +98,12 @@ public class UserListView extends VerticalLayout {
      */
     private void deleteUser(UserForm.DeleteEvent event) {
         service.delete(event.getUser());
+        updateList();
+        closeEditor();
+    }
+
+    private void anonymizeUser(UserForm.AnonymizeEvent event) {
+        service.anonymizeUser(event.getUser());
         updateList();
         closeEditor();
     }
@@ -180,6 +191,8 @@ public class UserListView extends VerticalLayout {
             return layout;
         }).setHeader("Status").setSortable(true).setComparator(user -> presenceService.isOnline(user.getId()));
 
+        grid.setPartNameGenerator(user -> user.isDeleted() ? "deleted-row" : null);
+
         grid.getColumns().forEach(col -> col.setAutoWidth(true));
 
         grid.asSingleSelect().addValueChangeListener(event ->
@@ -195,10 +208,15 @@ public class UserListView extends VerticalLayout {
         filterText.setValueChangeMode(ValueChangeMode.LAZY);
         filterText.addValueChangeListener(e -> updateList());
 
+        showDeleted.addValueChangeListener(e -> updateList());
+        showDeleted.setVisible(securityService.getAuthenticatedInternalUser()
+                .map(u -> u.getRole() == com.xflprflx.neokioski.models.enums.Role.ADMIN)
+                .orElse(false));
+
         Button addUserButton = new Button("Novo Usuário");
         addUserButton.addClickListener(click -> addUser());
 
-        var toolbar = new HorizontalLayout(filterText, addUserButton);
+        var toolbar = new HorizontalLayout(filterText, showDeleted, addUserButton);
         toolbar.addClassName("toolbar");
         /*
          * Retorna o componente renderizado ou o valor da operação atual.
@@ -243,7 +261,7 @@ public class UserListView extends VerticalLayout {
      * métodx ou construtor responsável por inicializar componentes visuais, vincular dados (binder) ou tratar eventos de UI.
      */
     private void updateList() {
-        grid.setItems(service.findAll(filterText.getValue()));
+        grid.setItems(service.findAll(filterText.getValue(), showDeleted.getValue()));
     }
 
     @Override

@@ -32,6 +32,8 @@ public class UserForm extends FormLayout {
 
     Button save = new Button("Salvar");
     Button delete = new Button("Excluir");
+    Button restore = new Button("Restaurar");
+    Button anonymize = new Button("Anonimizar (LGPD)");
     Button resetPassword = new Button("Gerar Senha");
     Button close = new Button("Cancelar");
 
@@ -115,6 +117,11 @@ public class UserForm extends FormLayout {
 
         save.addClickListener(event -> validateAndSave());
         delete.addClickListener(event -> fireEvent(new DeleteEvent(this, binder.getBean())));
+        restore.addClickListener(event -> {
+            binder.getBean().setDeleted(false);
+            fireEvent(new SaveEvent(this, binder.getBean()));
+        });
+        anonymize.addClickListener(event -> fireEvent(new AnonymizeEvent(this, binder.getBean())));
         resetPassword.addClickListener(event -> fireEvent(new ResetPasswordEvent(this, binder.getBean())));
         close.addClickListener(event -> fireEvent(new CloseEvent(this)));
 
@@ -123,7 +130,7 @@ public class UserForm extends FormLayout {
         /*
          * Retorna o componente renderizado ou o valor da operação atual.
          */
-        return new HorizontalLayout(save, delete, resetPassword, close);
+        return new HorizontalLayout(save, delete, restore, anonymize, resetPassword, close);
     }
 
     /**
@@ -156,10 +163,19 @@ public class UserForm extends FormLayout {
          */
         if (user != null && user.getId() != null) {
             password.setPlaceholder("Deixe em branco para manter");
-            resetPassword.setVisible(true);
+            resetPassword.setVisible(!user.isDeleted());
+            save.setVisible(!user.isDeleted());
+            delete.setVisible(!user.isDeleted());
+            restore.setVisible(user.isDeleted());
+            anonymize.setVisible(user.isDeleted());
+            anonymize.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_PRIMARY);
         } else {
             password.setPlaceholder("");
             resetPassword.setVisible(false);
+            save.setVisible(true);
+            delete.setVisible(false);
+            restore.setVisible(false);
+            anonymize.setVisible(false);
         }
     }
 
@@ -195,6 +211,12 @@ public class UserForm extends FormLayout {
         }
     }
 
+    public static class AnonymizeEvent extends UserFormEvent {
+        AnonymizeEvent(UserForm source, User user) {
+            super(source, user);
+        }
+    }
+
     public static class CloseEvent extends UserFormEvent {
         CloseEvent(UserForm source) {
             super(source, null);
@@ -215,6 +237,10 @@ public class UserForm extends FormLayout {
          * Retorna o componente renderizado ou o valor da operação atual.
          */
         return addListener(DeleteEvent.class, listener);
+    }
+
+    public Registration addAnonymizeListener(ComponentEventListener<AnonymizeEvent> listener) {
+        return addListener(AnonymizeEvent.class, listener);
     }
 
     /**

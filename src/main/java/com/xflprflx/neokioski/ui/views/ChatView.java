@@ -2335,8 +2335,9 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
          */
         if (content == null || content.isEmpty()) return container;
 
-        // Regex to find mentions like @username
-        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("@(\\w+)");
+        // Regex to find mentions like @username (supports dots, dashes and underscores)
+        // Must be preceded by space or start of line, and not end with a punctuation mark
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(?<=^|\\s)@([a-zA-Z0-9._-]*[a-zA-Z0-9_])");
         java.util.regex.Matcher matcher = pattern.matcher(content);
 
         int lastEnd = 0;
@@ -2388,7 +2389,8 @@ public class ChatView extends VerticalLayout implements HasUrlParameter<Long> {
          * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
          */
         if (content == null || username == null) return false;
-        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("@" + java.util.regex.Pattern.quote(username) + "(\\b|$)");
+        // Verifica se o username é seguido por algo que não faz parte de um username válido (evita quebra no ponto)
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("@" + java.util.regex.Pattern.quote(username) + "(?![a-zA-Z0-9._-])");
         /*
          * Retorna o componente renderizado ou o valor da operação atual.
          */

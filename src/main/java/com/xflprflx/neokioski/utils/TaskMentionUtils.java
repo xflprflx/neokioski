@@ -1,8 +1,8 @@
 package com.xflprflx.neokioski.utils;
 
 import com.xflprflx.neokioski.models.Task;
-import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.models.template.TaskTemplateMention;
+
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -27,14 +27,12 @@ public class TaskMentionUtils {
         for (TaskTemplateMention mapping : mappings) {
             if (mapping.getGroup().getId().equals(task.getGroup().getId())) {
                 String placeholder = mapping.getPlaceholder();
-                if (result.contains(placeholder)) {
-                    String realMentions = mapping.getUsers().stream()
-                            .map(u -> "@" + u.getUsername())
-                            .collect(Collectors.joining(" "));
-                    
-                    // Substituição case-insensitive
-                    result = result.replaceAll("(?i)" + java.util.regex.Pattern.quote(placeholder), realMentions);
-                }
+                String realMentions = mapping.getUsers().stream()
+                        .map(u -> "@" + u.getUsername())
+                        .collect(Collectors.joining(" "));
+                
+                // Substituição case-insensitive
+                result = result.replaceAll("(?i)" + java.util.regex.Pattern.quote(placeholder), realMentions);
             }
         }
 

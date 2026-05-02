@@ -198,7 +198,11 @@ public class HomeView extends Div {
                 if (categoryNode != null && !categoryNode.isNull()) {
                     String clickedSla = categoryNode.toString().replaceAll("^\"|\"$", "");
                     if (clickedSla != null) {
-                        slaFilter.setValue(clickedSla);
+                        if (clickedSla.equals(slaFilter.getValue())) {
+                            slaFilter.clear();
+                        } else {
+                            slaFilter.setValue(clickedSla);
+                        }
                     }
                 }
             } catch (Exception ex) { ex.printStackTrace(); }
@@ -210,7 +214,11 @@ public class HomeView extends Div {
                 if (categoryNode != null && !categoryNode.isNull()) {
                     String clickedJust = categoryNode.toString().replaceAll("^\"|\"$", "");
                     if (clickedJust != null) {
-                        justificationFilter.setValue(clickedJust);
+                        if (clickedJust.equals(justificationFilter.getValue())) {
+                            justificationFilter.clear();
+                        } else {
+                            justificationFilter.setValue(clickedJust);
+                        }
                     }
                 }
             } catch (Exception ex) { ex.printStackTrace(); }
@@ -223,13 +231,10 @@ public class HomeView extends Div {
                     String keyword = keywordNode.toString().replaceAll("^\"|\"$", "");
                     if (keyword != null) {
                         if (keyword.equalsIgnoreCase(activeKeyword)) {
-                            activeKeyword = null;
-                            keywordFilter.setValue("");
+                            keywordFilter.clear(); // O listener já chamará updateDashboard()
                         } else {
-                            activeKeyword = keyword;
-                            keywordFilter.setValue(keyword);
+                            keywordFilter.setValue(keyword); // O listener já chamará updateDashboard()
                         }
-                        updateDashboard();
                     }
                 }
             } catch (Exception ex) { ex.printStackTrace(); }
@@ -452,7 +457,10 @@ public class HomeView extends Div {
         finalizerFilter.addValueChangeListener(e -> updateDashboard());
         slaFilter.addValueChangeListener(e -> updateDashboard());
         justificationFilter.addValueChangeListener(e -> updateDashboard());
-        keywordFilter.addValueChangeListener(e -> updateDashboard());
+        keywordFilter.addValueChangeListener(e -> {
+            activeKeyword = (e.getValue() == null || e.getValue().isBlank()) ? null : e.getValue();
+            updateDashboard();
+        });
 
         clearFiltersTopBtn = new Button("Limpar Filtros", VaadinIcon.ERASER.create(), e -> clearAllFilters());
         clearFiltersTopBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
@@ -560,7 +568,7 @@ public class HomeView extends Div {
         slaPerformanceChartDiv.setId("sla-performance-chart");
         slaPerformanceChartDiv.getStyle().set("flex-grow", "1");
         
-        Button clearSlaBtn = new Button(VaadinIcon.CLOSE_SMALL.create(), e -> { slaFilter.clear(); updateDashboard(); });
+        Button clearSlaBtn = new Button(VaadinIcon.CLOSE_SMALL.create(), e -> { slaFilter.clear(); });
         clearSlaBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE, ButtonVariant.LUMO_ERROR);
         clearSlaBtn.setTooltipText("Limpar filtro de SLA");
         clearSlaBtn.setVisible(false); // Visível via updateDashboard
@@ -607,7 +615,7 @@ public class HomeView extends Div {
 
         justificationContent.add(justificationDonutChartDiv, cloudCol, commentsCol);
         
-        Button clearJustBtn = new Button(VaadinIcon.CLOSE_SMALL.create(), e -> { justificationFilter.clear(); activeKeyword = null; keywordFilter.clear(); updateDashboard(); });
+        Button clearJustBtn = new Button(VaadinIcon.CLOSE_SMALL.create(), e -> { justificationFilter.clear(); activeKeyword = null; keywordFilter.clear(); });
         clearJustBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE, ButtonVariant.LUMO_ERROR);
         clearJustBtn.setTooltipText("Limpar filtros de justificativa e nuvem");
         clearJustBtn.setVisible(false);

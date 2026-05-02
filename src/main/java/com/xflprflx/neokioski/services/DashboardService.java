@@ -356,7 +356,7 @@ public class DashboardService {
                 .filter(r -> r.getStatus() == SlaStatus.DELAYED)
                 .filter(r -> r.getJustificationComments() != null && !r.getJustificationComments().isBlank())
                 .flatMap(r -> Arrays.stream(r.getJustificationComments().toLowerCase()
-                        .replaceAll("[^a-zA-Z0-9áéíóúàèìòùâêîôûãõç.\\-\\s]", "")
+                        .replaceAll("[^a-zA-Z0-9áéíóúàèìòùâêîôûãõç.\\-]", " ")
                         .split("\\s+")))
                 .filter(w -> !w.isBlank())
                 .filter(w -> !stopWords.contains(w))

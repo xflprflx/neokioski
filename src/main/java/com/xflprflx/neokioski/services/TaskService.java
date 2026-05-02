@@ -1073,7 +1073,7 @@ public class TaskService {
     ) {}
     /**
      * Inicializa profundamente os dados de uma tarefa e seu template associado para uso seguro na interface (Vaadin).
-     * Este método deve ser chamado dentro de uma transação ativa.
+     * Este métodx deve ser chamado dentro de uma transação ativa.
      */
     @Transactional(readOnly = true)
     public void initializeTaskData(Task task) {

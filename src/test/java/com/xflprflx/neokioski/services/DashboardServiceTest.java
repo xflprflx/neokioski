@@ -11,6 +11,7 @@ import com.xflprflx.neokioski.repositories.TaskTemplateRepository;
 import com.xflprflx.neokioski.repositories.TemplateStepRelationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -24,28 +25,41 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 /**
- * TESTE UNITÁRIO DO DASHBOARD SERVICE.
- * O objetivo aqui é testar a LÓGICA JAVA pura do serviço.
- * Não usamos banco de dados nem Docker. Usamos Mocks (objetos falsos) para simular o banco.
- * Vantagem: É extremamente rápido (roda em milissegundos).
+ * TESTE UNITÁRIO DE DOMÍNIO: DashboardService.
+ * 
+ * INTENCIONALIDADE:
+ * Este componente valida a camada de agregação e inteligência de negócio do Dashboard.
+ * Diferente dos testes de integração (IT), o foco aqui é a pureza algorítmica:
+ * 1. Agrupamento de KPIs (Tarefas Ativas vs Concluídas).
+ * 2. Cálculo de métricas de SLA (On Time vs Delayed).
+ * 3. Lógica de Rankings e identificação de atores (Criadores e Finalizadores).
+ * 
+ * ESTRATÉGIA DE ISOLAMENTO (MOCKING):
+ * Utilizamos o Mockito para desacoplar o serviço de suas dependências de infraestrutura (JPA/Database).
+ * Isso garante que o teste seja:
+ * - Determinístico: O resultado depende apenas do estado injetado nos Mocks.
+ * - De Alta Performance: Execução em memória sem bootstrapping de banco ou containers.
  */
-@ExtendWith(MockitoExtension.class) // Habilita o suporte do Mockito ao JUnit 5
+@ExtendWith(MockitoExtension.class)
+@DisplayName("Unit Test: Lógica do Dashboard (KPIs e Rankings)")
 public class DashboardServiceTest {
 
-    // @Mock cria um "dublê" do objeto real. Ele tem a mesma interface, mas não faz nada.
-    // Nós ensinaremos esse dublê a retornar o que queremos quando métodxs específicos forem chamados.
+    /**
+     * Injeção de dependências via Mockito. 
+     * Os repositórios são mockados para isolar a lógica de agregação do Java 
+     * da complexidade das consultas SQL reais.
+     */
+    @Mock
+    private TaskRepository taskRepository;
     
     @Mock
-    private TaskRepository taskRepository; // Simula a tabela de Tarefas
+    private TaskSlaResultRepository slaResultRepository;
     
     @Mock
-    private TaskSlaResultRepository slaResultRepository; // Simula a tabela de Resultados de SLA
+    private TaskTemplateRepository templateRepository;
     
     @Mock
-    private TaskTemplateRepository templateRepository; // Simula a tabela de Templates
-    
-    @Mock
-    private TemplateStepRelationRepository stepRelationRepository; // Simula a tabela de Relações de Passos
+    private TemplateStepRelationRepository stepRelationRepository;
 
     /**
      * @InjectMocks cria uma instância REAL do DashboardService e "injeta" nela
@@ -100,6 +114,7 @@ public class DashboardServiceTest {
      * Testa se o serviço separa corretamente tarefas Ativas de Concluídas e calcula o SLA.
      */
     @Test
+    @DisplayName("Cálculo de Estatísticas Básicas (KPIs de Ativas vs Concluídas)")
     void shouldCalculateBasicStatsCorrectly() {
         // --- 1. ARRANGE (Preparação/Configuração) ---
         Instant start = Instant.now().minusSeconds(3600); // Filtro: de 1 hora atrás
@@ -135,15 +150,16 @@ public class DashboardServiceTest {
         DashboardService.DashboardData data = dashboardService.getDashboardData(start, end, groupA, null, null, null, null, null, null, null);
 
         // --- 3. ASSERT (Afirmação/Validação) ---
-        // Aqui verificamos se a matemática do DashboardService bate com os dados que "injetamos" nos mocks
+        // Verificamos se a "matemática" do serviço transformou os dados brutos dos mocks
+        // nas estatísticas esperadas para a interface do usuário.
         
-        // Esperamos 1 tarefa ativa (t1) e 1 concluída (t2)
-        assertEquals(1, data.stats().activeTasks(), "A contagem de tarefas ativas (finalizedAt == null) está errada");
-        assertEquals(1, data.stats().completedTasks(), "A contagem de tarefas concluídas (finalizedAt != null) está errada");
-        
-        // Como t2 foi marcada como DELAYED, esperamos 0 no prazo e 1 atrasada
-        assertEquals(0, data.stats().completedOnTime(), "Deveria haver 0 tarefas no prazo");
-        assertEquals(1, data.stats().completedDelayed(), "Deveria haver 1 tarefa atrasada (conforme configuramos em t2)");
+        // Validação de Integridade: Esperamos 1 tarefa ativa e 1 concluída
+        assertAll("Verificação de KPIs Básicos",
+            () -> assertEquals(1, data.stats().activeTasks(), "A contagem de tarefas ativas está errada"),
+            () -> assertEquals(1, data.stats().completedTasks(), "A contagem de tarefas concluídas está errada"),
+            () -> assertEquals(0, data.stats().completedOnTime(), "Deveria haver 0 tarefas no prazo"),
+            () -> assertEquals(1, data.stats().completedDelayed(), "Deveria haver 1 tarefa atrasada")
+        );
     }
 
     /**
@@ -151,6 +167,7 @@ public class DashboardServiceTest {
      * Garante que o serviço agrupa as tarefas por usuário e ordena os mais produtivos.
      */
     @Test
+    @DisplayName("Cálculo de Ranking de Criadores (Volume de Tarefas por Usuário)")
     void shouldCalculateRankingCorrectly() {
         // --- 1. ARRANGE ---
         Instant start = Instant.now().minusSeconds(3600);
@@ -182,6 +199,7 @@ public class DashboardServiceTest {
      * e descobre quem executou o passo marcado como "Delivery" nos metadados.
      */
     @Test
+    @DisplayName("Identificação de Finalizador de Tarefa via Eventos (Cache de Relações)")
     void shouldIdentifyFinalizerUsingCache() {
         // --- 1. ARRANGE ---
         Instant start = Instant.now().minusSeconds(3600);

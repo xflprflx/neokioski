@@ -3,6 +3,7 @@ package com.xflprflx.neokioski.services;
 import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.repositories.UserRepository;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -19,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Utiliza o Mockito para simular dependências e isolar as validações de regra de negócio, principalmente focando nas lógicas de senhas.
  */
 @ExtendWith(MockitoExtension.class)
+@DisplayName("Unit Test: Gestão de Usuários e Segurança de Senhas")
 public class UserServiceTest {
 
     @Mock
@@ -35,6 +37,7 @@ public class UserServiceTest {
      * Deve garantir que a senha original (hash antigo) será preservada no objeto antes da persistência.
      */
     @Test
+    @DisplayName("Preservar senha antiga se a nova estiver nula (Formulário Vaadin)")
     public void shouldRestoreOldPasswordIfNewOneIsNull() {
         /*
          * Preparação do cenário de teste (Arrange): configuração de mocks, variáveis e dados de entrada necessários para a execução.
@@ -67,6 +70,7 @@ public class UserServiceTest {
      * criptografada (encode) com o PasswordEncoder antes de ser salva no banco.
      */
     @Test
+    @DisplayName("Criptografar nova senha em texto plano antes de salvar")
     public void shouldEncodeNewPasswordIfProvided() {
         /*
          * Preparação do cenário de teste (Arrange): configuração de mocks, variáveis e dados de entrada necessários para a execução.
@@ -96,6 +100,7 @@ public class UserServiceTest {
      * não será criptografada novamente ao passar pelo métodx de salvamento.
      */
     @Test
+    @DisplayName("Não re-criptografar se a senha já for um Hash BCrypt válido")
     public void shouldNotReencodeIfAlreadyABcryptHash() {
         /*
          * Preparação do cenário de teste (Arrange): configuração de mocks, variáveis e dados de entrada necessários para a execução.
@@ -122,6 +127,7 @@ public class UserServiceTest {
      * de flags de notificação (PATCH) para o repositório.
      */
     @Test
+    @DisplayName("Atualizar preferências de notificação (Patching)")
     public void shouldCallRepositoryUpdateMethodsForPatch() {
         /*
          * Ação (Act): execução do métodx principal ou comportamento em teste utilizando os dados preparados.

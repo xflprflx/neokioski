@@ -16,7 +16,28 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Set;
 
 import static org.mockito.Mockito.*;
-
+/**
+ * Testes Unitários de Performance e Inicialização para o TaskService.
+ * 
+ * CONTEXTO TÉCNICO (HIBERNATE E PERFORMANCE):
+ * No ecossistema do NeoKioski, as Tarefas (Tasks) possuem uma estrutura rica de metadados
+ * carregados via coleções Lazy (SLA, Eventos, Relacionamentos de Passos). 
+ * Para manter a performance, evitamos carregar tudo de uma vez (Eager Loading), 
+ * o que causaria o problema de "Explosão Cartesiana".
+ * 
+ * O PROBLEMA DO LAZY INITIALIZATION:
+ * Como a interface de usuário (Vaadin) opera frequentemente fora de uma transação aberta
+ * do banco de dados, o Hibernate dispararia uma 'LazyInitializationException' se a tela 
+ * tentasse ler o SLA de uma tarefa que não foi pré-carregada.
+ * 
+ * A SOLUÇÃO "DEEP TOUCH":
+ * O métodx 'initializeTaskData' do TaskService resolve isso "tocando" (chamando o getter e
+ * iterando) nas coleções enquanto a sessão ainda está aberta.
+ * 
+ * ESTE TESTE GARANTE QUE:
+ * 1. O serviço nunca se esqueça de "tocar" em uma nova coleção adicionada ao modelo.
+ * 2. A lógica de inicialização profunda está sendo executada para todas as propriedades críticas.
+ */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Testes do Serviço de Tarefas (TaskService)")
 class TaskServiceTest {
@@ -59,7 +80,7 @@ class TaskServiceTest {
 
     /**
      * PROPÓSITO DO TESTE:
-     * Este teste garante que o método initializeTaskData realize o "Deep Touch" em todas as
+     * Este teste garante que o métodx initializeTaskData realize o "Deep Touch" em todas as
      * coleções Lazy do Hibernate. Isso é crucial para evitar LazyInitializationException
      * quando os objetos Task e TaskTemplate forem usados na camada de UI (Vaadin),
      * onde a transação do Hibernate já estará encerrada.
@@ -74,7 +95,7 @@ class TaskServiceTest {
         TaskTemplate template = mock(TaskTemplate.class);
         
         // Mocks para as coleções que precisam ser "tocadas"
-        // Nota: O método forEach no serviço só executará se estas coleções não forem nulas.
+        // Nota: O métodx forEach no serviço só executará se estas coleções não forem nulas.
         Set<TaskSlaResult> slaResults = mock(Set.class);
         Set<TaskEvent> events = mock(Set.class);
         Set<TaskFieldValue> fieldValues = mock(Set.class);
@@ -102,7 +123,7 @@ class TaskServiceTest {
          * @BatchSize e no carregamento preguiçoso sob demanda (Deep Touch).
          */
 
-        // 2. ACT (Execução do método sob teste)
+        // 2. ACT (Execução do métodx sob teste)
         taskService.initializeTaskData(task);
 
         // 3. ASSERT (Verificações)

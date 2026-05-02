@@ -23,6 +23,9 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.flywaydb.core.Flyway;
+import org.junit.jupiter.api.DisplayName;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.Instant;
 import java.util.LinkedHashSet;
@@ -35,16 +38,15 @@ import static org.junit.jupiter.api.Assertions.*;
  * o Dashboard seja rápido (poucas queries) e correto (cálculos precisos).
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK) // Sobe o contexto Spring sem subir um servidor HTTP real
+@Testcontainers
 @ActiveProfiles("test") // Utiliza o arquivo application-test.yml para configurações específicas
+@DisplayName("Performance IT: Dashboard Analítico e SLAs")
 public class DashboardPerformanceIT {
 
     // Define um container Docker do PostgreSQL versão 16 Alpine (leve e estável)
+    @Container
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
 
-    // Bloco estático para garantir que o container suba ANTES do Spring tentar se conectar ao banco
-    static {
-        postgres.start();
-    }
 
     /**
      * Registra as propriedades do banco de dados dinamicamente.
@@ -205,6 +207,7 @@ public class DashboardPerformanceIT {
      * O TESTE PRINCIPAL: Verifica se o Dashboard carrega dados corretos sem explodir em queries (Anti N+1).
      */
     @Test
+    @DisplayName("Validar carregamento do Dashboard (Anti N+1) e cálculos de KPIs")
     void shouldLoadDashboardDataWithoutNPlusOne() {
         // Define o intervalo de busca (últimas 24 horas até 1 hora no futuro)
         Instant start = Instant.now().minusSeconds(86400);

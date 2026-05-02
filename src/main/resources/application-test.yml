@@ -16,3 +16,5 @@ spring:
   flyway:
     enabled: true
     clean-disabled: false
+    validate-on-migrate: false
+    clean-on-validation-error: false

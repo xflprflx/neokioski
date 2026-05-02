@@ -136,7 +136,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         public Long id;
         public String startStepLabel;
         public String targetStepLabel;
-        public int timeoutMinutes;
+        public int timeoutValue;
+        public TaskSlaUnit timeoutUnit = TaskSlaUnit.MINUTES;
         public String alertMessage;
         public String alertSound;
         public Set<Role> alertRoles = new HashSet<>();
@@ -702,7 +703,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
          */
         if (alertsGrid.getColumns().isEmpty()) {
             alertsGrid.addColumn(dto -> dto.targetStepLabel).setHeader("Step Alvo");
-            alertsGrid.addColumn(dto -> dto.timeoutMinutes).setHeader("Tempo (m)");
+            alertsGrid.addColumn(dto -> dto.timeoutValue + " " + dto.timeoutUnit.getLabel()).setHeader("Tempo");
             alertsGrid.addColumn(dto -> dto.alertMessage).setHeader("Mensagem");
             alertsGrid.addComponentColumn(item -> {
                 Button editBtn = new Button(VaadinIcon.EDIT.create());
@@ -750,8 +751,17 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         stepCombo.setItems(steps.stream().map(s -> s.label).collect(Collectors.toList()));
         stepCombo.setWidthFull();
 
-        TextField timeoutField = new TextField("Tempo Limite (minutos)");
+        TextField timeoutField = new TextField("Valor do Tempo");
         timeoutField.setWidthFull();
+
+        ComboBox<TaskSlaUnit> unitCombo = new ComboBox<>("Unidade");
+        unitCombo.setItems(TaskSlaUnit.values());
+        unitCombo.setItemLabelGenerator(TaskSlaUnit::getLabel);
+        unitCombo.setValue(TaskSlaUnit.MINUTES);
+        unitCombo.setWidthFull();
+
+        HorizontalLayout timeLayout = new HorizontalLayout(timeoutField, unitCombo);
+        timeLayout.setWidthFull();
 
         com.vaadin.flow.component.textfield.TextArea messageField = new com.vaadin.flow.component.textfield.TextArea("Mensagem de Alerta");
         messageField.setWidthFull();
@@ -790,7 +800,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         if (existingDto != null) {
             startStepCombo.setValue(existingDto.startStepLabel);
             stepCombo.setValue(existingDto.targetStepLabel);
-            timeoutField.setValue(String.valueOf(existingDto.timeoutMinutes));
+            timeoutField.setValue(String.valueOf(existingDto.timeoutValue));
+            unitCombo.setValue(existingDto.timeoutUnit != null ? existingDto.timeoutUnit : TaskSlaUnit.MINUTES);
             messageField.setValue(existingDto.alertMessage != null ? existingDto.alertMessage : "");
             soundCombo.setValue(existingDto.alertSound);
             /*
@@ -799,7 +810,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             if (existingDto.alertRoles != null) rolesCombo.setValue(existingDto.alertRoles);
         }
 
-        VerticalLayout layout = new VerticalLayout(startStepCombo, stepCombo, timeoutField, messageField, soundLayout, suggestionWrapper);
+        VerticalLayout layout = new VerticalLayout(startStepCombo, stepCombo, timeLayout, messageField, soundLayout, suggestionWrapper);
         dialog.add(layout);
 
         Button saveBtn = new Button("Salvar", e -> {
@@ -818,7 +829,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                 AlertDTO dto = (existingDto != null) ? existingDto : new AlertDTO();
                 dto.startStepLabel = startStepCombo.getValue();
                 dto.targetStepLabel = stepCombo.getValue();
-                dto.timeoutMinutes = timeout;
+                dto.timeoutValue = timeout;
+                dto.timeoutUnit = unitCombo.getValue();
                 dto.alertMessage = messageField.getValue();
                 dto.alertSound = soundCombo.getValue();
                 dto.alertRoles = new HashSet<>(rolesCombo.getValue());
@@ -2348,7 +2360,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                      alert.setStartStep(defMap.get(dto.startStepLabel));
                 }
                 alert.setTargetStep(target);
-                alert.setTimeoutMinutes(dto.timeoutMinutes);
+                alert.setTimeoutValue(dto.timeoutValue);
+                alert.setTimeoutUnit(dto.timeoutUnit);
                 alert.setAlertMessage(dto.alertMessage);
                 alert.setAlertSound(dto.alertSound);
                 /*
@@ -2524,7 +2537,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                         dto.startStepLabel = alert.getStartStep().getLabel();
                     }
                     dto.targetStepLabel = alert.getTargetStep().getLabel();
-                    dto.timeoutMinutes = alert.getTimeoutMinutes();
+                    dto.timeoutValue = alert.getTimeoutValue();
+                    dto.timeoutUnit = alert.getTimeoutUnit();
                     dto.alertMessage = alert.getAlertMessage();
                     dto.alertSound = alert.getAlertSound();
                     dto.alertRoles = new HashSet<>(alert.getAlertRoles());

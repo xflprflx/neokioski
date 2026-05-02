@@ -256,7 +256,8 @@ public class TaskTemplateService {
                 TaskAlert existing = existingMap.get(alert.getId());
                 existing.setAlertMessage(alert.getAlertMessage());
                 existing.setAlertSound(alert.getAlertSound());
-                existing.setTimeoutMinutes(alert.getTimeoutMinutes());
+                existing.setTimeoutValue(alert.getTimeoutValue());
+                existing.setTimeoutUnit(alert.getTimeoutUnit());
                 existing.setStartStep(alert.getStartStep());
                 existing.setTargetStep(alert.getTargetStep());
                 existing.getAlertRoles().clear();

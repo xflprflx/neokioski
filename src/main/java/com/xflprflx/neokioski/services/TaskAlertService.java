@@ -106,8 +106,8 @@ public class TaskAlertService {
                 startTime = task.getCreatedAt() != null ? task.getCreatedAt() : Instant.now();
             }
 
-            long timeoutMinutes = alert.getTimeoutMinutes();
-            Instant alertTime = startTime.plus(timeoutMinutes, ChronoUnit.MINUTES);
+            long timeoutValue = alert.getTimeoutValue();
+            Instant alertTime = startTime.plus(timeoutValue, alert.getTimeoutUnit().toChronoUnit());
             
             String cacheKey = getCacheKey(task, alert);
 
@@ -272,7 +272,8 @@ public class TaskAlertService {
          * Avalia uma condição (if) para desvio de fluxo da lógica principal.
          */
         if (message == null || message.isBlank()) {
-            message = "ALERTA: A tarefa '" + task.getTaskTemplate().getName() + "' está pendente há mais de " + alert.getTimeoutMinutes() + " minutos!";
+            message = "ALERTA: A tarefa '" + task.getTaskTemplate().getName() + "' está pendente há mais de " + 
+                      alert.getTimeoutValue() + " " + alert.getTimeoutUnit().getLabel().toLowerCase() + "!";
         }
 
         // Resolver menções customizadas (mapeamento por grupo)

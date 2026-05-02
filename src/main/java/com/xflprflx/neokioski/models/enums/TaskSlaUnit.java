@@ -17,4 +17,12 @@ public enum TaskSlaUnit {
     public String getLabel() {
         return label;
     }
+
+    public java.time.temporal.ChronoUnit toChronoUnit() {
+        return switch (this) {
+            case SECONDS -> java.time.temporal.ChronoUnit.SECONDS;
+            case MINUTES -> java.time.temporal.ChronoUnit.MINUTES;
+            case HOURS -> java.time.temporal.ChronoUnit.HOURS;
+        };
+    }
 }

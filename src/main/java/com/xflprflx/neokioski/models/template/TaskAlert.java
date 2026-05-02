@@ -1,6 +1,7 @@
 package com.xflprflx.neokioski.models.template;
 
 import com.xflprflx.neokioski.models.enums.Role;
+import com.xflprflx.neokioski.models.enums.TaskSlaUnit;
 import jakarta.persistence.*;
 import java.util.Objects;
 
@@ -31,8 +32,12 @@ public class TaskAlert {
     @JoinColumn(name = "start_step_id")
     private TaskStepDefinition startStep;
 
+    @Column(nullable = false, name = "timeout_value")
+    private int timeoutValue;
+
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private int timeoutMinutes;
+    private TaskSlaUnit timeoutUnit = TaskSlaUnit.MINUTES;
 
     @Column(columnDefinition = "TEXT")
     private String alertMessage;
@@ -80,12 +85,20 @@ public class TaskAlert {
         this.startStep = startStep;
     }
 
-    public int getTimeoutMinutes() {
-        return timeoutMinutes;
+    public int getTimeoutValue() {
+        return timeoutValue;
     }
 
-    public void setTimeoutMinutes(int timeoutMinutes) {
-        this.timeoutMinutes = timeoutMinutes;
+    public void setTimeoutValue(int timeoutValue) {
+        this.timeoutValue = timeoutValue;
+    }
+
+    public TaskSlaUnit getTimeoutUnit() {
+        return timeoutUnit;
+    }
+
+    public void setTimeoutUnit(TaskSlaUnit timeoutUnit) {
+        this.timeoutUnit = timeoutUnit;
     }
 
     public String getAlertMessage() {

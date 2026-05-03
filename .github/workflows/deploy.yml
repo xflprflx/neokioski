@@ -49,8 +49,8 @@ jobs:
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io \
               -u ${{ github.actor }} --password-stdin
 
-            docker-compose pull app
-            docker-compose up -d --no-build
+            docker compose pull app
+            docker compose up -d --no-build
             
             sleep 15
             docker ps | grep neokioski_app | grep "Up" || exit 1

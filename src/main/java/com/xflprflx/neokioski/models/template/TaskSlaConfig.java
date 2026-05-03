@@ -1,0 +1,157 @@
+package com.xflprflx.neokioski.models.template;
+
+import com.xflprflx.neokioski.models.enums.TaskSlaUnit;
+import jakarta.persistence.*;
+import java.time.Instant;
+import java.util.Objects;
+
+@Entity
+@Table(name = "tb_task_sla_configs")
+@org.hibernate.annotations.BatchSize(size = 50)
+/**
+ * Entidade de configuração que define os parâmetros de limite de tempo (SLA) para os passos de um template de tarefa.
+ */
+public class TaskSlaConfig {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "task_template_id", nullable = false)
+    private TaskTemplate taskTemplate;
+
+    @Column(nullable = false)
+    private String name;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "source_step_id")
+    private TaskStepDefinition sourceStep;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "target_step_id")
+    private TaskStepDefinition targetStep;
+
+    @Column(nullable = false)
+    private Integer targetValue;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TaskSlaUnit unit = TaskSlaUnit.MINUTES;
+
+    @Column(nullable = false)
+    private Instant validFrom;
+
+    private Instant validTo;
+
+    @Column(columnDefinition = "TEXT")
+    private String justificationOptions;
+
+    public TaskSlaConfig() {
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public TaskTemplate getTaskTemplate() {
+        return taskTemplate;
+    }
+
+    public void setTaskTemplate(TaskTemplate taskTemplate) {
+        this.taskTemplate = taskTemplate;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public TaskStepDefinition getSourceStep() {
+        return sourceStep;
+    }
+
+    public void setSourceStep(TaskStepDefinition sourceStep) {
+        this.sourceStep = sourceStep;
+    }
+
+    public TaskStepDefinition getTargetStep() {
+        return targetStep;
+    }
+
+    public void setTargetStep(TaskStepDefinition targetStep) {
+        this.targetStep = targetStep;
+    }
+
+    public Integer getTargetValue() {
+        return targetValue;
+    }
+
+    public void setTargetValue(Integer targetValue) {
+        this.targetValue = targetValue;
+    }
+
+    public TaskSlaUnit getUnit() {
+        return unit;
+    }
+
+    public void setUnit(TaskSlaUnit unit) {
+        this.unit = unit;
+    }
+
+    public Instant getValidFrom() {
+        return validFrom;
+    }
+
+    public void setValidFrom(Instant validFrom) {
+        this.validFrom = validFrom;
+    }
+
+    public Instant getValidTo() {
+        return validTo;
+    }
+
+    public void setValidTo(Instant validTo) {
+        this.validTo = validTo;
+    }
+
+    public String getJustificationOptions() {
+        return justificationOptions;
+    }
+
+    public void setJustificationOptions(String justificationOptions) {
+        this.justificationOptions = justificationOptions;
+    }
+
+    /**
+     * Retorna as opções de justificativa como uma lista, separadas por vírgula.
+     */
+    public java.util.List<String> getJustificationOptionsList() {
+        if (justificationOptions == null || justificationOptions.isBlank()) {
+            return java.util.Collections.emptyList();
+        }
+        return java.util.Arrays.stream(justificationOptions.split("\\s*,\\s*"))
+                .filter(s -> !s.isBlank())
+                .toList();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        TaskSlaConfig that = (TaskSlaConfig) o;
+        return Objects.equals(id, that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
+    }
+}

@@ -1,0 +1,140 @@
+package com.xflprflx.neokioski.models.template;
+
+import com.xflprflx.neokioski.models.enums.Role;
+import com.xflprflx.neokioski.models.enums.TaskSlaUnit;
+import jakarta.persistence.*;
+import java.util.Objects;
+
+import java.util.HashSet;
+import java.util.Set;
+
+@Entity
+@Table(name = "tb_task_template_alerts")
+@org.hibernate.annotations.BatchSize(size = 50)
+/**
+ * Entidade que configura alertas automáticos associados às tarefas para avisar sobre vencimentos.
+ */
+public class TaskAlert {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "task_template_id", nullable = false)
+    private TaskTemplate taskTemplate;
+
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "target_step_id", nullable = false)
+    private TaskStepDefinition targetStep;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "start_step_id")
+    private TaskStepDefinition startStep;
+
+    @Column(nullable = false, name = "timeout_value")
+    private int timeoutValue;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TaskSlaUnit timeoutUnit = TaskSlaUnit.MINUTES;
+
+    @Column(columnDefinition = "TEXT")
+    private String alertMessage;
+
+    private String alertSound;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @Enumerated(EnumType.STRING)
+    @CollectionTable(name = "tb_task_alert_roles", joinColumns = @JoinColumn(name = "task_alert_id"))
+    @Column(name = "role")
+    private Set<Role> alertRoles = new HashSet<>();
+
+    public TaskAlert() {
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public TaskTemplate getTaskTemplate() {
+        return taskTemplate;
+    }
+
+    public void setTaskTemplate(TaskTemplate taskTemplate) {
+        this.taskTemplate = taskTemplate;
+    }
+
+    public TaskStepDefinition getTargetStep() {
+        return targetStep;
+    }
+
+    public void setTargetStep(TaskStepDefinition targetStep) {
+        this.targetStep = targetStep;
+    }
+
+    public TaskStepDefinition getStartStep() {
+        return startStep;
+    }
+
+    public void setStartStep(TaskStepDefinition startStep) {
+        this.startStep = startStep;
+    }
+
+    public int getTimeoutValue() {
+        return timeoutValue;
+    }
+
+    public void setTimeoutValue(int timeoutValue) {
+        this.timeoutValue = timeoutValue;
+    }
+
+    public TaskSlaUnit getTimeoutUnit() {
+        return timeoutUnit;
+    }
+
+    public void setTimeoutUnit(TaskSlaUnit timeoutUnit) {
+        this.timeoutUnit = timeoutUnit;
+    }
+
+    public String getAlertMessage() {
+        return alertMessage;
+    }
+
+    public void setAlertMessage(String alertMessage) {
+        this.alertMessage = alertMessage;
+    }
+
+    public String getAlertSound() {
+        return alertSound;
+    }
+
+    public void setAlertSound(String alertSound) {
+        this.alertSound = alertSound;
+    }
+
+    public Set<Role> getAlertRoles() {
+        return alertRoles;
+    }
+
+    public void setAlertRoles(Set<Role> alertRoles) {
+        this.alertRoles = alertRoles;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        TaskAlert taskAlert = (TaskAlert) o;
+        return Objects.equals(id, taskAlert.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
+    }
+}

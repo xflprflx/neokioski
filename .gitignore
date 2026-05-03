@@ -5,6 +5,8 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+.env
+
 ### STS ###
 .apt_generated
 .classpath
@@ -32,3 +34,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
+deploy-cicd-github-actions-container.md
+deploy-cicd-github-actions.md
+deploy-nginx-container.md
+deploy-nginx-vps.md

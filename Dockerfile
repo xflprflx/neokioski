@@ -5,6 +5,7 @@ WORKDIR /app
 COPY pom.xml .
 RUN mvn dependency:go-offline -B
 COPY src ./src
+# "-DskipTests": pula os testes no build da imagem (já validados pelo job 'unit-tests' da CI/CD).
 RUN mvn clean package -Pproduction -DskipTests -B
 
 # STAGE 2: runtime

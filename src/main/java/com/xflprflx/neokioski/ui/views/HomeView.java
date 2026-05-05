@@ -16,6 +16,7 @@ import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
+import com.vaadin.flow.component.orderedlayout.FlexLayout;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
@@ -386,11 +387,12 @@ public class HomeView extends Div {
                 .set("letter-spacing", "0.05em")
                 .set("text-transform", "uppercase");
 
-        HorizontalLayout filtersRow = new HorizontalLayout();
+        FlexLayout filtersRow = new FlexLayout();
         filtersRow.setWidthFull();
-        filtersRow.setSpacing(true);
-        filtersRow.setPadding(false);
-        filtersRow.getStyle().set("overflow-x", "auto");
+        filtersRow.setFlexWrap(FlexLayout.FlexWrap.WRAP);
+        filtersRow.getStyle()
+                .set("gap", "12px")
+                .set("align-items", "flex-end");
 
         startDatePicker = new DatePicker("De");
         startDatePicker.setValue(LocalDate.now().minusDays(30));
@@ -485,7 +487,7 @@ public class HomeView extends Div {
         // Garantir que a grid de KPIs centralize os itens e use auto-fit
         kpiGrid.getStyle()
                 .set("display", "grid")
-                .set("grid-template-columns", "repeat(auto-fit, minmax(160px, 1fr))") // Redimensionamento fluido
+                .set("grid-template-columns", "repeat(auto-fit, minmax(220px, 1fr))") // Redimensionamento fluido com mínimo seguro
                 .set("gap", "16px")
                 .set("justify-content", "center")
                 .set("grid-column", "span 12")
@@ -535,7 +537,7 @@ public class HomeView extends Div {
                 .set("gap", "24px")
                 .set("margin-top", "24px")
                 .set("width", "100%")
-                .set("flex-wrap", "nowrap"); // Forçar mesma linha
+                .set("flex-wrap", "wrap"); // Permitir empilhamento em telas menores
 
         // Ranking Criadores
         Div rankingCol = createChartCard("50%");
@@ -587,30 +589,54 @@ public class HomeView extends Div {
 
         Div justificationCol = createChartCard("100%");
         
-        HorizontalLayout justificationContent = new HorizontalLayout();
-        justificationContent.setSizeFull();
-        justificationContent.setSpacing(true);
+        FlexLayout justificationContent = new FlexLayout();
+        justificationContent.setWidthFull();
+        justificationContent.setFlexWrap(FlexLayout.FlexWrap.NOWRAP); // Forçar lado a lado para manter altura fixa e scrolls isolados
+        justificationContent.getStyle()
+                .set("gap", "24px")
+                .set("flex", "1")
+                .set("min-height", "0")
+                .set("padding-top", "25px"); 
+        justificationContent.addClassName("custom-scrollbar");
 
         justificationDonutChartDiv = new Div();
         justificationDonutChartDiv.setId("justification-donut-chart");
-        justificationDonutChartDiv.getStyle().set("flex", "1");
+        justificationDonutChartDiv.getStyle()
+                .set("flex", "1 1 0") // Proporcional, mas permite encolher
+                .set("min-height", "0")
+                .set("padding", "0 10px");
 
         Div cloudCol = new Div();
-        cloudCol.getStyle().set("flex", "1").set("display", "flex").set("flex-direction", "column");
+        cloudCol.getStyle()
+                .set("flex", "1 1 0")
+                .set("display", "flex")
+                .set("flex-direction", "column")
+                .set("min-height", "0");
         Span cloudTitle = new Span("Nuvem de Justificativas");
         cloudTitle.getStyle().set("font-weight", "bold").set("font-size", "14px").set("margin-bottom", "8px").set("color", "var(--dash-text-sec)");
         wordCloudDiv = new Div();
         wordCloudDiv.setId("word-cloud-container");
-        wordCloudDiv.getStyle().set("flex", "1").set("overflow-y", "auto");
+        wordCloudDiv.getStyle()
+                .set("flex", "1")
+                .set("min-height", "0")
+                .set("overflow", "hidden"); // Nuvem fixa, sem scroll próprio
         cloudCol.add(cloudTitle, wordCloudDiv);
 
         Div commentsCol = new Div();
-        commentsCol.getStyle().set("flex", "1.2").set("display", "flex").set("flex-direction", "column").set("min-width", "0");
+        commentsCol.getStyle()
+                .set("flex", "1.2 1 0") // Tabela tem prioridade leve de espaço
+                .set("display", "flex")
+                .set("flex-direction", "column")
+                .set("min-width", "0")
+                .set("min-height", "0");
         Span commentsTitle = new Span("Comentários Recentes");
         commentsTitle.getStyle().set("font-weight", "bold").set("font-size", "14px").set("margin-bottom", "8px").set("color", "var(--dash-text-sec)");
         recentCommentsDiv = new Div();
         recentCommentsDiv.setId("recent-comments-container");
-        recentCommentsDiv.getStyle().set("flex", "1").set("overflow-y", "auto");
+        recentCommentsDiv.getStyle()
+                .set("flex", "1")
+                .set("min-height", "0")
+                .set("overflow-y", "auto");
         commentsCol.add(commentsTitle, recentCommentsDiv);
 
         justificationContent.add(justificationDonutChartDiv, cloudCol, commentsCol);
@@ -642,7 +668,9 @@ public class HomeView extends Div {
                 .set("border", "1px solid var(--dash-border, #e2e8f0)")
                 .set("display", "flex")
                 .set("flex-direction", "column")
-                .set("height", "400px");
+                .set("min-width", "350px") 
+                .set("height", "400px")
+                .set("overflow", "hidden"); // Garante que o conteúdo não escape dxs limites dx card
         /*
          * Retorna o componente renderizado ou o valor da operação atual.
          */
@@ -800,7 +828,7 @@ public class HomeView extends Div {
                 .set("overflow", "hidden")
                 .set("box-sizing", "border-box")
                 .set("padding-left", "20px") // Padding ajustado
-                .set("padding-right", "60px") // MUITO IMPORTANTE: Evita que os textos batam no ícone
+                .set("padding-right", "20px") // Padding uniforme
                 .set("box-shadow", "var(--lumo-box-shadow-m)");
 
         Span labelSpan = new Span(label);
@@ -823,11 +851,12 @@ public class HomeView extends Div {
         Div iconWrapper = new Div(icon.create());
         iconWrapper.addClassName("stat-icon");
         iconWrapper.getStyle()
-                .set("z-index", "10")
+                .set("z-index", "1")
                 .set("position", "absolute")
-                .set("right", "20px")
-                .set("top", "20px")
-                .set("font-size", "1.8rem");
+                .set("right", "15px")
+                .set("bottom", "-10px") // Move para o fundo como marca d'água
+                .set("opacity", "0.15") // Marca d'água sutil para evitar conflito com texto
+                .set("font-size", "4.5rem");
 
         /*
          * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.

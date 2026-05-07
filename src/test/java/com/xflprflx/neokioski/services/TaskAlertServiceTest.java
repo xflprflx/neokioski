@@ -80,7 +80,7 @@ class TaskAlertServiceTest {
         
         template.setAlerts(new LinkedHashSet<>(Set.of(alert)));
 
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findByIdForExecution(1L)).thenReturn(Optional.of(task));
         doReturn(mock(ScheduledFuture.class)).when(taskScheduler).schedule(any(Runnable.class), any(Instant.class));
 
         alertService.scheduleAlertsForTask(task);
@@ -108,7 +108,7 @@ class TaskAlertServiceTest {
         
         template.setAlerts(new LinkedHashSet<>(Set.of(alert)));
 
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findByIdForExecution(1L)).thenReturn(Optional.of(task));
         Group group = new Group();
         group.setId(1L);
         task.setGroup(group);
@@ -138,7 +138,7 @@ class TaskAlertServiceTest {
 
         ScheduledFuture future = mock(ScheduledFuture.class);
         doReturn(future).when(taskScheduler).schedule(any(Runnable.class), any(Instant.class));
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findByIdForExecution(1L)).thenReturn(Optional.of(task));
 
         alertService.scheduleAlertsForTask(task);
         alertService.cancelAllAlertsForTask(task);

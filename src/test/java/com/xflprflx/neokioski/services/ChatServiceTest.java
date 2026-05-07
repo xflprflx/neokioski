@@ -521,6 +521,39 @@ class ChatServiceTest {
     }
 
     // =====================================================================
+    // Contrato N+1: Validação de delegação ao Repository com EntityGraph
+    // =====================================================================
+
+    @Test
+    @DisplayName("sendSystemAlertForTask invoca findByTaskOrderByIdAsc (protegido por EntityGraph)")
+    void sendSystemAlertForTask_invokesRepositoryMethodWithEntityGraph() {
+        // GIVEN: Tarefa com mensagens existentes
+        Task task = buildTask();
+        ChatMessage firstMsg = new ChatMessage("Card original", user, group, null);
+        firstMsg.setId(100L);
+        when(repository.findByTaskOrderByIdAsc(task)).thenReturn(List.of(firstMsg));
+
+        // WHEN: O serviço dispara o alerta
+        chatService.sendSystemAlertForTask("Alerta SLA", task, "alarm.mp3", "ADMIN");
+
+        // THEN: O repositório é invocado via o métodx que agora possui @EntityGraph
+        verify(repository).findByTaskOrderByIdAsc(task);
+    }
+
+    @Test
+    @DisplayName("sendSystemAlertForTask com alertSound e alertRoles define campos corretamente")
+    void sendSystemAlertForTask_withSoundAndRoles_setsFieldsCorrectly() {
+        Task task = buildTask();
+        when(repository.findByTaskOrderByIdAsc(task)).thenReturn(List.of());
+
+        ChatMessage result = chatService.sendSystemAlertForTask("Prazo expirado", task, "urgent.mp3", "SELLER,ADMIN");
+
+        assertEquals("urgent.mp3", result.getAlertSound());
+        assertEquals("SELLER,ADMIN", result.getAlertRoles());
+        assertTrue(result.getId() < 0, "Alerta volátil deve ter ID negativo");
+    }
+
+    // =====================================================================
     // Auxiliares
     // =====================================================================
 

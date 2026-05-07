@@ -18,15 +18,15 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
 
     // #improve_n+1 - Carregamento otimizado via EntityGraph (To-Ones) + BatchSize (Coleções)
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {
-        "user", "group", "task", "task.taskTemplate", "task.currentStep", 
-        "task.slaResults", "task.slaResults.slaConfig",
-        "task.taskFieldValues", "task.taskFieldValues.taskFieldDefinition",
-        "replyTo", "replyTo.user", "replyTo.task", "replyTo.task.taskTemplate",
-        "reactions", "reactions.user", "edits"
+            "user", "group", "task", "task.taskTemplate", "task.currentStep",
+            "task.slaResults", "task.slaResults.slaConfig",
+            "task.taskFieldValues", "task.taskFieldValues.taskFieldDefinition",
+            "replyTo", "replyTo.user", "replyTo.task", "replyTo.task.taskTemplate",
+            "reactions", "reactions.user", "edits"
     }, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     List<ChatMessage> findByGroupAndTimestampBetweenOrderByTimestampAsc(
-            @Param("group") Group group, 
-            @Param("start") Instant start, 
+            @Param("group") Group group,
+            @Param("start") Instant start,
             @Param("end") Instant end);
 
     // #improve_n+1 - Carregamento otimizado via EntityGraph (To-Ones) + BatchSize (Coleções)
@@ -39,8 +39,12 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     @Query("SELECT m FROM ChatMessage m WHERE m.id = :id")
     java.util.Optional<ChatMessage> findByIdWithFullGraph(@Param("id") Long id);
 
+    // #improve_n+1 - EntityGraph mínimo para evitar queries adicionais ao acessar user/group no alerta de tarefa
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"user", "group"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     java.util.List<ChatMessage> findByTaskOrderByIdAsc(com.xflprflx.neokioski.models.Task task);
 
+    // #improve_n+1 - EntityGraph mínimo para evitar queries adicionais ao buscar a primeira mensagem da tarefa
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"user", "group"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)
     java.util.Optional<ChatMessage> findFirstByTaskOrderByIdAsc(com.xflprflx.neokioski.models.Task task);
 
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"user", "group", "task", "task.taskTemplate", "task.currentStep", "reactions", "reactions.user", "edits"}, type = org.springframework.data.jpa.repository.EntityGraph.EntityGraphType.LOAD)

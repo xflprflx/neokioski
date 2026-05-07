@@ -31,9 +31,9 @@ public class TaskAlertService {
     // Chave no formato: "{taskId}_{alertId}"
     private final Map<String, ScheduledFuture<?>> scheduledAlerts = new ConcurrentHashMap<>();
 
-    public TaskAlertService(TaskRepository taskRepository, 
-                            @org.springframework.context.annotation.Lazy ChatService chatService, 
-                            TaskScheduler taskScheduler, 
+    public TaskAlertService(TaskRepository taskRepository,
+                            @org.springframework.context.annotation.Lazy ChatService chatService,
+                            TaskScheduler taskScheduler,
                             TransactionTemplate transactionTemplate,
                             com.xflprflx.neokioski.repositories.TaskTemplateRepository taskTemplateRepository,
                             @org.springframework.context.annotation.Lazy TaskService taskService) {
@@ -50,14 +50,15 @@ public class TaskAlertService {
      */
     public void scheduleAlertsForTask(Task task) {
         if (task == null || task.getId() == null) return;
-        
+
         // Se já estamos dentro de uma transação (ex: chamado do executeStep),
         // reutilizar a task recebida em vez de recarregar do banco.
         if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
             scheduleAlertsInternal(task);
         } else {
+            // #improve_n+1 - Usar findByIdForExecution para trazer task + coleções via EntityGraph em query única
             transactionTemplate.executeWithoutResult(status -> {
-                Task freshTask = taskRepository.findById(task.getId()).orElse(null);
+                Task freshTask = taskRepository.findByIdForExecution(task.getId()).orElse(null);
                 if (freshTask == null || freshTask.getTaskTemplate() == null) return;
                 scheduleAlertsInternal(freshTask);
             });
@@ -66,7 +67,7 @@ public class TaskAlertService {
 
     private void scheduleAlertsInternal(Task task) {
         com.xflprflx.neokioski.models.template.TaskTemplate template = task.getTaskTemplate();
-        
+
         // Tentar usar os alerts já carregados; se não estiverem inicializados, buscar do repo
         java.util.Collection<TaskAlert> alerts;
         try {
@@ -74,8 +75,8 @@ public class TaskAlertService {
             if (alerts == null) return;
             alerts.size(); // forçar inicialização se lazy
         } catch (org.hibernate.LazyInitializationException e) {
-            com.xflprflx.neokioski.models.template.TaskTemplate attachedTemplate = 
-                taskTemplateRepository.findByIdWithAlerts(template.getId()).orElse(null);
+            com.xflprflx.neokioski.models.template.TaskTemplate attachedTemplate =
+                    taskTemplateRepository.findByIdWithAlerts(template.getId()).orElse(null);
             if (attachedTemplate == null || attachedTemplate.getAlerts() == null) return;
             alerts = attachedTemplate.getAlerts();
         }
@@ -84,23 +85,23 @@ public class TaskAlertService {
             if (task.getTriggeredAlertIds().contains(alert.getId())) continue;
 
             boolean reachedTarget = task.getTaskEvents().stream()
-                    .anyMatch(e -> e.getTaskStepDefinition() != null && 
-                                   e.getTaskStepDefinition().getId().equals(alert.getTargetStep().getId()));
+                    .anyMatch(e -> e.getTaskStepDefinition() != null &&
+                            e.getTaskStepDefinition().getId().equals(alert.getTargetStep().getId()));
             if (reachedTarget) continue;
 
             Instant startTime = null;
             if (alert.getStartStep() != null) {
                 java.util.Optional<Instant> startEventTime = task.getTaskEvents().stream()
-                        .filter(e -> e.getTaskStepDefinition() != null && 
-                                     e.getTaskStepDefinition().getId().equals(alert.getStartStep().getId()))
+                        .filter(e -> e.getTaskStepDefinition() != null &&
+                                e.getTaskStepDefinition().getId().equals(alert.getStartStep().getId()))
                         .map(com.xflprflx.neokioski.models.TaskEvent::getTimestamp)
                         .min(java.util.Comparator.naturalOrder());
-                        
+
                 if (startEventTime.isPresent()) {
-                     startTime = startEventTime.get();
+                    startTime = startEventTime.get();
                 } else {
-                     // Gatilho condicional de início ainda não alcançado, não agenda alerta agora.
-                     continue;
+                    // Gatilho condicional de início ainda não alcançado, não agenda alerta agora.
+                    continue;
                 }
             } else {
                 startTime = task.getCreatedAt() != null ? task.getCreatedAt() : Instant.now();
@@ -108,7 +109,7 @@ public class TaskAlertService {
 
             long timeoutValue = alert.getTimeoutValue();
             Instant alertTime = startTime.plus(timeoutValue, alert.getTimeoutUnit().toChronoUnit());
-            
+
             String cacheKey = getCacheKey(task, alert);
 
             if (alertTime.isBefore(Instant.now())) {
@@ -119,7 +120,7 @@ public class TaskAlertService {
                     executeTransactionalTrigger(task.getId(), alert);
                     scheduledAlerts.remove(cacheKey);
                 }, alertTime);
-                
+
                 ScheduledFuture<?> oldFuture = scheduledAlerts.put(cacheKey, future);
                 if (oldFuture != null && !oldFuture.isDone()) {
                     oldFuture.cancel(false);
@@ -136,12 +137,13 @@ public class TaskAlertService {
          * Avalia uma condição (if) para desvio de fluxo da lógica principal.
          */
         if (task == null || task.getId() == null || step == null) return;
-        
+
         if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
             cancelAlertByTargetStepInternal(task, step);
         } else {
+            // #improve_n+1 - Usar findByIdForExecution para evitar cascata de SELECTs lazy
             transactionTemplate.executeWithoutResult(status -> {
-                Task freshTask = taskRepository.findById(task.getId()).orElse(null);
+                Task freshTask = taskRepository.findByIdForExecution(task.getId()).orElse(null);
                 if (freshTask == null || freshTask.getTaskTemplate() == null) return;
                 cancelAlertByTargetStepInternal(freshTask, step);
             });
@@ -150,15 +152,15 @@ public class TaskAlertService {
 
     private void cancelAlertByTargetStepInternal(Task task, TaskStepDefinition step) {
         com.xflprflx.neokioski.models.template.TaskTemplate template = task.getTaskTemplate();
-        
+
         java.util.Collection<TaskAlert> alerts;
         try {
             alerts = template.getAlerts();
             if (alerts == null) return;
             alerts.size();
         } catch (org.hibernate.LazyInitializationException e) {
-            com.xflprflx.neokioski.models.template.TaskTemplate attachedTemplate = 
-                taskTemplateRepository.findById(template.getId()).orElse(null);
+            com.xflprflx.neokioski.models.template.TaskTemplate attachedTemplate =
+                    taskTemplateRepository.findById(template.getId()).orElse(null);
             if (attachedTemplate == null || attachedTemplate.getAlerts() == null) return;
             alerts = attachedTemplate.getAlerts();
         }
@@ -185,7 +187,7 @@ public class TaskAlertService {
          */
         if (task == null || task.getId() == null) return;
         String prefix = task.getId() + "_";
-        
+
         // Cancele iterando sobre os itens que pertencem a essa tarefa
         scheduledAlerts.keySet().removeIf(cacheKey -> {
             /*
@@ -210,11 +212,9 @@ public class TaskAlertService {
             return false;
         });
 
+        // #improve_n+1 - Usar findByIdForExecution para garantir que group/template estejam carregados para o broadcast
         transactionTemplate.executeWithoutResult(status -> {
-            Task freshTask = taskRepository.findById(task.getId()).orElse(null);
-            /*
-             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-             */
+            Task freshTask = taskRepository.findByIdForExecution(task.getId()).orElse(null);
             if (freshTask != null && freshTask.isAlerted()) {
                 freshTask.setAlerted(false);
                 Task finalSaved = taskRepository.save(freshTask);
@@ -238,24 +238,34 @@ public class TaskAlertService {
     }
 
     /**
-     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Executa o disparo do alerta dentro de uma transação própria.
+     *
+     * OTIMIZAÇÃO N+1:
+     * Usa findByIdForExecution (EntityGraph completo) para trazer task + coleções
+     * numa única query, evitando os ~11 SELECTs extras que ocorriam com findById.
+     * Além disso, pré-carrega o template com findByIdWithMetadata para garantir que
+     * authorizingUsers, mentionsMappings e alerts estejam disponíveis em memória
+     * para o triggerAlertInternal sem queries adicionais.
      */
     private void executeTransactionalTrigger(Long taskId, TaskAlert alert) {
         transactionTemplate.executeWithoutResult(status -> {
-            Task freshTask = taskRepository.findById(taskId).orElse(null);
-            /*
-             * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-             */
-            if (freshTask != null && !freshTask.getTriggeredAlertIds().contains(alert.getId())) {
-                
-                // Double check target reach inside memory just in case
+            // #improve_n+1 - EntityGraph completo para evitar cascata de SELECTs lazy
+            Task freshTask = taskRepository.findByIdForExecution(taskId).orElse(null);
+            if (freshTask == null) return;
+
+            // #improve_n+1 - Pré-carregar o template com metadados completos (authorizingUsers, alerts, mentionsMappings)
+            // para que triggerAlertInternal e initializeTaskData não disparem queries adicionais
+            if (freshTask.getTaskTemplate() != null) {
+                taskTemplateRepository.findByIdWithMetadata(freshTask.getTaskTemplate().getId())
+                        .ifPresent(freshTask::setTaskTemplate);
+            }
+
+            if (!freshTask.getTriggeredAlertIds().contains(alert.getId())) {
+                // Double check: verificar se a tarefa já alcançou o passo-alvo (em memória, sem query)
                 boolean reachedTarget = freshTask.getTaskEvents().stream()
-                        .anyMatch(e -> e.getTaskStepDefinition() != null && 
-                                       e.getTaskStepDefinition().getId().equals(alert.getTargetStep().getId()));
-                
-                /*
-                 * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                 */
+                        .anyMatch(e -> e.getTaskStepDefinition() != null &&
+                                e.getTaskStepDefinition().getId().equals(alert.getTargetStep().getId()));
+
                 if (!reachedTarget) {
                     triggerAlertInternal(freshTask, alert);
                 }
@@ -272,8 +282,8 @@ public class TaskAlertService {
          * Avalia uma condição (if) para desvio de fluxo da lógica principal.
          */
         if (message == null || message.isBlank()) {
-            message = "ALERTA: A tarefa '" + task.getTaskTemplate().getName() + "' está pendente há mais de " + 
-                      alert.getTimeoutValue() + " " + alert.getTimeoutUnit().getLabel().toLowerCase() + "!";
+            message = "ALERTA: A tarefa '" + task.getTaskTemplate().getName() + "' está pendente há mais de " +
+                    alert.getTimeoutValue() + " " + alert.getTimeoutUnit().getLabel().toLowerCase() + "!";
         }
 
         // Resolver menções customizadas (mapeamento por grupo)
@@ -285,9 +295,9 @@ public class TaskAlertService {
          */
         if (authorizers != null && !authorizers.isEmpty()) {
             String authorizersMention = authorizers.stream()
-                .map(u -> "@" + u.getUsername())
-                .collect(java.util.stream.Collectors.joining(" "));
-            
+                    .map(u -> "@" + u.getUsername())
+                    .collect(java.util.stream.Collectors.joining(" "));
+
             /*
              * Avalia uma condição (if) para desvio de fluxo da lógica principal.
              */
@@ -308,7 +318,7 @@ public class TaskAlertService {
 
         String alertRolesStr = alert.getAlertRoles() != null ? alert.getAlertRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.joining(",")) : null;
         chatService.sendSystemAlertForTask(message, task, alert.getAlertSound(), alertRolesStr);
-        
+
         task.setAlerted(true);
         task.getTriggeredAlertIds().add(alert.getId());
         Task saved = taskRepository.save(task);

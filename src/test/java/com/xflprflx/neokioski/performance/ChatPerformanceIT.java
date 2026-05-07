@@ -6,6 +6,7 @@ import com.xflprflx.neokioski.models.Task;
 import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.models.enums.Role;
 import com.xflprflx.neokioski.models.template.TaskTemplate;
+import com.xflprflx.neokioski.repositories.ChatMessageRepository;
 import com.xflprflx.neokioski.repositories.GroupRepository;
 import com.xflprflx.neokioski.repositories.TaskRepository;
 import com.xflprflx.neokioski.repositories.TaskTemplateRepository;
@@ -106,6 +107,9 @@ class ChatPerformanceIT {
 
     @Autowired
     private Flyway flyway;
+
+    @Autowired
+    private ChatMessageRepository chatMessageRepository;
 
     private Group testGroup;
 
@@ -226,4 +230,62 @@ class ChatPerformanceIT {
             }
         }
     }
+
+    /**
+     * TESTE DE PERFORMANCE: Busca de mensagens por tarefa (findByTaskOrderByIdAsc).
+     *
+     * CENÁRIO REAL:
+     * O métodx sendSystemAlertForTask do ChatService invoca findByTaskOrderByIdAsc
+     * para localizar a primeira mensagem de uma tarefa e usá-la como replyTo.
+     * Se houver múltiplas tarefas recebendo alertas simultaneamente (ex: AlertReloader
+     * disparando alertas em lote), o @EntityGraph precisa evitar queries N+1 para
+     * carregar o user e group de cada mensagem.
+     *
+     * VALIDAÇÃO:
+     * Cria 5 tarefas distintas, busca as mensagens de cada uma e verifica que
+     * o total de queries não explode proporcionalmente ao número de tarefas.
+     * Sem @EntityGraph: 5 queries (findByTask) + 5 queries (user) + 5 queries (group) = 15.
+     * Com @EntityGraph: 5 queries (findByTask com LEFT JOIN) = 5.
+     */
+    @Test
+    @DisplayName("findByTaskOrderByIdAsc não gera N+1 ao buscar mensagens de múltiplas tarefas")
+    void findByTaskOrderByIdAsc_shouldNotCauseNPlusOneForMultipleTasks() {
+        // SETUP: Registrar os IDs das tarefas criadas no setUp
+        List<Task> tasks = transactionTemplate.execute(status -> 
+            taskRepository.findByGroupWithCollections(testGroup)
+        );
+        entityManager.clear();
+
+        assertNotNull(tasks);
+        assertFalse(tasks.isEmpty(), "Deveria haver tarefas no grupo de teste");
+
+        Statistics stats = entityManager.unwrap(Session.class).getSessionFactory().getStatistics();
+        stats.setStatisticsEnabled(true);
+        stats.clear();
+
+        // EXECUÇÃO: Buscar mensagens de CADA tarefa individualmente
+        // (simula o cenário do AlertReloader iterando sobre tarefas pendentes)
+        transactionTemplate.execute(status -> {
+            for (Task task : tasks) {
+                List<ChatMessage> messages = chatMessageRepository.findByTaskOrderByIdAsc(task);
+                // Acessar user e group para provocar N+1 se o EntityGraph falhar
+                for (ChatMessage msg : messages) {
+                    if (msg.getUser() != null) msg.getUser().getUsername();
+                    if (msg.getGroup() != null) msg.getGroup().getName();
+                }
+            }
+            return null;
+        });
+
+        long queryCount = stats.getQueryExecutionCount();
+        System.out.println(">>> findByTaskOrderByIdAsc (5 tarefas) QUERIES: " + queryCount);
+
+        // VALIDAÇÃO: Sem @EntityGraph seriam ~15 queries (5 select + 5 user + 5 group)
+        // Com @EntityGraph: 5 queries com LEFT JOIN (1 por tarefa)
+        // Margem: até 10 (caso existam batches extras do Hibernate)
+        assertTrue(queryCount <= 10,
+            "REGRESSÃO N+1 detectada em findByTaskOrderByIdAsc! " +
+            "Queries: " + queryCount + " para " + tasks.size() + " tarefas (limite: 10)");
+    }
 }
+

@@ -322,6 +322,64 @@ public class DashboardServiceTest {
                 "Tarefas recém-criadas ou em andamento (sem atingir step de conclusão) NÃO devem aparecer no ranking de concluidores");
     }
 
+    @Test
+    @DisplayName("Cálculo de TMA deve IGNORAR passos marcados como finalizadores")
+    void shouldExcludeFinalizerStepsFromTmaCalculation() {
+        // Given: template com um passo intermediário (100s) e um finalizador (50s)
+        Instant start = Instant.now().minusSeconds(7200);
+        Instant end = Instant.now();
+
+        TaskStepDefinition stepIntermediario = new TaskStepDefinition();
+        stepIntermediario.setId(30L);
+        stepIntermediario.setLabel("INTERMEDIARIO");
+
+        TaskStepDefinition stepFinal = new TaskStepDefinition();
+        stepFinal.setId(31L);
+        stepFinal.setLabel("FINAL");
+
+        TemplateStepRelation relInter = new TemplateStepRelation();
+        relInter.setTaskStepDefinition(stepIntermediario);
+        relInter.setFinalizer(false);
+        relInter.setTaskTemplate(templateA);
+
+        TemplateStepRelation relFinal = new TemplateStepRelation();
+        relFinal.setTaskStepDefinition(stepFinal);
+        relFinal.setFinalizer(true); // FINALIZADOR
+        relFinal.setTaskTemplate(templateA);
+
+        Task t1 = createTask(1L, user1, Instant.now(), groupA, templateA);
+        
+        // Evento 1: Começa INTERMEDIARIO às T-200s
+        TaskEvent ev1 = new TaskEvent();
+        ev1.setTaskStepDefinition(stepIntermediario);
+        ev1.setTimestamp(Instant.now().minusSeconds(200));
+        ev1.setTask(t1);
+        t1.getTaskEvents().add(ev1);
+
+        // Evento 2: Muda para FINAL às T-100s (Duração INTERMEDIARIO = 100s)
+        TaskEvent ev2 = new TaskEvent();
+        ev2.setTaskStepDefinition(stepFinal);
+        ev2.setTimestamp(Instant.now().minusSeconds(100));
+        ev2.setTask(t1);
+        t1.getTaskEvents().add(ev2);
+
+        // Finaliza às T-50s (Duração FINAL = 50s)
+        t1.setFinalizedAt(Instant.now().minusSeconds(50));
+
+        when(taskRepository.findAllByCreatedAtBetween(any(), any())).thenReturn(List.of(t1));
+        when(stepRelationRepository.findByTaskTemplateIdIn(any())).thenReturn(List.of(relInter, relFinal));
+
+        // When
+        DashboardService.DashboardData data = dashboardService.getDashboardData(start, end, groupA, null, null, null, null, null, null, null);
+
+        // Then: TMA per Step deve conter apenas INTERMEDIARIO (100s)
+        var tmaData = data.tmaPerStep().get(0);
+        assertTrue(tmaData.seriesValues().containsKey("INTERMEDIARIO"));
+        assertEquals(100.0, tmaData.seriesValues().get("INTERMEDIARIO"), 1.0, "Duração do intermediário deve ser 100s");
+        
+        assertFalse(tmaData.seriesValues().containsKey("FINAL"), "Passo finalizador não deve constar no breakdown de TMA");
+    }
+
     private Task createTask(Long id, User creator, Instant finalizedAt, Group group, TaskTemplate template) {
         Task task = new Task();
         task.setId(id);

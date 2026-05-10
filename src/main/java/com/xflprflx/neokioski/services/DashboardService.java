@@ -242,6 +242,14 @@ public class DashboardService {
                     String stepName = currentEvent.getTaskStepDefinition() != null ? 
                             currentEvent.getTaskStepDefinition().getLabel() : "Criação";
 
+                    // Filtrar steps finalizadores — não contribuem para o TMA
+                    // (são instantâneos e poluem o gráfico sem valor analítico)
+                    if (currentEvent.getTaskStepDefinition() != null) {
+                        String cacheKey = task.getTaskTemplate().getId() + "-" + currentEvent.getTaskStepDefinition().getId();
+                        TemplateStepRelation rel = relCache.get(cacheKey);
+                        if (rel != null && rel.isFinalizer()) continue;
+                    }
+
                     Instant startTime = currentEvent.getTimestamp();
                     Instant endTime;
 

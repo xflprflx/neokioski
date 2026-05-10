@@ -524,7 +524,9 @@ public class HomeView extends Div {
         Div tmaCol = createChartCard("100%");
         tmaStackedChartDiv = new Div();
         tmaStackedChartDiv.setId("tma-stacked-chart");
-        tmaStackedChartDiv.getStyle().set("flex-grow", "1");
+        tmaStackedChartDiv.getStyle()
+                .set("flex-grow", "1")
+                .set("padding-top", "24px"); // Espaço para não disputar com o título do card
         tmaCol.add(createChartHeader("TMA por Tipo e Step"), tmaStackedChartDiv);
         tmaRow.add(tmaCol);
         add(tmaRow);
@@ -1096,143 +1098,19 @@ public class HomeView extends Div {
                             dataLabels: { enabled: true }
                         };
 
-                        const tmaOptions = {
-                                ...commonOptions,
-                                series: %s,
-                                chart: { 
-                                    ...commonOptions.chart, 
-                                    type: 'bar', 
-                                    stacked: true,
-                                    height: '100%%',
-                                    events: {
-                                        click: function(event, chartContext, config) {
-                                            /*
-                                             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                                             */
-                                            if (config && config.dataPointIndex !== undefined && config.dataPointIndex !== -1) {
-                                                let category;
-                                                const cats = chartContext.w.config.xaxis.categories || chartContext.w.globals.labels;
-                                                /*
-                                                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                                                 */
-                                                if (cats && cats[config.dataPointIndex]) category = cats[config.dataPointIndex];
-                                                /*
-                                                 * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                                                 */
-                                                if (category) {
-                                                    const rootEl = document.getElementById('dashboard-home');
-                                                    /*
-                                                     * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                                                     */
-                                                    if (rootEl) {
-                                                        rootEl.dispatchEvent(new CustomEvent('tma-clicked', { 
-                                                            detail: { category: String(category) }, bubbles: true, composed: true 
-                                                        }));
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                },
-                                colors: %s,
-                                plotOptions: { 
-                                    bar: { 
-                                        horizontal: true, 
-                                        borderRadius: 4, 
-                                        barHeight: '60%%'
-                                    } 
-                                },
-                                stroke: { width: 1, colors: ['#fff'] },
-                                xaxis: { 
-                                    categories: %s,
-                                    labels: { 
-                                        formatter: function(val) {
-                                            const h = Math.floor(val / 3600);
-                                            const m = Math.floor((val %% 3600) / 60);
-                                            /*
-                                             * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                                             */
-                                            if (h > 0) return h + "h " + m + "m";
-                                            /*
-                                             * Retorna o componente renderizado ou o valor da operação atual.
-                                             */
-                                            return m + "m";
-                                        }
-                                    } 
-                                },
-                                yaxis: { labels: { maxWidth: 150 } },
-                                legend: { show: false },
-                                tooltip: {
-                                    shared: true,
-                                    intersect: false,
-                                    custom: function({series, seriesIndex, dataPointIndex, w}) {
-                                        const category = w.globals.labels[dataPointIndex];
-                                        let totalVal = 0;
-                                        let itemsHtml = "";
-                                        
-                                        // Calcular total e construir lista de itens
-                                        w.config.series.forEach((s, idx) => {
-                                            const val = s.data[dataPointIndex];
-                                            if (val && val > 0) {
-                                                totalVal += val;
-                                                const color = w.config.colors[idx];
-                                                const formatTime = (v) => {
-                                                    const ts = Math.round(v * 10) / 10;
-                                                    const h = Math.floor(ts / 3600);
-                                                    const m = Math.floor((ts %% 3600) / 60);
-                                                    const s = (ts %% 60).toFixed(h > 0 || m > 0 ? 0 : 1);
-                                                    if (h > 0) return h + "h " + m + "m " + s + "s";
-                                                    if (m > 0) return m + "m " + s + "s";
-                                                    return s + "s";
-                                                };
-                                                
-                                                itemsHtml += `
-                                                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 4px; font-size: 12px;">
-                                                        <div style="display: flex; align-items: center; gap: 8px;">
-                                                            <span style="width: 8px; height: 8px; border-radius: 50%%; background: ${color};"></span>
-                                                            <span style="opacity: 0.8;">${s.name}</span>
-                                                        </div>
-                                                        <span style="font-weight: 600;">${formatTime(val)}</span>
-                                                    </div>
-                                                `;
-                                            }
-                                        });
+                        // Dados do TMA por Tipo — renderizados como charts individuais por tipo
+                        const tmaAllSeries = %s;
+                        const tmaAllColors = %s;
+                        const tmaAllCategories = %s;
 
-                                        const formatTotal = (v) => {
-                                            const ts = Math.round(v * 10) / 10;
-                                            const h = Math.floor(ts / 3600);
-                                            const m = Math.floor((ts %% 3600) / 60);
-                                            const s = (ts %% 60).toFixed(h > 0 || m > 0 ? 0 : 1);
-                                            if (h > 0) return h + "h " + m + "m " + s + "s";
-                                            if (m > 0) return m + "m " + s + "s";
-                                            return s + "s";
-                                        };
-
-                                        return `
-                                            <div style="padding: 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); min-width: 240px; color: #1e293b;">
-                                                <div style="font-weight: bold; font-size: 14px; margin-bottom: 4px;">${category}</div>
-                                                <div style="font-size: 13px; color: #3b82f6; font-weight: 600; margin-bottom: 10px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">
-                                                    TMA Médio Total: ${formatTotal(totalVal)}
-                                                </div>
-                                                <div>${itemsHtml}</div>
-                                            </div>
-                                        `;
-                                    }
-                                },
-                                dataLabels: { 
-                                    enabled: true, 
-                                    formatter: function(val) { 
-                                        if (!val || val === 0) return "";
-                                        const totalSecs = Math.round(val * 10) / 10;
-                                        const h = Math.floor(totalSecs / 3600);
-                                        const m = Math.floor((totalSecs %% 3600) / 60);
-                                        const s = (totalSecs %% 60).toFixed(h > 0 || m > 0 ? 0 : 1);
-                                        if (h > 0) return h + "h " + m + "m " + s + "s";
-                                        if (m > 0) return m + "m " + s + "s";
-                                        return s + "s";
-                                    }, 
-                                    style: { fontSize: '10px' } 
-                                }
+                        const formatTmaTime = (v) => {
+                            const ts = Math.round(v * 10) / 10;
+                            const h = Math.floor(ts / 3600);
+                            const m = Math.floor((ts %% 3600) / 60);
+                            const s = (ts %% 60).toFixed(h > 0 || m > 0 ? 0 : 1);
+                            if (h > 0) return h + 'h ' + m + 'm ' + s + 's';
+                            if (m > 0) return m + 'm ' + s + 's';
+                            return s + 's';
                         };
 
                         const mixedChartOptions = {
@@ -1278,10 +1156,145 @@ public class HomeView extends Div {
                         if (finalizerRankingEl) { finalizerRankingEl.innerHTML = ""; new ApexCharts(finalizerRankingEl, finalizerRankingOptions).render(); }
                         
                         const tmaEl = document.querySelector("#tma-stacked-chart");
-                        /*
-                         * Verifica uma condição lógica para alterar o estado ou exibição de um componente na interface.
-                         */
-                        if (tmaEl) { tmaEl.innerHTML = ""; new ApexCharts(tmaEl, tmaOptions).render(); }
+                        if (tmaEl) {
+                            tmaEl.innerHTML = '';
+                            tmaEl.style.display = 'flex';
+                            tmaEl.style.flexDirection = 'column';
+                            tmaEl.style.gap = '8px';
+
+                            tmaAllCategories.forEach((cat, catIdx) => {
+                                const catSeries = [];
+                                const catColors = [];
+                                tmaAllSeries.forEach((s, sIdx) => {
+                                    const val = s.data[catIdx];
+                                    if (val && val > 0) {
+                                        catSeries.push({ name: s.name, data: [val] });
+                                        catColors.push(tmaAllColors[sIdx]);
+                                    }
+                                });
+                                if (catSeries.length === 0) return;
+
+                                const totalSecs = catSeries.reduce((sum, s) => sum + s.data[0], 0);
+
+                                const wrapper = document.createElement('div');
+                                wrapper.style.background = 'rgba(0,0,0,0.02)'; // Fundo sutil para agrupar o tipo
+                                wrapper.style.borderRadius = '12px';
+                                wrapper.style.padding = '16px';
+                                wrapper.style.marginBottom = '20px';
+                                wrapper.style.border = '1px solid rgba(0,0,0,0.05)'; // Borda fina para definição
+
+                                const tmaSpanId = 'tma-total-' + catIdx;
+
+                                const header = document.createElement('div');
+                                header.style.display = 'flex';
+                                header.style.alignItems = 'baseline';
+                                header.style.gap = '12px';
+                                header.style.padding = '0 8px';
+                                header.style.cursor = 'pointer';
+                                header.innerHTML = '<span style="font-weight:700;font-size:13px;color:' + tc + ';">' + cat + '</span>'
+                                    + '<span id="' + tmaSpanId + '" style="font-size:10px;color:#3b82f6;font-weight:700;background:rgba(59,130,246,0.1);padding:2px 10px;border-radius:12px;text-transform:uppercase;">TMA: ' + formatTmaTime(totalSecs) + '</span>';
+                                header.onclick = () => {
+                                    const rootEl = document.getElementById('dashboard-home');
+                                    if (rootEl) rootEl.dispatchEvent(new CustomEvent('tma-clicked', { detail: { category: String(cat) }, bubbles: true, composed: true }));
+                                };
+                                wrapper.appendChild(header);
+
+                                const chartContainer = document.createElement('div');
+                                wrapper.appendChild(chartContainer);
+                                tmaEl.appendChild(wrapper);
+
+                                const updateTmaHeader = (chartInstance) => {
+                                    let visibleTotal = 0;
+                                    const series = chartInstance.w.config.series;
+                                    const collapsed = chartInstance.w.globals.collapsedSeriesIndices || [];
+                                    series.forEach((s, i) => {
+                                        if (collapsed.indexOf(i) === -1) {
+                                            const v = s.data[0];
+                                            if (v && !isNaN(v)) visibleTotal += v;
+                                        }
+                                    });
+                                    const tmaSpan = document.getElementById(tmaSpanId);
+                                    if (tmaSpan) tmaSpan.textContent = 'TMA: ' + formatTmaTime(visibleTotal);
+                                };
+
+                                new ApexCharts(chartContainer, {
+                                    ...commonOptions,
+                                    series: catSeries,
+                                    chart: {
+                                        ...commonOptions.chart,
+                                        type: 'bar',
+                                        stacked: true,
+                                        height: 75 + Math.max(0, Math.ceil(catSeries.length / 4) - 1) * 22,
+                                        events: {
+                                            mounted: function(chart) { updateTmaHeader(chart); },
+                                            legendClick: function(chart, sIdx, opts) { setTimeout(() => updateTmaHeader(chart), 100); },
+                                            click: function(event, chartContext, config) {
+                                                if (config && config.dataPointIndex !== undefined && config.dataPointIndex !== -1) {
+                                                    const rootEl = document.getElementById('dashboard-home');
+                                                    if (rootEl) rootEl.dispatchEvent(new CustomEvent('tma-clicked', { detail: { category: String(cat) }, bubbles: true, composed: true }));
+                                                }
+                                            }
+                                        }
+                                    },
+                                    colors: catColors,
+                                    plotOptions: { bar: { horizontal: true, borderRadius: 3, barHeight: '45%%' } },
+                                    stroke: { width: 1, colors: ['#fff'] },
+                                    grid: { padding: { left: 0, right: 10, top: -25, bottom: -8 } },
+                                    xaxis: {
+                                        categories: [''],
+                                        labels: { show: false },
+                                        axisBorder: { show: false },
+                                        axisTicks: { show: false }
+                                    },
+                                    yaxis: { show: false },
+                                    legend: {
+                                        show: true,
+                                        position: 'bottom',
+                                        horizontalAlign: 'left',
+                                        fontSize: '10px',
+                                        markers: { radius: 12, width: 8, height: 8 },
+                                        itemMargin: { horizontal: 6, vertical: 2 },
+                                        formatter: function(seriesName, opts) {
+                                            const val = opts.w.config.series[opts.seriesIndex].data[0];
+                                            if (!val || isNaN(val)) return seriesName;
+                                            return seriesName + ' (' + formatTmaTime(val) + ')';
+                                        }
+                                    },
+                                    tooltip: {
+                                        shared: true,
+                                        intersect: false,
+                                        custom: function({series, seriesIndex, dataPointIndex, w}) {
+                                            let totalVal = 0;
+                                            let itemsHtml = '';
+                                            const collapsed = w.globals.collapsedSeriesIndices || [];
+                                            w.config.series.forEach((s, idx) => {
+                                                if (collapsed.indexOf(idx) !== -1) return;
+                                                const val = s.data[0];
+                                                if (val && val > 0 && !isNaN(val)) {
+                                                    totalVal += val;
+                                                    const color = w.config.colors[idx];
+                                                    itemsHtml += '<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:3px;font-size:11px;">'
+                                                        + '<div style="display:flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:50%%;background:' + color + ';"></span><span>' + s.name + '</span></div>'
+                                                        + '<span style="font-weight:600;">' + formatTmaTime(val) + '</span></div>';
+                                                }
+                                            });
+                                            return '<div style="padding:10px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 6px rgba(0,0,0,.08);min-width:200px;color:#1e293b;">'
+                                                + '<div style="font-weight:bold;font-size:13px;margin-bottom:3px;">' + cat + '</div>'
+                                                + '<div style="font-size:12px;color:#3b82f6;font-weight:600;margin-bottom:8px;border-bottom:1px solid #f1f5f9;padding-bottom:6px;">TMA Total: ' + formatTmaTime(totalVal) + '</div>'
+                                                + itemsHtml + '</div>';
+                                        }
+                                    },
+                                    dataLabels: {
+                                        enabled: true,
+                                        formatter: function(val) {
+                                            if (!val || val === 0 || isNaN(val)) return '';
+                                            return formatTmaTime(val);
+                                        },
+                                        style: { fontSize: '9px' }
+                                    }
+                                }).render();
+                            });
+                        }
                         
                         const mixedEl = document.querySelector("#mixed-history-chart");
                         /*

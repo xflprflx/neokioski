@@ -234,43 +234,42 @@ public class DashboardService {
                  */
                 if (events.isEmpty()) continue;
 
-                /*
-                 * Inicia um laço de repetição (for) para iterar sobre os elementos.
-                 */
+                // Acumulador local para a tarefa atual
+                Map<String, Double> taskStepTotal = new LinkedHashMap<>();
+
                 for (int i = 0; i < events.size(); i++) {
                     TaskEvent currentEvent = events.get(i);
                     String stepName = currentEvent.getTaskStepDefinition() != null ? 
                             currentEvent.getTaskStepDefinition().getLabel() : "Criação";
 
                     // Filtrar steps finalizadores — não contribuem para o TMA
-                    // (são instantâneos e poluem o gráfico sem valor analítico)
                     if (currentEvent.getTaskStepDefinition() != null) {
                         String cacheKey = task.getTaskTemplate().getId() + "-" + currentEvent.getTaskStepDefinition().getId();
                         TemplateStepRelation rel = relCache.get(cacheKey);
                         if (rel != null && rel.isFinalizer()) continue;
                     }
 
-                    Instant startTime = currentEvent.getTimestamp();
+                    // Se for o primeiro evento, considera a criação da tarefa como T0 (igual ao TaskDetailsDialog)
+                    Instant startTime = (i == 0 && currentEvent.getTimestamp().isAfter(task.getCreatedAt())) 
+                                         ? task.getCreatedAt() : currentEvent.getTimestamp();
                     Instant endTime;
 
-                    /*
-                     * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                     */
                     if (i < events.size() - 1) {
                         endTime = events.get(i + 1).getTimestamp();
                     } else {
                         endTime = task.getFinalizedAt();
                     }
 
-                    /*
-                     * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-                     */
                     if (endTime != null && startTime != null && !endTime.isBefore(startTime)) {
                         double durationSeconds = Duration.between(startTime, endTime).toMillis() / 1000.0;
-                        
-                        stepTotalSeconds.merge(stepName, durationSeconds, Double::sum);
-                        stepCounts.merge(stepName, 1, Integer::sum);
+                        taskStepTotal.merge(stepName, durationSeconds, Double::sum);
                     }
+                }
+
+                // Incrementa os totais globais e contabiliza +1 no divisor APENAS uma vez por tarefa para cada step
+                for (Map.Entry<String, Double> stepEntry : taskStepTotal.entrySet()) {
+                    stepTotalSeconds.merge(stepEntry.getKey(), stepEntry.getValue(), Double::sum);
+                    stepCounts.merge(stepEntry.getKey(), 1, Integer::sum);
                 }
             }
 

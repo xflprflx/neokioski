@@ -194,6 +194,7 @@ public class TaskTemplateService {
                 // Atualizar propriedades simples
                 existing.setOrder(sr.getOrder());
                 existing.setFinalizer(sr.isFinalizer());
+                existing.setCountsAsCompletion(sr.isCountsAsCompletion());
                 existing.setSendNotification(sr.isSendNotification());
                 existing.setNotificationMessage(sr.getNotificationMessage());
                 existing.setShouldPulse(sr.isShouldPulse());

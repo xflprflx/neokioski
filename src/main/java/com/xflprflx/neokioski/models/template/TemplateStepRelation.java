@@ -27,6 +27,15 @@ public class TemplateStepRelation {
     private int order;
     @Column(nullable = false)
     private boolean isFinalizer;
+
+    /**
+     * Indica se este passo pontua a conclusão da tarefa para fins de ranking de concluidores
+     * no Dashboard. Esse conceito é independente do {@code isFinalizer}, que controla o
+     * encerramento efetivo da tarefa. Quando nenhum passo de um template possui esse flag,
+     * o DashboardService usa o {@code isFinalizer} como fallback.
+     */
+    @Column(nullable = false, name = "counts_as_completion")
+    private boolean countsAsCompletion = false;
     @Column(nullable = false, name = "send_notification")
     private boolean sendNotification;
     @Column(nullable = false)
@@ -117,6 +126,14 @@ public class TemplateStepRelation {
 
     public void setFinalizer(boolean finalizer) {
         isFinalizer = finalizer;
+    }
+
+    public boolean isCountsAsCompletion() {
+        return countsAsCompletion;
+    }
+
+    public void setCountsAsCompletion(boolean countsAsCompletion) {
+        this.countsAsCompletion = countsAsCompletion;
     }
 
     public boolean isSendNotification() {

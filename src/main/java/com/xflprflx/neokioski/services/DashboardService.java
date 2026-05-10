@@ -372,32 +372,56 @@ public class DashboardService {
     }
 
     /**
-     * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.
+     * Identifica o nome do concluidor de uma tarefa para fins de ranking no Dashboard.
+     *
+     * <p>A cadeia de prioridade é:</p>
+     * <ol>
+     *   <li>{@code countsAsCompletion} — passo explicitamente marcado como "pontua conclusão" no template.</li>
+     *   <li>{@code isFinalizer} — fallback para templates legados que não utilizam o novo flag.</li>
+     * </ol>
+     *
+     * <p>Retorna {@code null} quando a tarefa ainda não atingiu nenhum passo relevante,
+     * evitando que interações intermediárias (criação, avanço de passo) contabilizem pontos
+     * indevidamente no ranking de concluidores.</p>
+     *
+     * @param t        a tarefa cujo concluidor será identificado.
+     * @param relCache cache de {@link TemplateStepRelation} pré-carregado em lote para evitar N+1.
+     * @return o nome do usuário concluidor, ou {@code null} se a tarefa não atingiu o passo de conclusão.
      */
     private String getTaskFinalizerName(Task t, Map<String, TemplateStepRelation> relCache) {
-        /*
-         * Avalia uma condição (if) para desvio de fluxo da lógica principal.
-         */
         if (t.getTaskEvents() == null || t.getTaskEvents().isEmpty()) return null;
-        
-        // Identificar o concluidor como o usuário do último passo finalizador
+
         List<TaskEvent> events = new ArrayList<>(t.getTaskEvents());
         events.sort(Comparator.comparing(TaskEvent::getTimestamp).reversed());
 
+        // 1. Prioridade máxima: passo marcado com countsAsCompletion
         for (TaskEvent event : events) {
             if (event.getTaskStepDefinition() == null) continue;
-            
+
             String cacheKey = t.getTaskTemplate().getId() + "-" + event.getTaskStepDefinition().getId();
             TemplateStepRelation relation = relCache.get(cacheKey);
-            
+
+            if (relation != null && relation.isCountsAsCompletion()) {
+                return event.getUser() != null ? event.getUser().getName() : null;
+            }
+        }
+
+        // 2. Fallback: passo finalizador (comportamento legado)
+        for (TaskEvent event : events) {
+            if (event.getTaskStepDefinition() == null) continue;
+
+            String cacheKey = t.getTaskTemplate().getId() + "-" + event.getTaskStepDefinition().getId();
+            TemplateStepRelation relation = relCache.get(cacheKey);
+
             if (relation != null && relation.isFinalizer()) {
                 return event.getUser() != null ? event.getUser().getName() : null;
             }
         }
 
-        // Fallback: Se não houver passo explicitamente finalizador com evento, pega o último usuário que interagiu
-        return events.get(0).getUser() != null ? events.get(0).getUser().getName() : null;
+        // Nenhum passo de conclusão atingido — não contabiliza no ranking
+        return null;
     }
+
 
     /**
      * métodx ou construtor que encapsula parte da lógica de negócio e regras do serviço.

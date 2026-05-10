@@ -151,6 +151,177 @@ public class DashboardServiceTest {
         assertEquals(0, dataEmpty.stats().activeTasks());
     }
 
+    @Test
+    @DisplayName("Ranking de Concluidores deve priorizar countsAsCompletion sobre isFinalizer")
+    void shouldPrioritizeCountsAsCompletionOverFinalizer() {
+        // Given: template com step "EM ANDAMENTO" (countsAsCompletion=true) e "COLETADO" (isFinalizer=true)
+        Instant start = Instant.now().minusSeconds(3600);
+        Instant end = Instant.now();
+
+        TaskStepDefinition stepAndamento = new TaskStepDefinition();
+        stepAndamento.setId(20L);
+        stepAndamento.setLabel("EM ANDAMENTO");
+        stepAndamento.setColorTheme("azul");
+
+        TaskStepDefinition stepColetado = new TaskStepDefinition();
+        stepColetado.setId(21L);
+        stepColetado.setLabel("COLETADO");
+        stepColetado.setColorTheme("verde");
+
+        TemplateStepRelation relAndamento = new TemplateStepRelation();
+        relAndamento.setTaskStepDefinition(stepAndamento);
+        relAndamento.setCountsAsCompletion(true);
+        relAndamento.setFinalizer(false);
+        TaskTemplate tmpl = new TaskTemplate();
+        tmpl.setId(1L);
+        tmpl.setName("Template A");
+        relAndamento.setTaskTemplate(tmpl);
+
+        TemplateStepRelation relColetado = new TemplateStepRelation();
+        relColetado.setTaskStepDefinition(stepColetado);
+        relColetado.setCountsAsCompletion(false);
+        relColetado.setFinalizer(true);
+        relColetado.setTaskTemplate(tmpl);
+
+        // Tarefa com dois eventos: user1 fez EM ANDAMENTO, user2 fez COLETADO
+        Task t1 = createTask(1L, user1, Instant.now(), groupA, tmpl);
+
+        TaskEvent evAndamento = new TaskEvent();
+        evAndamento.setUser(user1);
+        evAndamento.setTaskStepDefinition(stepAndamento);
+        evAndamento.setTimestamp(Instant.now().minusSeconds(60));
+        evAndamento.setTask(t1);
+        t1.getTaskEvents().add(evAndamento);
+
+        TaskEvent evColetado = new TaskEvent();
+        evColetado.setUser(user2);
+        evColetado.setTaskStepDefinition(stepColetado);
+        evColetado.setTimestamp(Instant.now());
+        evColetado.setTask(t1);
+        t1.getTaskEvents().add(evColetado);
+
+        when(taskRepository.findAllByCreatedAtBetween(any(), any())).thenReturn(List.of(t1));
+        when(stepRelationRepository.findByTaskTemplateIdIn(any())).thenReturn(List.of(relAndamento, relColetado));
+
+        // When
+        DashboardService.DashboardData data = dashboardService.getDashboardData(start, end, groupA, null, null, null, null, null, null, null);
+
+        // Then: o concluidor deve ser user1 (EM ANDAMENTO com countsAsCompletion) e NÃO user2 (COLETADO com isFinalizer)
+        assertEquals(1, data.finalizerRanking().size(), "Deveria haver exatamente 1 concluidor no ranking");
+        assertEquals("User 1", data.finalizerRanking().get(0).label(),
+                "Concluidor deveria ser User 1 (step EM ANDAMENTO com countsAsCompletion=true), e não User 2 (isFinalizer)");
+    }
+
+    @Test
+    @DisplayName("Ranking de Concluidores deve usar isFinalizer como fallback quando nenhum step tem countsAsCompletion")
+    void shouldFallbackToFinalizerWhenNoCountsAsCompletion() {
+        // Given: template onde nenhum step tem countsAsCompletion, apenas isFinalizer
+        Instant start = Instant.now().minusSeconds(3600);
+        Instant end = Instant.now();
+
+        TaskStepDefinition stepColetado = new TaskStepDefinition();
+        stepColetado.setId(21L);
+        stepColetado.setLabel("COLETADO");
+        stepColetado.setColorTheme("verde");
+
+        TemplateStepRelation relColetado = new TemplateStepRelation();
+        relColetado.setTaskStepDefinition(stepColetado);
+        relColetado.setCountsAsCompletion(false);
+        relColetado.setFinalizer(true);
+        TaskTemplate tmpl = new TaskTemplate();
+        tmpl.setId(1L);
+        tmpl.setName("Template A");
+        relColetado.setTaskTemplate(tmpl);
+
+        Task t1 = createTask(1L, user1, Instant.now(), groupA, tmpl);
+
+        TaskEvent evColetado = new TaskEvent();
+        evColetado.setUser(user2);
+        evColetado.setTaskStepDefinition(stepColetado);
+        evColetado.setTimestamp(Instant.now());
+        evColetado.setTask(t1);
+        t1.getTaskEvents().add(evColetado);
+
+        when(taskRepository.findAllByCreatedAtBetween(any(), any())).thenReturn(List.of(t1));
+        when(stepRelationRepository.findByTaskTemplateIdIn(any())).thenReturn(List.of(relColetado));
+
+        // When
+        DashboardService.DashboardData data = dashboardService.getDashboardData(start, end, groupA, null, null, null, null, null, null, null);
+
+        // Then: fallback para isFinalizer — concluidor deve ser user2
+        assertEquals(1, data.finalizerRanking().size());
+        assertEquals("User 2", data.finalizerRanking().get(0).label(),
+                "Sem countsAsCompletion, o fallback deve usar isFinalizer para identificar o concluidor");
+    }
+
+    @Test
+    @DisplayName("Tarefas sem step de conclusão atingido NÃO devem contabilizar no ranking de concluidores")
+    void shouldNotCountTasksWithoutCompletionStep() {
+        // Given: template com step "EM ANDAMENTO" (não é conclusão nem finalizador) e "COLETADO" (isFinalizer)
+        Instant start = Instant.now().minusSeconds(3600);
+        Instant end = Instant.now();
+
+        TaskStepDefinition stepAndamento = new TaskStepDefinition();
+        stepAndamento.setId(20L);
+        stepAndamento.setLabel("EM ANDAMENTO");
+        stepAndamento.setColorTheme("azul");
+
+        TaskStepDefinition stepColetado = new TaskStepDefinition();
+        stepColetado.setId(21L);
+        stepColetado.setLabel("COLETADO");
+        stepColetado.setColorTheme("verde");
+
+        TemplateStepRelation relAndamento = new TemplateStepRelation();
+        relAndamento.setTaskStepDefinition(stepAndamento);
+        relAndamento.setCountsAsCompletion(false);
+        relAndamento.setFinalizer(false);
+        TaskTemplate tmpl = new TaskTemplate();
+        tmpl.setId(1L);
+        tmpl.setName("Template A");
+        relAndamento.setTaskTemplate(tmpl);
+
+        TemplateStepRelation relColetado = new TemplateStepRelation();
+        relColetado.setTaskStepDefinition(stepColetado);
+        relColetado.setCountsAsCompletion(false);
+        relColetado.setFinalizer(true);
+        relColetado.setTaskTemplate(tmpl);
+
+        // Tarefa 1: recém-criada (só tem evento de criação, sem step)
+        Task t1 = createTask(1L, user1, null, groupA, tmpl);
+        TaskEvent evCriacao = new TaskEvent();
+        evCriacao.setUser(user1);
+        evCriacao.setTaskStepDefinition(null); // evento de criação não tem step
+        evCriacao.setTimestamp(Instant.now().minusSeconds(120));
+        evCriacao.setTask(t1);
+        t1.getTaskEvents().add(evCriacao);
+
+        // Tarefa 2: em andamento (ainda NÃO atingiu o step finalizador)
+        Task t2 = createTask(2L, user1, null, groupA, tmpl);
+        TaskEvent evCriacao2 = new TaskEvent();
+        evCriacao2.setUser(user1);
+        evCriacao2.setTaskStepDefinition(null);
+        evCriacao2.setTimestamp(Instant.now().minusSeconds(120));
+        evCriacao2.setTask(t2);
+        t2.getTaskEvents().add(evCriacao2);
+
+        TaskEvent evAndamento = new TaskEvent();
+        evAndamento.setUser(user2);
+        evAndamento.setTaskStepDefinition(stepAndamento);
+        evAndamento.setTimestamp(Instant.now().minusSeconds(60));
+        evAndamento.setTask(t2);
+        t2.getTaskEvents().add(evAndamento);
+
+        when(taskRepository.findAllByCreatedAtBetween(any(), any())).thenReturn(List.of(t1, t2));
+        when(stepRelationRepository.findByTaskTemplateIdIn(any())).thenReturn(List.of(relAndamento, relColetado));
+
+        // When
+        DashboardService.DashboardData data = dashboardService.getDashboardData(start, end, groupA, null, null, null, null, null, null, null);
+
+        // Then: nenhuma tarefa atingiu o step de conclusão ou finalizador — ranking vazio
+        assertTrue(data.finalizerRanking().isEmpty(),
+                "Tarefas recém-criadas ou em andamento (sem atingir step de conclusão) NÃO devem aparecer no ranking de concluidores");
+    }
+
     private Task createTask(Long id, User creator, Instant finalizedAt, Group group, TaskTemplate template) {
         Task task = new Task();
         task.setId(id);

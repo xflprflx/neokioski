@@ -116,6 +116,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         public String label;
         public String colorTheme;
         public boolean isFinalizer;
+        public boolean countsAsCompletion;
         public boolean sendNotification;
         public String notificationMessage;
         public List<String> allowedNextStepLabels = new ArrayList<>();
@@ -1067,6 +1068,12 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                  */
                 return cb;
             }).setHeader("Finalizador");
+            stepsGrid.addComponentColumn(dto -> {
+                Checkbox cb = new Checkbox();
+                cb.setValue(dto.countsAsCompletion);
+                cb.setReadOnly(true);
+                return cb;
+            }).setHeader("Pontua Conclusão");
             stepsGrid.addComponentColumn(item -> {
                 Button editBtn = new Button(VaadinIcon.EDIT.create());
                 editBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
@@ -1154,6 +1161,8 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         }));
         colorCombo.setWidthFull();
         Checkbox finalizerCheck = new Checkbox("É Finalizador?");
+        Checkbox countsAsCompletionCheck = new Checkbox("Pontua Conclusão?");
+        countsAsCompletionCheck.setTooltipText("Marca este passo como o que pontua a conclusão para o ranking de concluidores no Dashboard (independente do finalizador).");
         Checkbox globalCheck = new Checkbox("É Global?");
         Checkbox shouldPulseCheck = new Checkbox("Deve pulsar?");
         
@@ -1224,6 +1233,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             labelField.setValue(existingDto.label);
             colorCombo.setValue(existingDto.colorTheme);
             finalizerCheck.setValue(existingDto.isFinalizer);
+            countsAsCompletionCheck.setValue(existingDto.countsAsCompletion);
             globalCheck.setValue(existingDto.isGlobal);
             shouldPulseCheck.setValue(existingDto.shouldPulse);
             mentionAuthorCheck.setValue(existingDto.sendNotification);
@@ -1315,7 +1325,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
         }
 
         VerticalLayout layout = new VerticalLayout(
-            labelField, colorCombo, globalCheck, finalizerCheck, shouldPulseCheck,
+            labelField, colorCombo, globalCheck, finalizerCheck, countsAsCompletionCheck, shouldPulseCheck,
             responsibleRoleCombo,
             mentionAuthorCheck, mentionMessageField,
             hasResponseCheck, responseRequiredCheck, responseLabelField, responseInputTypeCombo, responseOptionsField, responseIsCompactCheck,
@@ -1336,6 +1346,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             dto.label = labelField.getValue();
             dto.colorTheme = colorCombo.getValue();
             dto.isFinalizer = finalizerCheck.getValue();
+            dto.countsAsCompletion = countsAsCompletionCheck.getValue();
             dto.isGlobal = globalCheck.getValue();
             dto.shouldPulse = shouldPulseCheck.getValue();
             dto.sendNotification = mentionAuthorCheck.getValue();
@@ -2290,6 +2301,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
             rel.setTaskStepDefinition(def);
             rel.setOrder(sOrder++);
             rel.setFinalizer(dto.isFinalizer);
+            rel.setCountsAsCompletion(dto.countsAsCompletion);
             rel.setGlobal(dto.isGlobal);
             rel.setShouldPulse(dto.shouldPulse);
             rel.setSendNotification(dto.sendNotification);
@@ -2499,6 +2511,7 @@ public class TaskTemplateEditorView extends VerticalLayout implements HasUrlPara
                     dto.label = sr.getTaskStepDefinition().getLabel();
                     dto.colorTheme = sr.getTaskStepDefinition().getColorTheme();
                     dto.isFinalizer = sr.isFinalizer();
+                    dto.countsAsCompletion = sr.isCountsAsCompletion();
                     dto.isGlobal = sr.isGlobal();
                     dto.shouldPulse = sr.isShouldPulse();
                     dto.sendNotification = sr.isSendNotification();

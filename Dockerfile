@@ -13,6 +13,7 @@ FROM eclipse-temurin:25-jre AS runtime
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+ENV TZ=America/Sao_Paulo
 USER appuser
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar", "--spring.profiles.active=prod"]
+ENTRYPOINT ["java", "-Duser.timezone=America/Sao_Paulo", "-jar", "app.jar", "--spring.profiles.active=prod"]

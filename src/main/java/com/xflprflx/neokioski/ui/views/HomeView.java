@@ -526,7 +526,10 @@ public class HomeView extends Div {
         tmaStackedChartDiv.setId("tma-stacked-chart");
         tmaStackedChartDiv.getStyle()
                 .set("flex-grow", "1")
-                .set("padding-top", "24px"); // Espaço para não disputar com o título do card
+                .set("padding-top", "32px") // Mais espaço para um visual mais limpo e premium
+                .set("overflow-y", "auto")
+                .set("overflow-x", "hidden")
+                .set("max-height", "380px"); // Encaixa na row de 450px considerando o header do card
         tmaCol.add(createChartHeader("TMA por Tipo e Step"), tmaStackedChartDiv);
         tmaRow.add(tmaCol);
         add(tmaRow);

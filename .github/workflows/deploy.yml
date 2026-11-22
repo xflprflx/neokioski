@@ -70,7 +70,26 @@ jobs:
 
             docker compose pull app
             docker compose up -d --no-build
-            
-            sleep 15
-            docker ps | grep neokioski_app | grep "Up" || exit 1
-            echo "Deploy concluído com sucesso!"
+
+            # O nginx resolve o IP do 'app' apenas ao iniciar; como o container 'app'
+            # é recriado a cada deploy, é preciso recriar o nginx para evitar 502.
+            docker compose up -d --force-recreate --no-deps nginx
+
+            echo "Aguardando a aplicação responder (até ~3 min)..."
+            for i in $(seq 1 36); do
+              code=$(curl -ksS -o /dev/null -w '%{http_code}' \
+                --resolve neokioski.online:443:127.0.0.1 \
+                https://neokioski.online/ || true)
+              if [ "$code" = "200" ] || [ "$code" = "302" ]; then
+                echo "Aplicação respondeu HTTP $code. Deploy concluído com sucesso!"
+                exit 0
+              fi
+              echo "Tentativa $i/36: HTTP $code"
+              sleep 5
+            done
+
+            echo "A aplicação não respondeu a tempo. Logs:"
+            docker compose ps
+            docker logs --tail 80 neokioski_app
+            docker logs --tail 30 neokioski_nginx
+            exit 1

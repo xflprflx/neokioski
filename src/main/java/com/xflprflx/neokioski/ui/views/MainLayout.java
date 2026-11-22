@@ -20,6 +20,7 @@ import com.vaadin.flow.router.*;
 import com.vaadin.flow.spring.security.AuthenticationContext;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 import com.xflprflx.neokioski.models.ChatMessage;
+import com.xflprflx.neokioski.ui.components.VersionLabel;
 import com.xflprflx.neokioski.models.Group;
 import com.xflprflx.neokioski.models.User;
 import com.xflprflx.neokioski.security.SecurityService;
@@ -129,6 +130,10 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver, Be
         Scroller scroller = new Scroller(drawerContainer);
         scroller.setClassName(LumoUtility.Padding.SMALL);
         addToDrawer(scroller);
+
+        VersionLabel versionLabel = new VersionLabel();
+        versionLabel.addClassNames(LumoUtility.Padding.SMALL);
+        addToDrawer(versionLabel);
     }
 
     /**

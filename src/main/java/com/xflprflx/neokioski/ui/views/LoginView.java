@@ -1,6 +1,7 @@
 package com.xflprflx.neokioski.ui.views;
 
 import com.vaadin.flow.component.html.H1;
+import com.xflprflx.neokioski.ui.components.VersionLabel;
 import com.vaadin.flow.component.login.LoginForm;
 import com.vaadin.flow.component.login.LoginI18n;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -59,7 +60,7 @@ public class LoginView extends VerticalLayout implements BeforeEnterObserver {
         /*
          * Adiciona o(s) componente(s) visual(is) ao layout atual do Vaadin.
          */
-        add(new H1("NeoKioski"), login);
+        add(new H1("NeoKioski"), login, new VersionLabel());
     }
 
     @Override

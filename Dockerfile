@@ -13,6 +13,8 @@ FROM eclipse-temurin:25-jre AS runtime
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+ARG APP_VERSION=dev
+ENV APP_VERSION=${APP_VERSION}
 ENV TZ=America/Sao_Paulo
 USER appuser
 EXPOSE 8080
